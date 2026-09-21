@@ -74,7 +74,24 @@ pub struct AnthropicRequest {
     pub max_tokens: u32,
     pub system: String,
     pub messages: Vec<AnthropicMessage>,
-    pub temperature: f32,
+    /// 扩展思考与 `temperature` 不兼容（须为 1 或缺省）：思考开启时不发送。
+    /// Extended thinking is incompatible with `temperature` (must be 1 or absent):
+    /// omitted when thinking is on.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f32>,
+    /// 扩展思考参数；`None` 时不发送（Anthropic 思考默认关闭）。
+    /// Extended-thinking parameter; `None` sends nothing (Anthropic thinking is opt-in).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<AnthropicThinking>,
+}
+
+/// Anthropic 扩展思考参数（`budget_tokens` 最低 1024）。
+/// Anthropic extended-thinking parameter (`budget_tokens` minimum 1024).
+#[derive(Debug, Serialize)]
+pub struct AnthropicThinking {
+    #[serde(rename = "type")]
+    pub thinking_type: String,
+    pub budget_tokens: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

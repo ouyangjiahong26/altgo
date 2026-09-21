@@ -55,6 +55,7 @@ pub struct ConfigResponse {
     pub polish_level: String,
     pub polish_model: String,
     pub polish_protocol: String,
+    pub polish_thinking_level: String,
     pub polish_api_base_url: String,
     pub gui_language: String,
     pub overlay_position: String,
@@ -73,6 +74,7 @@ fn build_config_response(cfg: &crate::config::Config) -> ConfigResponse {
         polish_level: cfg.polisher.level.clone(),
         polish_model: cfg.polisher.model.clone(),
         polish_protocol: cfg.polisher.protocol.clone(),
+        polish_thinking_level: cfg.polisher.thinking_level.clone(),
         polish_api_base_url: cfg.polisher.api_base_url.clone(),
         gui_language: cfg.gui.language.clone(),
         overlay_position: cfg.gui.overlay_position.clone(),
@@ -592,6 +594,7 @@ mod tests {
         cfg.transcriber.language = "en".to_string();
         cfg.transcriber.model = "sense-voice".to_string();
         cfg.polisher.level = "light".to_string();
+        cfg.polisher.thinking_level = "high".to_string();
         cfg.polisher.api_key = "polish-key".to_string();
         cfg.output.inject_text = true;
 
@@ -602,6 +605,7 @@ mod tests {
         assert_eq!(resp.model, "sense-voice");
         assert!(resp.has_polisher_api_key);
         assert_eq!(resp.polish_level, "light");
+        assert_eq!(resp.polish_thinking_level, "high");
         assert_eq!(resp.overlay_position, "bottom_center");
         assert!(resp.auto_check_update);
         assert!(resp.inject_text);

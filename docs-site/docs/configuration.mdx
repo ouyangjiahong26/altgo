@@ -301,9 +301,9 @@ model = "qwen2.5:7b"
 
 The provider list comes entirely from the Oh My Pi catalog (catalog.stencil.so, the same source the `omp models` command uses) and loads automatically when the Settings page opens—fetched once per session, with a retry on failure. Picking a provider fills in the address and protocol automatically; you only add the key. When offline or if the catalog is unreachable, fill in the API address and model manually.
 
-### 默认关闭「思考」
+### 思考层级（默认关闭）
 
-语音润色是轻量文本任务，推理模型先「思考」再回答会凭空多出数秒延迟和 token 花费。对支持关闭思考的服务商，应用会自动在请求中附带关闭参数，无需配置：
+语音润色是轻量文本任务，推理模型先「思考」再回答会凭空多出数秒延迟和 token 花费。默认（`thinking_level = "off"`）对支持关闭思考的服务商自动附带关闭参数，无需配置：
 
 | 服务商 | 自动附带的参数 |
 |---|---|
@@ -311,7 +311,17 @@ The provider list comes entirely from the Oh My Pi catalog (catalog.stencil.so, 
 | 智谱（bigmodel.cn / z.ai）、火山方舟、MiniMax、DeepSeek、Moonshot、Kimi | `thinking: {"type": "disabled"}` |
 | OpenRouter | `reasoning: {"enabled": false}` |
 
-其他服务商（OpenAI、Anthropic、千帆、Gemini、Ollama）的推荐模型默认不思考，无需处理。注意个别强制思考的模型（如智谱 GLM-5.3）不接受关闭参数，选择预设推荐的模型即可避开。对未命中上表的中转端点，应用还会在出口剥掉响应中混入的 `<think>` 思维链残渣（Anthropic 协议取第一个文本块），避免其进入剪贴板。
+需要思考时把 `thinking_level` 设为 `"low"` / `"medium"` / `"high"`（设置页「思考层级」下拉同款），请求按各家参数方言开启：
+
+| 服务商 | 层级开启时附带 |
+|---|---|
+| 通义、SiliconFlow | `enable_thinking: true`（仅开关，不分档） |
+| 智谱、火山方舟、MiniMax、DeepSeek、Moonshot、Kimi | `thinking: {"type": "enabled"}`（仅开关，不分档） |
+| OpenRouter | `reasoning: {"effort": "low"/"medium"/"high"}` |
+| 其他服务商（含 OpenAI 官方） | `reasoning_effort: "low"/"medium"/"high"` |
+| Anthropic 协议 | `thinking: {"type": "enabled", "budget_tokens": 1024/4096/16384}`；同时自动抬高 `max_tokens`（须大于预算）且不发送 `temperature`（与思考不兼容） |
+
+其余行为不变：未命中上表的中转端点在出口剥掉响应中混入的 `<think>` 思维链残渣（Anthropic 协议取第一个文本块）；个别强制思考的模型（如智谱 GLM-5.3）不接受关闭参数，选择预设推荐的模型即可避开；模型不支持所选层级时会收到服务商报错。
 
 环境变量覆盖密钥：
 
@@ -319,9 +329,9 @@ The provider list comes entirely from the Oh My Pi catalog (catalog.stencil.so, 
 export ALTGO_POLISHER_API_KEY="sk-your-key"
 ```
 
-### Thinking Disabled by Default
+### Thinking Level (Off by Default)
 
-Voice polishing is a lightweight text task; reasoning models that "think" before answering would add seconds of latency and token cost for nothing. For providers that support turning thinking off, the app automatically attaches the disable parameter — no configuration needed:
+Voice polishing is a lightweight text task; reasoning models that "think" before answering would add seconds of latency and token cost for nothing. By default (`thinking_level = "off"`) the app automatically attaches the disable parameter for providers that support it — no configuration needed:
 
 | Provider | Parameter attached automatically |
 |---|---|
@@ -329,7 +339,17 @@ Voice polishing is a lightweight text task; reasoning models that "think" before
 | Zhipu (bigmodel.cn / z.ai), Volcano Ark, MiniMax, DeepSeek, Moonshot, Kimi | `thinking: {"type": "disabled"}` |
 | OpenRouter | `reasoning: {"enabled": false}` |
 
-Recommended models from other providers (OpenAI, Anthropic, Qianfan, Gemini, Ollama) do not think by default, so nothing is needed. Note that a few forced-thinking models (e.g. Zhipu GLM-5.3) reject the disable parameter — simply choose a preset-recommended model to avoid them. For relay endpoints not covered by the table above, the app also strips stray `<think>` chain-of-thought residue from responses on the way out (for the Anthropic protocol it takes the first text block), keeping it out of your clipboard.
+Set `thinking_level` to `"low"` / `"medium"` / `"high"` (the Settings page "Thinking level" dropdown) to turn thinking on in each provider's dialect:
+
+| Provider | Attached when a level is on |
+|---|---|
+| Tongyi, SiliconFlow | `enable_thinking: true` (on/off only, no tiers) |
+| Zhipu, Volcano Ark, MiniMax, DeepSeek, Moonshot, Kimi | `thinking: {"type": "enabled"}` (on/off only, no tiers) |
+| OpenRouter | `reasoning: {"effort": "low"/"medium"/"high"}` |
+| Everyone else (OpenAI official included) | `reasoning_effort: "low"/"medium"/"high"` |
+| Anthropic protocol | `thinking: {"type": "enabled", "budget_tokens": 1024/4096/16384}`; `max_tokens` is raised automatically (it must exceed the budget) and `temperature` is omitted (incompatible with thinking) |
+
+Everything else is unchanged: relay endpoints missing from the table get stray `<think>` residue stripped on the way out (the Anthropic protocol takes the first text block); a few forced-thinking models (e.g. Zhipu GLM-5.3) reject the disable parameter — choose a preset-recommended model to avoid them; a model that rejects the chosen level surfaces the provider's error.
 
 Override the key via environment variable:
 

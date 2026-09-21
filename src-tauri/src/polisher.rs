@@ -133,6 +133,52 @@ impl std::str::FromStr for PolishLevel {
     }
 }
 
+/// 思考层级：控制润色请求是否让模型思考（深度推理）及投入多少。
+/// Thinking level: whether polish requests let the model think (deep reasoning), and how much.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThinkingLevel {
+    /// 关闭思考（默认）
+    /// Thinking off (default)
+    Off,
+    Low,
+    Medium,
+    High,
+}
+
+impl ThinkingLevel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ThinkingLevel::Off => "off",
+            ThinkingLevel::Low => "low",
+            ThinkingLevel::Medium => "medium",
+            ThinkingLevel::High => "high",
+        }
+    }
+
+    /// 解析思考层级字符串，无效值回退 `Off`（保持默认关闭）。
+    /// Parses a thinking-level string; invalid values fall back to `Off` (off by default).
+    pub fn effective(level_str: &str) -> Self {
+        <Self as std::str::FromStr>::from_str(level_str).unwrap_or_else(|_| {
+            tracing::warn!("invalid thinking level '{level_str}', using off");
+            ThinkingLevel::Off
+        })
+    }
+}
+
+impl std::str::FromStr for ThinkingLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            s if s.eq_ignore_ascii_case("off") => Ok(ThinkingLevel::Off),
+            s if s.eq_ignore_ascii_case("low") => Ok(ThinkingLevel::Low),
+            s if s.eq_ignore_ascii_case("medium") => Ok(ThinkingLevel::Medium),
+            s if s.eq_ignore_ascii_case("high") => Ok(ThinkingLevel::High),
+            other => Err(format!("unknown thinking level: {other}")),
+        }
+    }
+}
+
 /// 中文润色时附加的写作与材料概括要求（与简体约束一并传入模型）。
 /// Writing and material-summarization requirements appended for Chinese polishing (sent to the
 /// model together with the Simplified-Chinese constraint).
@@ -359,8 +405,8 @@ pub fn build_endpoint(
 }
 
 // ---------------------------------------------------------------------------
-// 思考模式抑制
-// Thinking-mode suppression（思考模式抑制）
+// 思考层级控制
+// Thinking-level control（思考层级控制）
 // ---------------------------------------------------------------------------
 
 /// 从 base URL 提取 host（小写比较由调用方处理，这里保留原文、不含端口）。
@@ -383,17 +429,31 @@ fn host_matches(host: &str, domain: &str) -> bool {
     host == domain || host.ends_with(&format!(".{domain}"))
 }
 
-/// 按 host 返回「关闭思考」的请求字段。
+/// 按 host 与思考层级返回控制思考的请求字段。
 ///
-/// 语音润色是轻量文本任务，思考（深度推理）只会增加数秒延迟与 token 花费。
-/// 各家关闭参数不同，且严格校验未知字段的服务商（OpenAI 等）会直接拒绝请求，
-/// 因此只对已确认接受对应参数的服务商返回字段，其余返回空：
+/// 语音润色是轻量文本任务，默认（`Off`）对已知默认开启思考的服务商附带关闭参数，
+/// 省掉数秒延迟与 token 花费；未命中表的服务商保持原 body，避免严格校验未知字段的
+/// 服务商（OpenAI 等）拒绝请求。
 ///
-/// - 通义（dashscope）/ SiliconFlow：`enable_thinking: false`
+/// 用户选择层级（`Low`/`Medium`/`High`）时按各家方言开启思考：
+/// - 通义（dashscope）/ SiliconFlow：`enable_thinking`（仅开关，不分档）
 /// - 智谱 / z.ai / 火山方舟 / MiniMax / DeepSeek / Moonshot / Kimi：
-///   `thinking: {"type": "disabled"}`
-/// - OpenRouter：`reasoning: {"enabled": false}`
-fn thinking_suppression_fields(host: &str) -> Vec<(&'static str, serde_json::Value)> {
+///   `thinking: {"type": "enabled"}`（仅开关，不分档）
+/// - OpenRouter：`reasoning: {"effort": "<档位>"}`
+/// - 未命中表的服务商（含 OpenAI 官方）：`reasoning_effort: "<档位>"`
+///   （OpenAI 事实标准；用户自担模型不支持时的 400）
+///
+/// Returns the request fields controlling thinking for a host and level.
+///
+/// Voice polishing is a lightweight text task, so the default (`Off`) attaches disable
+/// parameters only to vendors known to think by default; unmatched vendors keep the original
+/// body—strict validators (OpenAI etc.) reject unknown fields.
+///
+/// When the user picks a level (`Low`/`Medium`/`High`), thinking turns on in each vendor's
+/// dialect: on/off-only vendors just enable; OpenRouter gets `reasoning.effort`; unmatched
+/// hosts get `reasoning_effort` (the OpenAI de-facto standard; a 400 from an unsupported
+/// model is the user's opt-in risk).
+fn thinking_fields(host: &str, level: ThinkingLevel) -> Vec<(&'static str, serde_json::Value)> {
     const ENABLE_THINKING_HOSTS: &[&str] = &[
         "dashscope.aliyuncs.com",
         "siliconflow.cn",
@@ -412,15 +472,51 @@ fn thinking_suppression_fields(host: &str) -> Vec<(&'static str, serde_json::Val
     ];
     const REASONING_HOSTS: &[&str] = &["openrouter.ai"];
 
+    /// 服务商的思考参数方言。
+    /// The vendor's thinking-parameter dialect.
+    #[derive(Clone, Copy)]
+    enum Dialect {
+        /// `enable_thinking` 布尔开关（通义 / SiliconFlow）
+        /// Boolean `enable_thinking` toggle (dashscope / SiliconFlow)
+        EnableThinking,
+        /// `thinking: {"type": ...}`（智谱 / Kimi / DeepSeek 等）
+        /// `thinking: {"type": ...}` (bigmodel / Kimi / DeepSeek etc.)
+        ThinkingType,
+        /// OpenRouter 的 `reasoning` 对象
+        /// OpenRouter's `reasoning` object
+        Reasoning,
+    }
+
     let h = host.to_lowercase();
-    if ENABLE_THINKING_HOSTS.iter().any(|d| host_matches(&h, d)) {
-        vec![("enable_thinking", serde_json::json!(false))]
+    let dialect = if ENABLE_THINKING_HOSTS.iter().any(|d| host_matches(&h, d)) {
+        Some(Dialect::EnableThinking)
     } else if THINKING_TYPE_HOSTS.iter().any(|d| host_matches(&h, d)) {
-        vec![("thinking", serde_json::json!({ "type": "disabled" }))]
+        Some(Dialect::ThinkingType)
     } else if REASONING_HOSTS.iter().any(|d| host_matches(&h, d)) {
-        vec![("reasoning", serde_json::json!({ "enabled": false }))]
+        Some(Dialect::Reasoning)
     } else {
-        Vec::new()
+        None
+    };
+
+    match (dialect, level) {
+        (Some(Dialect::EnableThinking), ThinkingLevel::Off) => {
+            vec![("enable_thinking", serde_json::json!(false))]
+        }
+        (Some(Dialect::EnableThinking), _) => vec![("enable_thinking", serde_json::json!(true))],
+        (Some(Dialect::ThinkingType), ThinkingLevel::Off) => {
+            vec![("thinking", serde_json::json!({ "type": "disabled" }))]
+        }
+        (Some(Dialect::ThinkingType), _) => {
+            vec![("thinking", serde_json::json!({ "type": "enabled" }))]
+        }
+        (Some(Dialect::Reasoning), ThinkingLevel::Off) => {
+            vec![("reasoning", serde_json::json!({ "enabled": false }))]
+        }
+        (Some(Dialect::Reasoning), level) => {
+            vec![("reasoning", serde_json::json!({ "effort": level.as_str() }))]
+        }
+        (None, ThinkingLevel::Off) => Vec::new(),
+        (None, level) => vec![("reasoning_effort", serde_json::json!(level.as_str()))],
     }
 }
 
@@ -569,6 +665,7 @@ pub struct LLMFormatter {
     protocol: protocol::ApiProtocol,
     temperature: f32,
     language: String,
+    thinking: ThinkingLevel,
     prompt_source: Option<Box<dyn SystemPromptSource>>,
 }
 
@@ -584,6 +681,7 @@ impl Clone for LLMFormatter {
             protocol: self.protocol,
             temperature: self.temperature,
             language: self.language.clone(),
+            thinking: self.thinking,
             prompt_source: self.prompt_source.as_ref().map(|s| s.clone_box()),
         }
     }
@@ -620,7 +718,7 @@ impl LLMFormatter {
             .map_err(|_| PolisherError::UnknownProtocol {
                 protocol: polisher.protocol.clone(),
             })?;
-        Self::with_config(
+        let formatter = Self::with_config(
             polisher.api_key.clone(),
             polisher.api_base_url.clone(),
             polisher.model.clone(),
@@ -629,7 +727,9 @@ impl LLMFormatter {
             protocol,
             polisher.temperature,
             language.to_string(),
-        )
+        )?
+        .with_thinking_level(ThinkingLevel::effective(&polisher.thinking_level));
+        Ok(formatter)
     }
 
     /// 共享工厂：从 Config 一次性构造带全部 prompt source 的 LLMFormatter。
@@ -692,8 +792,16 @@ impl LLMFormatter {
             protocol,
             temperature,
             language,
+            thinking: ThinkingLevel::Off,
             prompt_source: None,
         })
+    }
+
+    /// 设置思考层级；默认 `Off`（自动关闭已知服务商的思考）。
+    /// Sets the thinking level; defaults to `Off` (auto-off for known vendors).
+    pub fn with_thinking_level(mut self, level: ThinkingLevel) -> Self {
+        self.thinking = level;
+        self
     }
 
     /// 设置 system prompt 的来源；`None` 表示使用内置 hardcoded prompt。
@@ -744,15 +852,33 @@ impl LLMFormatter {
                     self.do_openai_request(body).await
                 }
                 protocol::ApiProtocol::Anthropic => {
+                    // Anthropic 扩展思考：层级映射为思考预算。API 要求 max_tokens 大于
+                    // budget_tokens，且 temperature 与思考不兼容——开启时抬升
+                    // max_tokens 保住可见文本预算，temperature 不发送。
+                    // Anthropic extended thinking: levels map to token budgets. The API
+                    // requires max_tokens above budget_tokens and forbids temperature alongside
+                    // thinking—when on, max_tokens rises to keep the visible-text budget and
+                    // temperature is omitted.
+                    let thinking = self.anthropic_thinking();
+                    let max_tokens = match &thinking {
+                        Some(t) => self.max_tokens.saturating_add(t.budget_tokens),
+                        None => self.max_tokens,
+                    };
+                    let temperature = if thinking.is_some() {
+                        None
+                    } else {
+                        Some(self.temperature)
+                    };
                     let body = protocol::AnthropicRequest {
                         model: self.model.clone(),
-                        max_tokens: self.max_tokens,
+                        max_tokens,
                         system: system_prompt.clone(),
                         messages: vec![protocol::AnthropicMessage {
                             role: "user".to_string(),
                             content: text.to_string(),
                         }],
-                        temperature: self.temperature,
+                        temperature,
+                        thinking,
                     };
                     self.do_anthropic_request(&body).await
                 }
@@ -767,19 +893,34 @@ impl LLMFormatter {
         Ok(strip_thinking_tags(&polished).trim().to_string())
     }
 
+    /// Anthropic 协议的思考参数：层级映射为思考预算（token，最低 1024）。
+    /// Thinking parameter for the Anthropic protocol: levels map to token budgets (min 1024).
+    fn anthropic_thinking(&self) -> Option<protocol::AnthropicThinking> {
+        let budget_tokens = match self.thinking {
+            ThinkingLevel::Off => return None,
+            ThinkingLevel::Low => 1024,
+            ThinkingLevel::Medium => 4096,
+            ThinkingLevel::High => 16384,
+        };
+        Some(protocol::AnthropicThinking {
+            thinking_type: "enabled".to_string(),
+            budget_tokens,
+        })
+    }
+
     async fn do_openai_request(
         &self,
         mut body: protocol::ChatRequest,
     ) -> Result<String, PolisherError> {
         let url = build_endpoint(&self.api_base_url, protocol::ApiProtocol::OpenAi)?;
 
-        // 按服务商附加「关闭思考」字段；不命中的服务商保持原始 body，
-        // 避免严格校验未知字段的服务商（OpenAI 等）拒绝请求。
+        // 按服务商与思考层级附加控制思考的字段；层级关闭时不命中的服务商
+        // 保持原始 body，避免严格校验未知字段的服务商（OpenAI 等）拒绝请求。
         // 经 `extra` 平铺序列化而非 to_value 中转，保持 f32 字段的紧凑表示。
-        // Append vendor-specific "disable thinking" fields; unmatched vendors keep the original body
-        // so strict validators (OpenAI etc.) don't reject unknown fields.
+        // Attach vendor- and thinking-level fields; with thinking off, unmatched vendors keep
+        // the original body so strict validators (OpenAI etc.) don't reject unknown fields.
         // Flatten-serialize via `extra` instead of round-tripping to_value, keeping f32 fields compact.
-        let fields = thinking_suppression_fields(host_of(&self.api_base_url));
+        let fields = thinking_fields(host_of(&self.api_base_url), self.thinking);
         if !fields.is_empty() {
             let mut extra = serde_json::Map::new();
             for (key, value) in fields {
@@ -1015,7 +1156,7 @@ mod tests {
     }
 
     #[test]
-    fn test_thinking_suppression_fields_by_host() {
+    fn test_thinking_fields_off_matches_suppression_table() {
         // enable_thinking 系
         for host in [
             "dashscope.aliyuncs.com",
@@ -1024,7 +1165,7 @@ mod tests {
             "api.siliconflow.com",
             "cloud.siliconflow.cn",
         ] {
-            let fields = thinking_suppression_fields(host);
+            let fields = thinking_fields(host, ThinkingLevel::Off);
             assert_eq!(
                 fields,
                 vec![("enable_thinking", serde_json::json!(false))],
@@ -1044,7 +1185,7 @@ mod tests {
             "api.kimi.com",
             "kimi.ai",
         ] {
-            let fields = thinking_suppression_fields(host);
+            let fields = thinking_fields(host, ThinkingLevel::Off);
             assert_eq!(
                 fields,
                 vec![("thinking", serde_json::json!({ "type": "disabled" }))],
@@ -1053,7 +1194,7 @@ mod tests {
         }
         // reasoning 系
         assert_eq!(
-            thinking_suppression_fields("openrouter.ai"),
+            thinking_fields("openrouter.ai", ThinkingLevel::Off),
             vec![("reasoning", serde_json::json!({ "enabled": false }))]
         );
         // 不命中的服务商：一个字段都不能发
@@ -1067,20 +1208,70 @@ mod tests {
             "",
         ] {
             assert!(
-                thinking_suppression_fields(host).is_empty(),
+                thinking_fields(host, ThinkingLevel::Off).is_empty(),
                 "host 不应命中：{host}"
             );
         }
         // 域名边界：短域名的相似拼写不得误命中
         // Domain boundaries: look-alike spellings of short domains must not match
-        assert!(thinking_suppression_fields("notz.ai").is_empty());
-        assert!(thinking_suppression_fields("fake-kimi.com").is_empty());
+        assert!(thinking_fields("notz.ai", ThinkingLevel::Off).is_empty());
+        assert!(thinking_fields("fake-kimi.com", ThinkingLevel::Off).is_empty());
         // host 大小写不敏感
         // Host matching is case-insensitive
         assert_eq!(
-            thinking_suppression_fields("API.SILICONFLOW.CN"),
+            thinking_fields("API.SILICONFLOW.CN", ThinkingLevel::Off),
             vec![("enable_thinking", serde_json::json!(false))]
         );
+    }
+
+    #[test]
+    fn test_thinking_fields_levels_enable_per_dialect() {
+        // 仅开关的服务商：任意层级都只是开启，不分级
+        // On/off-only vendors: any level merely enables, no granularity
+        assert_eq!(
+            thinking_fields("api.siliconflow.cn", ThinkingLevel::Low),
+            vec![("enable_thinking", serde_json::json!(true))]
+        );
+        assert_eq!(
+            thinking_fields("api.deepseek.com", ThinkingLevel::High),
+            vec![("thinking", serde_json::json!({ "type": "enabled" }))]
+        );
+        // OpenRouter：层级映射 reasoning.effort
+        // OpenRouter: levels map onto reasoning.effort
+        assert_eq!(
+            thinking_fields("openrouter.ai", ThinkingLevel::Low),
+            vec![("reasoning", serde_json::json!({ "effort": "low" }))]
+        );
+        assert_eq!(
+            thinking_fields("openrouter.ai", ThinkingLevel::High),
+            vec![("reasoning", serde_json::json!({ "effort": "high" }))]
+        );
+        // 未命中表的服务商（含 OpenAI 官方）：层级映射 reasoning_effort
+        // Unmatched vendors (OpenAI official included): levels map onto reasoning_effort
+        for host in ["api.openai.com", "localhost", ""] {
+            assert_eq!(
+                thinking_fields(host, ThinkingLevel::Medium),
+                vec![("reasoning_effort", serde_json::json!("medium"))],
+                "host: {host}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_thinking_level_from_str() {
+        use std::str::FromStr;
+        assert_eq!(ThinkingLevel::from_str("off").unwrap(), ThinkingLevel::Off);
+        assert_eq!(ThinkingLevel::from_str("LOW").unwrap(), ThinkingLevel::Low);
+        assert_eq!(
+            ThinkingLevel::from_str("medium").unwrap(),
+            ThinkingLevel::Medium
+        );
+        assert_eq!(
+            ThinkingLevel::from_str("high").unwrap(),
+            ThinkingLevel::High
+        );
+        assert!(ThinkingLevel::from_str("unknown").is_err());
+        assert_eq!(ThinkingLevel::effective("bogus"), ThinkingLevel::Off);
     }
 
     #[test]
@@ -1372,6 +1563,82 @@ mod tests {
         )
         .unwrap();
         let _ = formatter.polish("test", PolishLevel::Light).await;
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_polish_thinking_level_sends_reasoning_effort() {
+        // 未命中 host 表的端点 + 层级开启：请求体应带 reasoning_effort（OpenAI 事实标准）。
+        // Unmatched host + a level on: the body carries reasoning_effort (OpenAI de-facto standard).
+        let mut server = mockito::Server::new_async().await;
+        let expected_body = serde_json::json!({
+            "model": "m",
+            "messages": [
+                {"role": "system", "content": get_system_prompt(PolishLevel::Light, "zh")},
+                {"role": "user", "content": "test"}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1024,
+            "reasoning_effort": "low",
+        });
+        let mock = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::Json(expected_body))
+            .with_status(200)
+            .with_body(mock_success_response("ok"))
+            .create_async()
+            .await;
+
+        let formatter = LLMFormatter::new(
+            "key".to_string(),
+            server.url(),
+            "m".to_string(),
+            Duration::from_secs(5),
+        )
+        .unwrap()
+        .with_thinking_level(ThinkingLevel::Low);
+        let _ = formatter.polish("test", PolishLevel::Light).await;
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_polish_anthropic_thinking_budgets_and_raises_max_tokens() {
+        // Anthropic + 层级开启：body 带 thinking 预算，max_tokens 抬升「预算 + 配置值」，
+        // 且不发 temperature（与扩展思考不兼容）。精确匹配整个 body，防止 temperature 漏发。
+        // Anthropic + a level on: the body carries the thinking budget, max_tokens rises to
+        // budget + configured, and temperature is absent (incompatible with thinking). Exact body
+        // match so a leaked temperature fails the test.
+        let mut server = mockito::Server::new_async().await;
+        let expected_body = serde_json::json!({
+            "model": "m",
+            "messages": [
+                {"role": "user", "content": "test"}
+            ],
+            "max_tokens": 1024 + 4096,
+            "system": get_system_prompt(PolishLevel::Medium, "zh"),
+            "thinking": {"type": "enabled", "budget_tokens": 4096},
+        });
+        let mock = server
+            .mock("POST", "/v1/messages")
+            .match_body(mockito::Matcher::Json(expected_body))
+            .with_status(200)
+            .with_body(mock_anthropic_response("ok"))
+            .create_async()
+            .await;
+
+        let formatter = LLMFormatter::with_config(
+            "key".to_string(),
+            server.url(),
+            "m".to_string(),
+            Duration::from_secs(5),
+            1024,
+            protocol::ApiProtocol::Anthropic,
+            0.3,
+            "zh".to_string(),
+        )
+        .unwrap()
+        .with_thinking_level(ThinkingLevel::Medium);
+        let _ = formatter.polish("test", PolishLevel::Medium).await;
         mock.assert_async().await;
     }
 
