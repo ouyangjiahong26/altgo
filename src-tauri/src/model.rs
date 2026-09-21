@@ -20,13 +20,15 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::Duration;
 
-/// SenseVoice 模型仓库基址（sherpa-onnx 官方 HF 仓库）。
-/// Base URL of the SenseVoice model repository (the official sherpa-onnx HF repo).
-const MODEL_BASE_URL: &str =
-    "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main";
+/// HF 官方域名与国内镜像域名；各模型的仓库路径记录在 `ModelInfo::repo_path`，
+/// 下载 URL = `<域名>/<repo_path>/resolve/main/<文件名>`。
+///
+/// HF official domain and mainland-China mirror; each model's repo path lives in
+/// `ModelInfo::repo_path`, and a download URL = `<domain>/<repo_path>/resolve/main/<filename>`.
+const HF_DOMAINS: &[&str] = &["https://huggingface.co", "https://hf-mirror.com"];
 
 /// 可通过环境变量覆盖下载基址（勿以 `/` 结尾），便于国内等网络环境使用镜像，例如：
-/// `ALTGO_MODEL_BASE_URL=https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main`
+/// `ALTGO_MODEL_BASE_URL=https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main`
 const ENV_MODEL_BASE_URL: &str = "ALTGO_MODEL_BASE_URL";
 
 const DOWNLOAD_ATTEMPTS: u32 = 3;
@@ -35,11 +37,6 @@ const DOWNLOAD_ATTEMPTS: u32 = 3;
 /// Minimum acceptable size of the main model file in bytes; smaller means a corrupted download.
 const MIN_MODEL_FILE_BYTES: u64 = 10 * 1024 * 1024;
 
-/// 国内常用 HF 镜像（与官方路径一致，仅替换域名）。
-/// Common HF mirrors in mainland China (identical paths to the official repo; domain only).
-const HF_MIRROR_BASE_URL: &str =
-    "https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main";
-
 /// 主模型文件名（其余文件为配套资源）。
 /// Main model file name (remaining files are supporting resources).
 const MAIN_MODEL_FILENAME: &str = "model.int8.onnx";
@@ -47,14 +44,22 @@ const TOKENS_FILENAME: &str = "tokens.txt";
 const MAIN_MODEL_SHA256: &str = "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51";
 const TOKENS_SHA256: &str = "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc";
 
-fn model_download_bases() -> Vec<String> {
+/// 粤语增强版（int8-2025-09-09）主模型 SHA-256。
+/// SHA-256 of the Cantonese-enhanced (int8-2025-09-09) main model file.
+const SENSE_VOICE_YUE_SHA256: &str =
+    "12ca1a2ae7ecf3e0019ef2822307ee0b5cadc9196569e379b4c4026f8205276d";
+
+fn model_download_bases(repo_path: &str) -> Vec<String> {
     if let Ok(s) = std::env::var(ENV_MODEL_BASE_URL) {
         let t = s.trim();
         if !t.is_empty() {
             return vec![t.trim_end_matches('/').to_string()];
         }
     }
-    vec![MODEL_BASE_URL.to_string(), HF_MIRROR_BASE_URL.to_string()]
+    HF_DOMAINS
+        .iter()
+        .map(|d| format!("{d}/{repo_path}/resolve/main"))
+        .collect()
 }
 
 fn model_download_client() -> &'static Client {
@@ -94,13 +99,16 @@ pub struct ModelFile {
 /// Known-model metadata.
 pub struct ModelInfo {
     pub name: &'static str,
+    /// HF 仓库路径（`<owner>/<repo>`），下载 URL 由 `model_download_bases` 拼接。
+    /// HF repo path (`<owner>/<repo>`); download URLs are assembled by `model_download_bases`.
+    pub repo_path: &'static str,
     pub files: &'static [ModelFile],
     pub description: &'static str,
 }
 
-/// SenseVoice int8：中/英/日/韩/粤自动检测，CPU 实时率远高于 whisper。
-/// SenseVoice int8: auto-detects Chinese/English/Japanese/Korean/Cantonese with far better CPU
-/// real-time performance than whisper.
+/// SenseVoice int8（2024-07-17）：中/英/日/韩/粤自动检测，CPU 实时率远高于 whisper。
+/// SenseVoice int8 (2024-07-17): auto-detects Chinese/English/Japanese/Korean/Cantonese with far
+/// better CPU real-time performance than whisper.
 const SENSE_VOICE_FILES: &[ModelFile] = &[
     ModelFile {
         filename: MAIN_MODEL_FILENAME,
@@ -114,11 +122,38 @@ const SENSE_VOICE_FILES: &[ModelFile] = &[
     },
 ];
 
-const MODELS: &[ModelInfo] = &[ModelInfo {
-    name: "sense-voice",
-    files: SENSE_VOICE_FILES,
-    description: "SenseVoice（中英日韩粤自动检测，速度快）",
-}];
+/// SenseVoice 粤语增强 int8（2025-09-09）：在 WenetSpeech-Yue 大规模粤语语料上继续训练，
+/// 语种与词表不变（tokens.txt 与 2024-07-17 相同），粤语识别更准。
+/// Cantonese-enhanced SenseVoice int8 (2025-09-09): continued training on the large-scale
+/// WenetSpeech-Yue Cantonese corpus; same languages and vocab (tokens.txt identical to
+/// 2024-07-17), noticeably better Cantonese accuracy.
+const SENSE_VOICE_YUE_FILES: &[ModelFile] = &[
+    ModelFile {
+        filename: MAIN_MODEL_FILENAME,
+        size_bytes: 237_115_547,
+        sha256: SENSE_VOICE_YUE_SHA256,
+    },
+    ModelFile {
+        filename: TOKENS_FILENAME,
+        size_bytes: 315_894,
+        sha256: TOKENS_SHA256,
+    },
+];
+
+const MODELS: &[ModelInfo] = &[
+    ModelInfo {
+        name: "sense-voice",
+        repo_path: "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17",
+        files: SENSE_VOICE_FILES,
+        description: "SenseVoice（中英日韩粤自动检测，速度快）",
+    },
+    ModelInfo {
+        name: "sense-voice-yue",
+        repo_path: "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09",
+        files: SENSE_VOICE_YUE_FILES,
+        description: "SenseVoice 粤语增强（2025 新版，粤语更准）",
+    },
+];
 
 pub fn models_info() -> &'static [ModelInfo] {
     MODELS
@@ -178,10 +213,10 @@ where
         .all(|file| is_ready(file, &dir.join(file.filename)))
 }
 
-/// 内置模型文件是否齐全且校验和匹配官方发布版本。
-/// Whether the built-in model's files are complete and checksums match the official release.
-fn model_files_ready(dir: &Path) -> bool {
-    model_files_ready_with(dir, SENSE_VOICE_FILES, model_file_ready)
+/// 指定模型的文件是否齐全且校验和匹配官方发布版本。
+/// Whether the given model's files are complete and checksums match the official release.
+fn model_files_ready(dir: &Path, files: &[ModelFile]) -> bool {
+    model_files_ready_with(dir, files, model_file_ready)
 }
 
 /// 自定义模型目录是否包含可供 SenseVoice 加载的文件。
@@ -202,11 +237,15 @@ pub fn list_downloaded() -> Vec<String> {
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() && model_files_ready(&path) {
-                if let Some(name) = path.file_name().map(|n| n.to_string_lossy().to_string()) {
-                    if MODELS.iter().any(|m| m.name == name) {
-                        downloaded.push(name);
-                    }
+            if !path.is_dir() {
+                continue;
+            }
+            let Some(name) = path.file_name().map(|n| n.to_string_lossy().to_string()) else {
+                continue;
+            };
+            if let Some(m) = MODELS.iter().find(|m| m.name == name) {
+                if model_files_ready(&path, m.files) {
+                    downloaded.push(name);
                 }
             }
         }
@@ -220,8 +259,7 @@ pub fn is_downloaded(name: &str) -> bool {
     MODELS
         .iter()
         .find(|m| m.name == name)
-        .map(|_| model_files_ready(&model_dir(name)))
-        .unwrap_or(false)
+        .is_some_and(|m| model_files_ready(&model_dir(name), m.files))
 }
 
 /// 模型列表项（含下载状态），供 IPC 返回给前端。
@@ -297,9 +335,9 @@ pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
 
     // 是模型名吗？
     // Check if it's a model name.
-    if MODELS.iter().any(|m| m.name == config_model) {
+    if let Some(m) = MODELS.iter().find(|m| m.name == config_model) {
         let dir = model_dir(config_model);
-        if model_files_ready(&dir) {
+        if model_files_ready(&dir, m.files) {
             return Some(dir);
         }
         return None;
@@ -336,7 +374,18 @@ pub async fn download_with_progress<F>(name: &str, on_progress: F) -> Result<Pat
 where
     F: FnMut(u64, u64),
 {
-    download_with_progress_to(name, model_download_bases(), models_dir(), on_progress).await
+    let repo_path = MODELS
+        .iter()
+        .find(|m| m.name == name)
+        .map(|m| m.repo_path)
+        .ok_or_else(|| ModelError::UnknownModel(name.to_string()))?;
+    download_with_progress_to(
+        name,
+        model_download_bases(repo_path),
+        models_dir(),
+        on_progress,
+    )
+    .await
 }
 
 async fn download_with_progress_to<F>(
@@ -564,6 +613,7 @@ mod tests {
 
         ModelInfo {
             name: "sense-voice",
+            repo_path: "test/repo",
             files: Box::leak(files.into_boxed_slice()),
             description: "test model",
         }
@@ -687,6 +737,46 @@ mod tests {
         // 主模型文件名应暴露给前端展示
         // The main model filename should be exposed for frontend display
         assert!(entries.iter().all(|e| e.filename == MAIN_MODEL_FILENAME));
+    }
+
+    #[test]
+    fn test_model_registry_entries() {
+        let names: Vec<_> = models_info().iter().map(|m| m.name).collect();
+        assert!(names.contains(&"sense-voice"));
+        assert!(names.contains(&"sense-voice-yue"));
+        // 模型名必须唯一，否则 models/ 下目录会互相覆盖
+        // Model names must be unique, or models/ directories would collide
+        let unique: std::collections::HashSet<_> = names.iter().collect();
+        assert_eq!(unique.len(), names.len());
+
+        // 每个模型都要有自己的仓库路径，下载基址按它拼接
+        // Each model needs its own repo path; download bases are derived from it
+        let repos: Vec<_> = models_info().iter().map(|m| m.repo_path).collect();
+        assert!(repos.iter().all(|r| !r.is_empty()));
+        let unique_repos: std::collections::HashSet<_> = repos.iter().collect();
+        assert_eq!(unique_repos.len(), repos.len());
+
+        // 两个模型的主模型校验和不同（tokens 词表相同）；若被"统一"成同一 SHA，
+        // 其中一个模型的 is_downloaded 会永远判 false
+        // The two models' main-file checksums differ (tokens vocab is shared); unifying them
+        // would make one model's is_downloaded forever false
+        let sha_of =
+            |name: &str| models_info().iter().find(|m| m.name == name).unwrap().files[0].sha256;
+        assert_ne!(sha_of("sense-voice"), sha_of("sense-voice-yue"));
+    }
+
+    #[test]
+    fn test_model_download_bases_per_repo() {
+        // 清掉外部覆盖，验证默认的官方 + 镜像双源拼接
+        // Drop any external override and verify the default official + mirror pair
+        std::env::remove_var(ENV_MODEL_BASE_URL);
+        assert_eq!(
+            model_download_bases("owner/repo"),
+            vec![
+                "https://huggingface.co/owner/repo/resolve/main".to_string(),
+                "https://hf-mirror.com/owner/repo/resolve/main".to_string(),
+            ]
+        );
     }
 
     #[test]
