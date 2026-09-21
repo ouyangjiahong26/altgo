@@ -21,7 +21,7 @@
 //! injected through the `PipelineEventEmitter` trait, so tests can plug in fakes without building
 //! a real Wry app.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use std::sync::Arc;
 use tauri::Emitter;
@@ -130,41 +130,53 @@ fn emit_pipeline_status(
 /// ~31.8ms per block; Windows cpal callbacks run at a different cadence).
 const AUDIO_LEVEL_EMIT_INTERVAL: Duration = Duration::from_millis(100);
 
-/// `audio-level` 事件的 leading-edge 节流器：首个样本立即放行，
-/// 之后每过一个 `interval` 才放行一次，间隔内的样本直接丢弃。
+/// `audio-level` 定时派发状态：最新电平与 ticker 任务句柄。
 ///
-/// Leading-edge throttle for `audio-level` events: the first sample passes through
-/// immediately, then one sample per `interval` is admitted; samples inside the
-/// interval are dropped.
-struct AudioLevelThrottle {
+/// `on_audio_level` 只写入 `latest`、从不直接派发；派发时机完全由 ticker
+/// 任务的定时器驱动。`interval` 为派发周期（生产环境取
+/// `AUDIO_LEVEL_EMIT_INTERVAL`，测试可注入更短值），`ticker` 保存当前任务
+/// 句柄供状态切换时 abort。
+///
+/// Timer-driven dispatch state for `audio-level`: the latest level plus the ticker task handle.
+/// `on_audio_level` only writes `latest` and never emits directly; dispatch timing is driven
+/// solely by the ticker task's timer. `interval` is the dispatch period (production uses
+/// `AUDIO_LEVEL_EMIT_INTERVAL`; tests may inject a shorter one), and `ticker` holds the
+/// current task handle so a status change can abort it.
+struct AudioLevelState {
     interval: Duration,
-    last_emit: Option<Instant>,
+    latest: Option<f32>,
+    ticker: Option<tauri::async_runtime::JoinHandle<()>>,
 }
 
-impl AudioLevelThrottle {
-    fn new(interval: Duration) -> Self {
-        Self {
-            interval,
-            last_emit: None,
-        }
-    }
-
-    /// 尚未放过样本（或已重置）时立即放行；否则距上次放行不足 `interval` 丢弃，
-    /// 达到/超过 `interval` 放行并重记时间窗。返回 `Some(level)` 表示应派发。
-    ///
-    /// Admits immediately when no sample has passed yet (or the throttle was reset);
-    /// otherwise drops while less than `interval` has elapsed since the last admission,
-    /// and admits once the elapsed time reaches `interval`, restarting the window.
-    /// `Some(level)` means it should be emitted.
-    fn accept(&mut self, level: f32, now: Instant) -> Option<f32> {
-        if self
-            .last_emit
-            .is_none_or(|last| now.duration_since(last) >= self.interval)
-        {
-            self.last_emit = Some(now);
-            Some(level)
-        } else {
-            None
+/// `audio-level` 定时派发循环：每 `interval` 短暂持锁读取最新电平，`Some` 则派发。
+///
+/// 事件频率由定时器严格驱动（生产 interval 下固定 10 次/秒），与平台音频块/回调
+/// 节奏完全解耦：Linux parecord 约 31.8ms/块的到达时刻不再量化派发间隔（此前
+/// leading-edge 节流实际间隔 127.2ms、前端 100ms 采样窗退化为透传），前端采样
+/// 窗口每窗恰好采到一个事件，轨迹保持 10 帧/秒、10 秒窗口；Recording 期间首个
+/// 事件最迟一个 interval 内到达。每 tick 拷贝 `latest` 后立即释放锁，锁不跨
+/// await。
+///
+/// Timer-driven dispatch loop for `audio-level`: briefly locks every `interval`, reads the
+/// latest level, and emits it when `Some`. The event rate is strictly timer-driven (a fixed
+/// 10 per second under the production interval), fully decoupled from platform audio
+/// block/callback cadence: Linux parecord's ~31.8ms block arrivals no longer quantize the
+/// emission interval (the former leading-edge throttle effectively emitted every 127.2ms,
+/// degenerating the frontend's 100ms sampling window into a pass-through), each sampling
+/// window sees exactly one event, and the trace keeps its 10-frames-per-second, 10-second
+/// window; during Recording the first event arrives within one interval at the latest.
+/// Each tick copies `latest` and drops the lock immediately—the lock never spans an await.
+async fn run_audio_level_ticker(
+    audio_level: Arc<std::sync::Mutex<AudioLevelState>>,
+    emitter: Arc<dyn PipelineEventEmitter>,
+    interval: Duration,
+) {
+    let mut ticker = tokio::time::interval(interval);
+    loop {
+        ticker.tick().await;
+        let latest = audio_level.lock().ok().and_then(|state| state.latest);
+        if let Some(level) = latest {
+            emitter.emit_audio_level(level);
         }
     }
 }
@@ -184,7 +196,7 @@ pub struct TauriPipelineSink {
     prefer_polished: bool,
     dispatch: Arc<dyn TranscriptionDispatch>,
     overlay: Arc<dyn OverlaySink>,
-    audio_level_throttle: std::sync::Mutex<AudioLevelThrottle>,
+    audio_level: Arc<std::sync::Mutex<AudioLevelState>>,
 }
 
 impl TauriPipelineSink {
@@ -201,9 +213,11 @@ impl TauriPipelineSink {
             prefer_polished: cfg.output.prefer_polished,
             dispatch,
             overlay,
-            audio_level_throttle: std::sync::Mutex::new(AudioLevelThrottle::new(
-                AUDIO_LEVEL_EMIT_INTERVAL,
-            )),
+            audio_level: Arc::new(std::sync::Mutex::new(AudioLevelState {
+                interval: AUDIO_LEVEL_EMIT_INTERVAL,
+                latest: None,
+                ticker: None,
+            })),
         }
     }
 }
@@ -212,15 +226,36 @@ impl PipelineSink for TauriPipelineSink {
     fn on_status_change(&self, status: PipelineStatus) {
         emit_pipeline_status(&*self.emitter, &self.pipeline_status, status);
 
-        // 录音开始时重置节流器：上次录音遗留的 last_emit 可能吞掉本次录音的
-        // 首个电平样本，重置后首个样本立即派发。
-        // Reset the throttle when recording starts: a stale last_emit from the previous
-        // recording could swallow this recording's first level sample; after the reset
-        // the first sample is admitted immediately.
+        // audio-level 派发与录音状态绑定。Recording 启动定时派发任务：先 abort
+        // 旧任务防止重复派发，并清空上一段录音遗留的 latest，避免新录音先派发
+        // 旧值；非 Recording（Idle/Stopped/Processing/Done）abort 任务并清空
+        // latest，事件流随录音结束严格终止（Done 在下方 overlay 映射处提前
+        // 返回，故须在此之前处理）。
+        // audio-level dispatch is bound to the recording state. Recording starts the
+        // timer-driven dispatch task: any previous task is aborted first to avoid duplicate
+        // dispatch, and a stale latest from the previous recording is cleared so the new
+        // one never emits an old value first; any non-Recording status
+        // (Idle/Stopped/Processing/Done) aborts the task and clears latest, strictly
+        // ending the event stream when recording ends (Done returns early in the overlay
+        // match below, so this must run before it).
         if status == PipelineStatus::Recording {
-            if let Ok(mut throttle) = self.audio_level_throttle.lock() {
-                *throttle = AudioLevelThrottle::new(AUDIO_LEVEL_EMIT_INTERVAL);
+            if let Ok(mut state) = self.audio_level.lock() {
+                if let Some(old) = state.ticker.take() {
+                    old.abort();
+                }
+                state.latest = None;
+                let ticker = tauri::async_runtime::spawn(run_audio_level_ticker(
+                    Arc::clone(&self.audio_level),
+                    Arc::clone(&self.emitter),
+                    state.interval,
+                ));
+                state.ticker = Some(ticker);
             }
+        } else if let Ok(mut state) = self.audio_level.lock() {
+            if let Some(ticker) = state.ticker.take() {
+                ticker.abort();
+            }
+            state.latest = None;
         }
 
         // 通过 OverlaySink 统一设置悬浮窗状态 —— 一次性 emit + resize + position + show/hide。
@@ -302,10 +337,12 @@ impl PipelineSink for TauriPipelineSink {
     }
 
     fn on_audio_level(&self, level: f32) {
-        if let Ok(mut throttle) = self.audio_level_throttle.lock() {
-            if let Some(level) = throttle.accept(level, Instant::now()) {
-                self.emitter.emit_audio_level(level);
-            }
+        // 只记录最新电平，不在此派发：派发时机由 Recording 期间的 ticker 定时器
+        // 统一驱动。
+        // Records the latest level only—no emission here: dispatch timing is driven solely
+        // by the ticker timer while Recording.
+        if let Ok(mut state) = self.audio_level.lock() {
+            state.latest = Some(level);
         }
     }
 
@@ -724,100 +761,100 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // AudioLevelThrottle / on_audio_level 测试
-    // AudioLevelThrottle / on_audio_level tests
+    // audio-level 定时派发测试
+    // audio-level timer-driven dispatch tests
     // -----------------------------------------------------------------------
 
-    #[test]
-    fn audio_level_throttle_admits_first_sample_immediately() {
-        let mut throttle = AudioLevelThrottle::new(Duration::from_millis(100));
-        let now = Instant::now();
-
-        assert_eq!(throttle.accept(0.42, now), Some(0.42));
-    }
-
-    #[test]
-    fn audio_level_throttle_drops_samples_inside_interval() {
-        let mut throttle = AudioLevelThrottle::new(Duration::from_millis(100));
-        let t0 = Instant::now();
-
-        assert_eq!(throttle.accept(0.42, t0), Some(0.42));
-        assert_eq!(throttle.accept(0.5, t0 + Duration::from_millis(50)), None);
-        assert_eq!(throttle.accept(0.7, t0 + Duration::from_millis(99)), None);
-    }
-
-    #[test]
-    fn audio_level_throttle_admits_at_or_after_interval() {
-        let mut throttle = AudioLevelThrottle::new(Duration::from_millis(100));
-        let t0 = Instant::now();
-
-        assert_eq!(throttle.accept(0.42, t0), Some(0.42));
-        assert_eq!(
-            throttle.accept(0.5, t0 + Duration::from_millis(100)),
-            Some(0.5)
-        );
-        assert_eq!(
-            throttle.accept(0.7, t0 + Duration::from_millis(250)),
-            Some(0.7)
-        );
-    }
-
-    #[test]
-    fn audio_level_throttle_restarts_window_after_admission() {
-        let mut throttle = AudioLevelThrottle::new(Duration::from_millis(100));
-        let t0 = Instant::now();
-
-        assert_eq!(throttle.accept(0.42, t0), Some(0.42));
-        // 150ms 处放行后，时间窗从 150ms 重新计算：250ms（仅再过 100ms）放行，220ms 丢弃。
-        // After the admission at 150ms the window restarts: 250ms (another 100ms) is admitted;
-        // 220ms is dropped.
-        let t150 = t0 + Duration::from_millis(150);
-        assert_eq!(throttle.accept(0.5, t150), Some(0.5));
-        assert_eq!(throttle.accept(0.6, t150 + Duration::from_millis(70)), None);
-        assert_eq!(
-            throttle.accept(0.7, t150 + Duration::from_millis(100)),
-            Some(0.7)
-        );
-    }
-
-    #[test]
-    fn on_audio_level_throttles_rapid_samples_to_first_only() {
-        let fx = make_fixture(true, None);
-        fx.sink.on_audio_level(0.42);
-        // 真实时钟下两次调用间隔必 <100ms，第二个样本应被节流丢弃。
-        // Under the real clock the two calls are <100ms apart; the second sample must be dropped.
-        fx.sink.on_audio_level(0.0);
-
-        assert_eq!(
-            fx.emitter.recorded_events(),
-            vec![EmittedEvent::AudioLevel(0.42)]
-        );
-    }
-
-    #[test]
-    fn on_status_change_recording_resets_throttle_for_first_sample() {
-        let fx = make_fixture(true, None);
-        fx.sink.on_audio_level(0.42);
-
-        fx.sink.on_status_change(PipelineStatus::Recording);
-        fx.sink.on_audio_level(0.7);
-
-        // 重置后新录音的首个电平样本立即派发（status 事件之外只有这一个 AudioLevel）。
-        // After the reset the new recording's first level sample is admitted immediately
-        // (besides the status event there is exactly one AudioLevel).
-        let audio_levels: Vec<_> = fx
-            .emitter
+    /// 收集已派发的 AudioLevel 事件数值。
+    /// Collects the emitted AudioLevel values.
+    fn audio_level_events(fx: &TestFixture) -> Vec<f32> {
+        fx.emitter
             .recorded_events()
             .into_iter()
-            .filter(|e| matches!(e, EmittedEvent::AudioLevel(_)))
-            .collect();
-        assert_eq!(
-            audio_levels,
-            vec![
-                EmittedEvent::AudioLevel(0.42),
-                EmittedEvent::AudioLevel(0.7)
-            ]
+            .filter_map(|event| match event {
+                EmittedEvent::AudioLevel(level) => Some(level),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// 轮询等待指定电平出现在事件流中（上限约 500ms）。
+    /// Polls until the given level shows up in the event stream (~500ms cap).
+    async fn wait_for_audio_level(fx: &TestFixture, level: f32) -> bool {
+        for _ in 0..100 {
+            if audio_level_events(fx).iter().any(|&l| l == level) {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        false
+    }
+
+    #[test]
+    fn on_audio_level_without_recording_emits_nothing() {
+        let fx = make_fixture(true, None);
+
+        // 无 ticker 运行时 on_audio_level 只记录、不派发：不应产生任何事件。
+        // Without a running ticker on_audio_level only records—no events at all.
+        fx.sink.on_audio_level(0.42);
+        fx.sink.on_audio_level(0.9);
+
+        assert!(fx.emitter.recorded_events().is_empty());
+    }
+
+    #[tokio::test]
+    async fn recording_emits_latest_audio_level_on_ticker_cadence() {
+        let fx = make_fixture(true, None);
+        // 注入短 interval 缩小时钟尺度（字段私有但对本测试模块可见）。
+        // Inject a short interval to shrink the time scale (private field, visible here).
+        if let Ok(mut state) = fx.sink.audio_level.lock() {
+            state.interval = Duration::from_millis(20);
+        }
+
+        fx.sink.on_status_change(PipelineStatus::Recording);
+        fx.sink.on_audio_level(0.5);
+
+        // Recording 期间首个事件最迟一个 interval 内到达。
+        // During Recording the first event arrives within one interval at the latest.
+        assert!(
+            wait_for_audio_level(&fx, 0.5).await,
+            "expected AudioLevel(0.5), got {:?}",
+            audio_level_events(&fx)
         );
+
+        // 周期派发持续存在：latest 不变时同一电平按 interval 节奏重复派发
+        // （100ms ≈ 5 个 20ms tick，断下界防 flaky）。
+        // Periodic dispatch keeps running: an unchanged latest is re-emitted on the
+        // interval cadence (100ms ≈ 5 ticks of 20ms; assert a lower bound against flakiness).
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let emitted_05 = audio_level_events(&fx)
+            .iter()
+            .filter(|&&level| level == 0.5)
+            .count();
+        assert!(
+            emitted_05 >= 2,
+            "expected repeated 0.5 emissions, got {emitted_05}"
+        );
+
+        // latest 语义：新样本到达后，后续 tick 派发的是最新值。
+        // latest semantics: once a new sample arrives, subsequent ticks emit the newest value.
+        fx.sink.on_audio_level(0.9);
+        assert!(
+            wait_for_audio_level(&fx, 0.9).await,
+            "expected a later AudioLevel(0.9), got {:?}",
+            audio_level_events(&fx)
+        );
+
+        // 切 Idle 后 ticker 被 abort：事件计数不再增长（先等 100ms 宽限吸收与
+        // abort 竞态的在途派发，再观察 200ms ≈ 10 个 tick 的静默）。
+        // After switching to Idle the ticker is aborted: the count stops growing (wait a
+        // 100ms grace absorbing an in-flight emission racing the abort, then observe that
+        // 200ms ≈ 10 ticks stay silent).
+        fx.sink.on_status_change(PipelineStatus::Idle);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let baseline = audio_level_events(&fx).len();
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert_eq!(audio_level_events(&fx).len(), baseline);
     }
 
     #[test]
