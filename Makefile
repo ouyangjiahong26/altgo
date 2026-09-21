@@ -19,10 +19,10 @@ test:
 	cargo test --manifest-path=src-tauri/Cargo.toml
 
 fmt:
-	cargo fmt --manifest-path=src-tauri/Cargo.toml -- --check
+	cargo fmt --manifest-path=src-tauri/Cargo.toml --all -- --check
 
 lint:
-	cargo clippy --manifest-path=src-tauri/Cargo.toml -- -D warnings
+	cargo clippy --manifest-path=src-tauri/Cargo.toml --all-targets -- -D warnings
 
 install: build
 	install -d $(DESTDIR)/usr/local/bin

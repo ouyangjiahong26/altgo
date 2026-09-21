@@ -210,8 +210,8 @@ async def send_welcome_email(user):
 # 仅 Rust（无 GUI）
 cargo build --release --manifest-path=src-tauri/Cargo.toml
 cargo test --manifest-path=src-tauri/Cargo.toml
-cargo fmt --manifest-path=src-tauri/Cargo.toml -- --check
-cargo clippy --manifest-path=src-tauri/Cargo.toml -- -D warnings
+cargo fmt --manifest-path=src-tauri/Cargo.toml --all -- --check
+cargo clippy --manifest-path=src-tauri/Cargo.toml --all-targets -- -D warnings
 
 # Tauri GUI 模式
 cargo tauri dev               # 开发模式（前端开发服务器 + 桌面窗口）

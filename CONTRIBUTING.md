@@ -22,8 +22,8 @@
 3. 编写代码和测试
 4. 确保通过检查：
    ```bash
-   cargo fmt --manifest-path=src-tauri/Cargo.toml -- --check
-   cargo clippy --manifest-path=src-tauri/Cargo.toml -- -D warnings
+   cargo fmt --manifest-path=src-tauri/Cargo.toml --all -- --check
+   cargo clippy --manifest-path=src-tauri/Cargo.toml --all-targets -- -D warnings
    cargo test --manifest-path=src-tauri/Cargo.toml
    cd frontend && npm test
    cd frontend && npm run build
@@ -98,8 +98,8 @@ The project supports **Linux** on **x86_64** and **aarch64**. CI and Release ver
 3. Write code and tests
 4. Make sure checks pass:
    ```bash
-   cargo fmt --manifest-path=src-tauri/Cargo.toml -- --check
-   cargo clippy --manifest-path=src-tauri/Cargo.toml -- -D warnings
+   cargo fmt --manifest-path=src-tauri/Cargo.toml --all -- --check
+   cargo clippy --manifest-path=src-tauri/Cargo.toml --all-targets -- -D warnings
    cargo test --manifest-path=src-tauri/Cargo.toml
    cd frontend && npm test
    cd frontend && npm run build
