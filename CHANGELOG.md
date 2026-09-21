@@ -6,6 +6,8 @@
 
 - **在线供应商目录**：设置页新增「加载更多供应商（Oh My Pi 目录）」，一键从 Oh My Pi 的模型目录（catalog.stencil.so，与 `omp models` 命令同源）拉取全部在线供应商与其实时模型清单，并入预设选择器统一搜索与选择；官方端点缺失的少数大厂（Anthropic / OpenAI / Google）自动补官方地址，与本地预置同端点的条目不重复展示。目录数据随上游更新，模型清单不再受发行版冻结限制。
 
+- **思考层级设置**：润色分区新增「思考层级」（`[polisher] thinking_level`，默认 `off` 维持自动关闭）。选低/中/高后请求按各家参数方言开启思考：OpenAI 兼容端点发 `reasoning_effort`，OpenRouter 发 `reasoning.effort`，通义/SiliconFlow 与智谱/Kimi/DeepSeek 等仅支持开关的服务商统一开启，Anthropic 协议按档给思考预算（1024/4096/16384 token）并自动抬高 `max_tokens`、省略与之不兼容的 `temperature`。
+
 ### Changed
 
 - **移除从未使用的 libnotify 依赖**：deb/rpm/AUR 的依赖清单不再声明通知库（#141），CONTRIBUTING 与 README 同步清理 notify-send / notifications 残留描述。应用行为零变化——系统通知从未实现，结果展示统一走悬浮窗。

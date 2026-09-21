@@ -205,6 +205,9 @@ pub struct PolisherConfig {
     /// LLM temperature（0.0 - 2.0），默认 0.3
     /// LLM temperature (0.0 - 2.0), default 0.3
     pub temperature: f32,
+    /// 思考层级：`"off"`（默认，自动关闭思考）、`"low"`、`"medium"`、`"high"`
+    /// Thinking level: `"off"` (default, thinking auto-off), `"low"`, `"medium"`, `"high"`
+    pub thinking_level: String,
     /// 自定义 system prompt，为空时使用内置 prompt
     /// Custom system prompt; the built-in prompt applies when empty
     pub system_prompt: String,
@@ -221,6 +224,7 @@ impl Default for PolisherConfig {
             timeout: Duration::from_secs(60),
             max_tokens: 1024,
             temperature: 0.3,
+            thinking_level: "off".to_string(),
             system_prompt: String::new(),
         }
     }
@@ -475,6 +479,7 @@ pub struct ConfigPatch {
     pub polish_level: Option<String>,
     pub polish_model: Option<String>,
     pub polish_protocol: Option<String>,
+    pub polish_thinking_level: Option<String>,
     pub polish_api_key: Option<String>,
     pub polish_api_base_url: Option<String>,
     pub gui_language: Option<String>,
@@ -509,6 +514,9 @@ impl ConfigPatch {
         }
         if let Some(ref v) = self.polish_protocol {
             cfg.polisher.protocol = v.clone();
+        }
+        if let Some(v) = &self.polish_thinking_level {
+            cfg.polisher.thinking_level = v.clone();
         }
         if let Some(ref v) = self.polish_api_key {
             cfg.polisher.api_key = v.clone();
@@ -554,6 +562,7 @@ mod tests {
         assert_eq!(cfg.transcriber.language, "zh");
         assert_eq!(cfg.polisher.level, "none");
         assert_eq!(cfg.polisher.temperature, 0.3);
+        assert_eq!(cfg.polisher.thinking_level, "off");
         assert!(cfg.output.prefer_polished);
         assert!(
             !cfg.output.inject_text,
@@ -588,6 +597,7 @@ language = "en"
 
 [polisher]
 level = "heavy"
+thinking_level = "low"
 
 [output]
 prefer_polished = false
@@ -602,6 +612,7 @@ inject_text = true
         assert_eq!(cfg.transcriber.model, "sense-voice");
         assert_eq!(cfg.transcriber.language, "en");
         assert_eq!(cfg.polisher.level, "heavy");
+        assert_eq!(cfg.polisher.thinking_level, "low");
         assert!(!cfg.output.prefer_polished);
         assert!(cfg.output.inject_text);
     }
@@ -776,6 +787,15 @@ language = "zh"
         let patch: ConfigPatch = serde_json::from_str(r#"{"polishProtocol":"anthropic"}"#).unwrap();
         patch.apply_to_config(&mut cfg);
         assert_eq!(cfg.polisher.protocol, "anthropic");
+    }
+
+    #[test]
+    fn patch_apply_polish_thinking_level_updates_field() {
+        let mut cfg = Config::default();
+        assert_eq!(cfg.polisher.thinking_level, "off");
+        let patch: ConfigPatch = serde_json::from_str(r#"{"polishThinkingLevel":"high"}"#).unwrap();
+        patch.apply_to_config(&mut cfg);
+        assert_eq!(cfg.polisher.thinking_level, "high");
     }
 
     #[test]

@@ -548,6 +548,22 @@ export default function Settings() {
                 </p>
               )}
               <div className="settings-field">
+                <span className="settings-field-label-text">{t("settings.thinking_level")}</span>
+                <div className="settings-field-control">
+                  <select
+                    className="settings-select"
+                    value={config.polishThinkingLevel}
+                    onChange={(e) => update("polishThinkingLevel", e.target.value)}
+                  >
+                    <option value="off">{t("settings.thinking_off")}</option>
+                    <option value="low">{t("settings.thinking_low")}</option>
+                    <option value="medium">{t("settings.thinking_medium")}</option>
+                    <option value="high">{t("settings.thinking_high")}</option>
+                  </select>
+                </div>
+              </div>
+              <p className="settings-hint settings-hint--polish">{t("settings.thinking_level_hint")}</p>
+              <div className="settings-field">
                 <span className="settings-field-label-text">{t("settings.api_protocol")}</span>
                 <div className="settings-field-control">
                   <select

@@ -33,6 +33,10 @@ level = "none"                      # 润色级别："none"（禁用）、"light
 max_tokens = 1024                   # LLM 响应的最大 token 数
 timeout_seconds = 60
 temperature = 0.3                   # LLM temperature（0.0-2.0）
+thinking_level = "off"              # 思考层级："off"（默认，对已知服务商自动关闭思考）、"low"、"medium"、"high"
+                                     # 档位映射各家参数：OpenAI 兼容端点 reasoning_effort；OpenRouter reasoning.effort；
+                                     # 通义/SiliconFlow enable_thinking；智谱/Kimi/DeepSeek 等 thinking.type（仅开关不分档）；
+                                     # Anthropic 协议按档给思考预算并自动抬高 max_tokens
 system_prompt = ""                  # 自定义则完全替换内置；为空时按 [transcriber] language 生成（中文默认输出简体中文，勿繁体）
 
 [output]

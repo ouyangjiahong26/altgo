@@ -157,6 +157,7 @@ mod tests {
             system_prompt: String::new(),
             timeout: std::time::Duration::from_secs(10),
             level: "none".to_string(),
+            thinking_level: "off".to_string(),
         }
     }
 

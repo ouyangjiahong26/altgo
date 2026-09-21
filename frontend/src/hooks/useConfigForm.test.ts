@@ -12,6 +12,7 @@ describe("saveRequestBody", () => {
     polishModel: "",
     polishApiBaseUrl: "",
     polishProtocol: "openai",
+    polishThinkingLevel: "off",
     guiLanguage: "zh",
     overlayPosition: "bottom_center",
     autoCheckUpdate: true,
@@ -38,6 +39,11 @@ describe("saveRequestBody", () => {
   it("includes polishProtocol in the request body", () => {
     const result = saveRequestBody({ ...base, polishProtocol: "anthropic" });
     expect(result).toHaveProperty("polishProtocol", "anthropic");
+  });
+
+  it("includes polishThinkingLevel in the request body", () => {
+    const result = saveRequestBody({ ...base, polishThinkingLevel: "medium" });
+    expect(result).toHaveProperty("polishThinkingLevel", "medium");
   });
 
   it("includes polishApiKey when polisherApiKey is non-empty", () => {
@@ -81,6 +87,7 @@ describe("normalizeConfig", () => {
       polishModel: "",
       polishApiBaseUrl: "",
       polishProtocol: "openai",
+      polishThinkingLevel: "off",
       guiLanguage: "zh",
       overlayPosition: "bottom_center",
       autoCheckUpdate: true,

@@ -86,6 +86,13 @@ const translations: Record<string, Record<string, string>> = {
     "settings.polish_disabled_hint": "润色级别为「关闭」：已填的密钥不会被使用，转写结果不经过 AI 润色。需要润色时请选择级别。",
     "settings.polish_level_hint":
       "转写完成后用大模型整理标点、口语赘词等；级别越高改写越多，通常更耗时、API 花费更高。关闭则仅保留转写原文。",
+    "settings.thinking_level": "思考层级",
+    "settings.thinking_off": "关闭",
+    "settings.thinking_low": "低",
+    "settings.thinking_medium": "中",
+    "settings.thinking_high": "高",
+    "settings.thinking_level_hint":
+      "让模型先思考再润色：更准但更慢、花费更高。默认关闭（对默认开思考的服务商自动附带关闭参数）；档位按服务商能力映射，部分服务商只支持开/关不分档。模型不支持时会收到服务商报错。",
     "settings.delete_model": "删除模型",
     "settings.about": "关于与更新",
     "settings.about_tagline": "按住快捷键说话，松手转写并润色，把口述变成可直接使用的文字。",
@@ -237,6 +244,13 @@ const translations: Record<string, Record<string, string>> = {
     "settings.polish_disabled_hint": "Polish level is \"Off\": the saved key is not used and transcriptions skip AI polishing. Pick a level to enable it.",
     "settings.polish_level_hint":
       "After transcription, the LLM cleans punctuation and filler; higher levels rewrite more, usually taking longer and costing more. Off keeps the raw transcription text.",
+    "settings.thinking_level": "Thinking level",
+    "settings.thinking_off": "Off",
+    "settings.thinking_low": "Low",
+    "settings.thinking_medium": "Medium",
+    "settings.thinking_high": "High",
+    "settings.thinking_level_hint":
+      "Lets the model think before polishing: more accurate, but slower and costlier. Off by default (thinking is auto-suppressed for vendors that think by default); levels map to each provider's parameters, and providers with only an on/off switch ignore the tier. Unsupported models surface the provider's error.",
     "settings.delete_model": "Delete Model",
     "settings.about": "About & Updates",
     "settings.about_tagline": "Hold the shortcut to speak, release to transcribe and polish—turn speech into usable text.",
