@@ -21,6 +21,8 @@
 //! injected through the `PipelineEventEmitter` trait, so tests can plug in fakes without building
 //! a real Wry app.
 
+use std::time::{Duration, Instant};
+
 use std::sync::Arc;
 use tauri::Emitter;
 
@@ -113,6 +115,60 @@ fn emit_pipeline_status(
     }
 }
 
+/// `audio-level` 事件的固定派发间隔。
+///
+/// 与前端 `frontend/src/overlay.tsx` 的 `TRACE_SAMPLE_INTERVAL_MS`（100ms）对齐，
+/// 使 `audio-level` 事件频率成为固定 10 次/秒的跨平台契约，
+/// 不再依赖平台音频后端的块/回调节奏（Linux parecord 约 31.8ms/块，
+/// Windows cpal 回调节奏不同）。
+///
+/// Fixed emission interval for `audio-level` events.
+///
+/// Aligned with `TRACE_SAMPLE_INTERVAL_MS` (100ms) in `frontend/src/overlay.tsx`,
+/// making the `audio-level` event rate a fixed 10-per-second cross-platform contract
+/// that no longer depends on platform audio block/callback cadence (Linux parecord
+/// ~31.8ms per block; Windows cpal callbacks run at a different cadence).
+const AUDIO_LEVEL_EMIT_INTERVAL: Duration = Duration::from_millis(100);
+
+/// `audio-level` 事件的 leading-edge 节流器：首个样本立即放行，
+/// 之后每过一个 `interval` 才放行一次，间隔内的样本直接丢弃。
+///
+/// Leading-edge throttle for `audio-level` events: the first sample passes through
+/// immediately, then one sample per `interval` is admitted; samples inside the
+/// interval are dropped.
+struct AudioLevelThrottle {
+    interval: Duration,
+    last_emit: Option<Instant>,
+}
+
+impl AudioLevelThrottle {
+    fn new(interval: Duration) -> Self {
+        Self {
+            interval,
+            last_emit: None,
+        }
+    }
+
+    /// 尚未放过样本（或已重置）时立即放行；否则距上次放行不足 `interval` 丢弃，
+    /// 达到/超过 `interval` 放行并重记时间窗。返回 `Some(level)` 表示应派发。
+    ///
+    /// Admits immediately when no sample has passed yet (or the throttle was reset);
+    /// otherwise drops while less than `interval` has elapsed since the last admission,
+    /// and admits once the elapsed time reaches `interval`, restarting the window.
+    /// `Some(level)` means it should be emitted.
+    fn accept(&mut self, level: f32, now: Instant) -> Option<f32> {
+        if self
+            .last_emit
+            .is_none_or(|last| now.duration_since(last) >= self.interval)
+        {
+            self.last_emit = Some(now);
+            Some(level)
+        } else {
+            None
+        }
+    }
+}
+
 /// Tauri 管道事件接收器 — 将管道事件转发为 Tauri 事件和浮窗状态切换。
 ///
 /// 只持有 `dispatch: Arc<dyn TranscriptionDispatch>` 与 overlay / emitter 抽象，
@@ -128,6 +184,7 @@ pub struct TauriPipelineSink {
     prefer_polished: bool,
     dispatch: Arc<dyn TranscriptionDispatch>,
     overlay: Arc<dyn OverlaySink>,
+    audio_level_throttle: std::sync::Mutex<AudioLevelThrottle>,
 }
 
 impl TauriPipelineSink {
@@ -144,6 +201,9 @@ impl TauriPipelineSink {
             prefer_polished: cfg.output.prefer_polished,
             dispatch,
             overlay,
+            audio_level_throttle: std::sync::Mutex::new(AudioLevelThrottle::new(
+                AUDIO_LEVEL_EMIT_INTERVAL,
+            )),
         }
     }
 }
@@ -151,6 +211,17 @@ impl TauriPipelineSink {
 impl PipelineSink for TauriPipelineSink {
     fn on_status_change(&self, status: PipelineStatus) {
         emit_pipeline_status(&*self.emitter, &self.pipeline_status, status);
+
+        // 录音开始时重置节流器：上次录音遗留的 last_emit 可能吞掉本次录音的
+        // 首个电平样本，重置后首个样本立即派发。
+        // Reset the throttle when recording starts: a stale last_emit from the previous
+        // recording could swallow this recording's first level sample; after the reset
+        // the first sample is admitted immediately.
+        if status == PipelineStatus::Recording {
+            if let Ok(mut throttle) = self.audio_level_throttle.lock() {
+                *throttle = AudioLevelThrottle::new(AUDIO_LEVEL_EMIT_INTERVAL);
+            }
+        }
 
         // 通过 OverlaySink 统一设置悬浮窗状态 —— 一次性 emit + resize + position + show/hide。
         // recording/processing/idle/stopped 各自映射到一个 overlay 阶段；
@@ -231,7 +302,11 @@ impl PipelineSink for TauriPipelineSink {
     }
 
     fn on_audio_level(&self, level: f32) {
-        self.emitter.emit_audio_level(level);
+        if let Ok(mut throttle) = self.audio_level_throttle.lock() {
+            if let Some(level) = throttle.accept(level, Instant::now()) {
+                self.emitter.emit_audio_level(level);
+            }
+        }
     }
 
     fn on_key_listener_backend(&self, backend: &str) {
@@ -649,21 +724,98 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // on_progress 测试
-    // on_progress tests
+    // AudioLevelThrottle / on_audio_level 测试
+    // AudioLevelThrottle / on_audio_level tests
     // -----------------------------------------------------------------------
 
     #[test]
-    fn on_audio_level_emits_audio_level() {
+    fn audio_level_throttle_admits_first_sample_immediately() {
+        let mut throttle = AudioLevelThrottle::new(Duration::from_millis(100));
+        let now = Instant::now();
+
+        assert_eq!(throttle.accept(0.42, now), Some(0.42));
+    }
+
+    #[test]
+    fn audio_level_throttle_drops_samples_inside_interval() {
+        let mut throttle = AudioLevelThrottle::new(Duration::from_millis(100));
+        let t0 = Instant::now();
+
+        assert_eq!(throttle.accept(0.42, t0), Some(0.42));
+        assert_eq!(throttle.accept(0.5, t0 + Duration::from_millis(50)), None);
+        assert_eq!(throttle.accept(0.7, t0 + Duration::from_millis(99)), None);
+    }
+
+    #[test]
+    fn audio_level_throttle_admits_at_or_after_interval() {
+        let mut throttle = AudioLevelThrottle::new(Duration::from_millis(100));
+        let t0 = Instant::now();
+
+        assert_eq!(throttle.accept(0.42, t0), Some(0.42));
+        assert_eq!(
+            throttle.accept(0.5, t0 + Duration::from_millis(100)),
+            Some(0.5)
+        );
+        assert_eq!(
+            throttle.accept(0.7, t0 + Duration::from_millis(250)),
+            Some(0.7)
+        );
+    }
+
+    #[test]
+    fn audio_level_throttle_restarts_window_after_admission() {
+        let mut throttle = AudioLevelThrottle::new(Duration::from_millis(100));
+        let t0 = Instant::now();
+
+        assert_eq!(throttle.accept(0.42, t0), Some(0.42));
+        // 150ms 处放行后，时间窗从 150ms 重新计算：250ms（仅再过 100ms）放行，220ms 丢弃。
+        // After the admission at 150ms the window restarts: 250ms (another 100ms) is admitted;
+        // 220ms is dropped.
+        let t150 = t0 + Duration::from_millis(150);
+        assert_eq!(throttle.accept(0.5, t150), Some(0.5));
+        assert_eq!(throttle.accept(0.6, t150 + Duration::from_millis(70)), None);
+        assert_eq!(
+            throttle.accept(0.7, t150 + Duration::from_millis(100)),
+            Some(0.7)
+        );
+    }
+
+    #[test]
+    fn on_audio_level_throttles_rapid_samples_to_first_only() {
         let fx = make_fixture(true, None);
         fx.sink.on_audio_level(0.42);
+        // 真实时钟下两次调用间隔必 <100ms，第二个样本应被节流丢弃。
+        // Under the real clock the two calls are <100ms apart; the second sample must be dropped.
         fx.sink.on_audio_level(0.0);
 
         assert_eq!(
             fx.emitter.recorded_events(),
+            vec![EmittedEvent::AudioLevel(0.42)]
+        );
+    }
+
+    #[test]
+    fn on_status_change_recording_resets_throttle_for_first_sample() {
+        let fx = make_fixture(true, None);
+        fx.sink.on_audio_level(0.42);
+
+        fx.sink.on_status_change(PipelineStatus::Recording);
+        fx.sink.on_audio_level(0.7);
+
+        // 重置后新录音的首个电平样本立即派发（status 事件之外只有这一个 AudioLevel）。
+        // After the reset the new recording's first level sample is admitted immediately
+        // (besides the status event there is exactly one AudioLevel).
+        let audio_levels: Vec<_> = fx
+            .emitter
+            .recorded_events()
+            .into_iter()
+            .filter(|e| matches!(e, EmittedEvent::AudioLevel(_)))
+            .collect();
+        assert_eq!(
+            audio_levels,
             vec![
                 EmittedEvent::AudioLevel(0.42),
-                EmittedEvent::AudioLevel(0.0),
+                EmittedEvent::AudioLevel(0.7)
             ]
         );
     }
