@@ -150,7 +150,7 @@ api_base_url = "http://localhost:11434"
 model = "qwen2.5:7b"
 ```
 
-The Settings page ships with roughly a hundred provider presets (13 built in natively plus 86 migrated from [cc-switch](https://github.com/farion1231/cc-switch), covering official domestic providers, aggregators, and third-party relays for both the Anthropic and OpenAI protocols). Picking one fills in the address and protocol automatically; you only add the key. Entries suffixed `(Anthropic)` / `(OpenAI)` are different protocol endpoints of the same provider.
+The provider list comes entirely from the Oh My Pi catalog (catalog.stencil.so, the same source the `omp models` command uses) and loads automatically when the Settings page opens—fetched once per session, with a retry on failure. Picking a provider fills in the address and protocol automatically; you only add the key. When offline or if the catalog is unreachable, fill in the API address and model manually.
 
 ### Thinking Disabled by Default
 

@@ -1,4 +1,4 @@
-import { Children, isValidElement, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Children, isValidElement, useEffect, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "../i18n";
@@ -30,7 +30,7 @@ import {
 } from "../ui-size";
 import { ProviderPresetSelector } from "../components/ProviderPresetSelector";
 import { loadCatalog } from "../config/catalog";
-import { polisherPresets, type ProviderPreset, type ModelCatalogEntry } from "../config/modelPresets";
+import { type ProviderPreset, type ModelCatalogEntry } from "../config/modelPresets";
 
 const KEY_PRESETS: { value: string; labelKey: string }[] = [
   { value: "Alt_R", labelKey: "settings.key_preset_right_alt" },
@@ -80,10 +80,6 @@ export default function Settings() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
-  const allPresets = useMemo(
-    () => [...polisherPresets, ...catalogPresets],
-    [catalogPresets],
-  );
 
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [installingUpdate, setInstallingUpdate] = useState(false);
@@ -145,21 +141,25 @@ export default function Settings() {
     });
   };
 
-  // 拉取 Oh My Pi 在线供应商目录（去重后并入预设选择器），失败提示可重试。
-  // Fetches the Oh My Pi online provider catalog (merged into the picker after dedup);
-  // failures surface a retryable hint.
+  // 拉取 omp 供应商目录（设置页挂载时自动调用；失败可重试，手填地址仍可用）。
+  // Fetches the omp provider catalog (auto-invoked on mount; failures are retryable
+  // and manual address entry keeps working).
   const loadOnlineCatalog = async () => {
     if (catalogLoading) return;
     setCatalogLoading(true);
     setCatalogError(null);
     try {
-      setCatalogPresets(await loadCatalog(polisherPresets));
+      setCatalogPresets(await loadCatalog());
     } catch (e) {
       setCatalogError(String(e));
     } finally {
       setCatalogLoading(false);
     }
   };
+
+  useEffect(() => {
+    void loadOnlineCatalog();
+  }, []);
 
   // 用表单当前值直接测试（密钥留空时后端回落到已存密钥），不必先保存。
   // Test directly with current form values (an empty key falls back to the saved one server-side);
@@ -496,7 +496,7 @@ export default function Settings() {
           {polishOpen && (
             <div className="settings-section-body">
               <ProviderPresetSelector
-                presets={allPresets}
+                presets={catalogPresets}
                 modelType="polisher"
                 currentApiBaseUrl={config.polishApiBaseUrl}
                 currentModel={config.polishModel}
@@ -508,34 +508,24 @@ export default function Settings() {
                   update("polishProtocol", preset.apiFormat);
                 }}
               />
-              <div className="settings-field">
-                <span className="settings-field-label-text">{t("settings.online_catalog")}</span>
-                <div className="settings-field-control">
+              {catalogLoading && catalogPresets.length === 0 && (
+                <p className="settings-hint settings-hint--polish">{t("settings.catalog_loading")}</p>
+              )}
+              {catalogError && (
+                <>
+                  <p className="settings-hint settings-hint--polish settings-test-err">
+                    {catalogError}
+                  </p>
                   <button
                     type="button"
                     className="settings-btn settings-btn-sm settings-btn-secondary"
                     onClick={() => void loadOnlineCatalog()}
                     disabled={catalogLoading}
                   >
-                    {catalogLoading
-                      ? t("settings.catalog_loading")
-                      : t("settings.load_catalog")}
+                    {t("settings.catalog_retry")}
                   </button>
-                </div>
-                {catalogPresets.length > 0 && (
-                  <p className="settings-hint settings-hint--polish">
-                    {t("settings.catalog_loaded").replace(
-                      "{count}",
-                      String(catalogPresets.length),
-                    )}
-                  </p>
-                )}
-                {catalogError && (
-                  <p className="settings-hint settings-hint--polish settings-test-err">
-                    {catalogError}
-                  </p>
-                )}
-              </div>
+                </>
+              )}
               <div className="settings-field">
                 <span className="settings-field-label-text">{t("settings.polish_level")}</span>
                 <div className="settings-field-control">

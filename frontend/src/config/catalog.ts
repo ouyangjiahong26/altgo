@@ -1,10 +1,13 @@
 /**
- * 在线供应商目录：从 Oh My Pi 的模型目录（catalog.stencil.so，与 `omp models` 同源）
- * 拉取全部供应商与模型，转成与本地预置同构的 ProviderPreset，注入预设选择器。
+ * 供应商清单的唯一来源：从 Oh My Pi 的模型目录（catalog.stencil.so，与 `omp models` 同源）
+ * 拉取全部供应商与模型，转成 ProviderPreset 注入预设选择器；设置页挂载时自动拉取。
+ * 目录无端点的少数大厂由官方补全表补地址；协议按 provider id 映射，协议下拉可纠正。
  *
- * Online provider catalog: fetched from Oh My Pi's model catalog (catalog.stencil.so, the
- * same source `omp models` uses) and converted into ProviderPreset entries compatible with
- * the local presets, then fed into the preset picker.
+ * The sole source of the provider list: fetched from Oh My Pi's model catalog
+ * (catalog.stencil.so, the same source `omp models` uses), converted into ProviderPreset
+ * entries, and auto-loaded when the Settings page mounts. A few majors shipping no
+ * endpoint get theirs from the official-URL table; the protocol maps by provider id—
+ * the protocol dropdown can always correct it.
  */
 import type { ModelCatalogEntry, ProviderPreset } from "./modelPresets";
 
@@ -49,21 +52,19 @@ interface CatalogProvider {
 /**
  * 把目录 JSON 转成 ProviderPreset 列表：
  * - 无端点且不在官方补全表的条目跳过（如 Vertex，需要项目级配置）；
- * - 与本地预置同端点的条目跳过（避免重复展示）；
  * - 模型按显示名排序，上下文窗口取自 limit.context。
  *
- * Converts catalog JSON into ProviderPreset entries: entries without an endpoint (and not
- * in the official-URL table) are skipped, entries duplicating a local preset's endpoint are
- * dropped, models sort by display name with the context window from limit.context.
+ * Converts catalog JSON into ProviderPreset[]: entries without an endpoint (and not in
+ * the official-URL table) are skipped; models sort by display name with the context
+ * window from limit.context.
  */
-export function parseCatalog(json: unknown, existing: ProviderPreset[]): ProviderPreset[] {
+export function parseCatalog(json: unknown): ProviderPreset[] {
   if (typeof json !== "object" || json === null) return [];
-  const knownUrls = new Set(existing.map((preset) => preset.apiBaseUrl));
   const presets: ProviderPreset[] = [];
 
   for (const [key, value] of Object.entries(json as Record<string, CatalogProvider>)) {
     const api = (value?.api ?? OFFICIAL_BASE_URLS[key])?.replace(/\/+$/, "");
-    if (!api || knownUrls.has(api)) continue;
+    if (!api) continue;
 
     const models: ModelCatalogEntry[] = Object.values(value.models ?? {})
       .map((model) => ({
@@ -93,11 +94,11 @@ let cached: Promise<ProviderPreset[]> | null = null;
  * 拉取并解析目录；会话内只拉一次，失败后允许重试。
  * Fetches and parses the catalog once per session; failures reset the cache to allow retries.
  */
-export function loadCatalog(existing: ProviderPreset[]): Promise<ProviderPreset[]> {
+export function loadCatalog(): Promise<ProviderPreset[]> {
   if (!cached) {
     cached = fetch(CATALOG_URL)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-      .then((json) => parseCatalog(json, existing))
+      .then((json) => parseCatalog(json))
       .catch((error: unknown) => {
         cached = null;
         throw error;

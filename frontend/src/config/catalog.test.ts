@@ -2,17 +2,6 @@ import { describe, expect, it } from "vitest";
 import { parseCatalog } from "./catalog";
 import type { ProviderPreset } from "./modelPresets";
 
-const deepseekPreset: ProviderPreset = {
-  name: "DeepSeek",
-  websiteUrl: "https://platform.deepseek.com",
-  apiBaseUrl: "https://api.deepseek.com",
-  category: "cn_official",
-  modelTypes: ["polisher"],
-  apiFormat: "openai",
-  models: [],
-  defaultModel: "deepseek-v4-flash",
-};
-
 const sampleCatalog = {
   deepseek: {
     id: "deepseek",
@@ -48,7 +37,7 @@ const sampleCatalog = {
 describe("parseCatalog", () => {
   it("转换目录条目：补官方端点、按 id 定协议、携带上下文窗口", () => {
     const presets = Object.fromEntries(
-      parseCatalog(sampleCatalog, [deepseekPreset]).map((preset) => [preset.name, preset]),
+      parseCatalog(sampleCatalog).map((preset) => [preset.name, preset]),
     ) as Record<string, ProviderPreset>;
 
     expect(presets.zhipuai.apiBaseUrl).toBe("https://open.bigmodel.cn/api/paas/v4");
@@ -63,18 +52,18 @@ describe("parseCatalog", () => {
     expect(presets.anthropic.models[0].model).toBe("claude-fable-5");
   });
 
-  it("与本地预置同端点的条目去重，无端点的条目跳过", () => {
+  it("目录条目全量返回，无端点的条目跳过", () => {
     const presets = Object.fromEntries(
-      parseCatalog(sampleCatalog, [deepseekPreset]).map((preset) => [preset.name, preset]),
+      parseCatalog(sampleCatalog).map((preset) => [preset.name, preset]),
     ) as Record<string, ProviderPreset>;
 
-    expect(presets.deepseek).toBeUndefined();
+    expect(presets.deepseek.apiBaseUrl).toBe("https://api.deepseek.com");
     expect(presets["google-vertex"]).toBeUndefined();
   });
 
   it("模型缺失显示名时回退到模型 ID，缺省上下文窗口为 undefined", () => {
     const presets = Object.fromEntries(
-      parseCatalog(sampleCatalog, [deepseekPreset]).map((preset) => [preset.name, preset]),
+      parseCatalog(sampleCatalog).map((preset) => [preset.name, preset]),
     ) as Record<string, ProviderPreset>;
 
     expect(presets["zai-coding-plan"].models[0]).toEqual({
@@ -85,7 +74,7 @@ describe("parseCatalog", () => {
   });
 
   it("非对象输入返回空数组", () => {
-    expect(parseCatalog(null, [])).toEqual([]);
-    expect(parseCatalog("nope", [])).toEqual([]);
+    expect(parseCatalog(null)).toEqual([]);
+    expect(parseCatalog("nope")).toEqual([]);
   });
 });
