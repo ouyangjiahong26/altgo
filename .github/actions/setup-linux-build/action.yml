@@ -22,3 +22,14 @@ runs:
       with:
         packages: libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libasound2-dev build-essential cmake ${{ inputs.extra-packages }}
         version: 1
+    # 兜底直装：cache-apt action 在 cache-miss 安装路径上会静默失败
+    # （v2.6.12 发版实测：19 秒"装完"8 个包、零 Setting up、退出码 0，
+    # 还把 4.8KB 空缓存存进去毒化后续命中）。这里无条件 apt-get install：
+    # 缓存真装上时是秒级 no-op，miss 或坏缓存时真正完成安装。
+    - name: Ensure system dependencies installed
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+          librsvg2-dev patchelf libasound2-dev build-essential cmake ${{ inputs.extra-packages }}
