@@ -782,7 +782,7 @@ mod tests {
     /// Polls until the given level shows up in the event stream (~500ms cap).
     async fn wait_for_audio_level(fx: &TestFixture, level: f32) -> bool {
         for _ in 0..100 {
-            if audio_level_events(fx).iter().any(|&l| l == level) {
+            if audio_level_events(fx).contains(&level) {
                 return true;
             }
             tokio::time::sleep(Duration::from_millis(5)).await;
