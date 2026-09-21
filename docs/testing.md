@@ -208,7 +208,7 @@ Before building this layer, weigh the cost first: real models are large, LLM cal
 
 - `ci.yml` 的 check job 在 ubuntu-22.04（amd64）与 ubuntu-22.04-arm（arm64）各跑全量 `cargo test --manifest-path=src-tauri/Cargo.toml --lib`
 - 前端测试、`cargo fmt --all -- --check`、`cargo clippy --all-targets -- -D warnings`（测试代码也过编译检查）只在 amd64 job 跑一次
-- `ci.yml` 的 check-windows job 在 windows-latest 上按架构分步：x64 跑 `cargo test --lib`；arm64 交叉编译，只能 `cargo check`。两架构都构建 NSIS 包
+- `ci.yml` 的 check-windows job 在 windows-latest 上按架构分步：x64 跑 `cargo test --lib`；arm64 交叉编译，只能 `cargo check`
 - `release.yml` 的 test job 同样双架构跑 `cargo test --lib`；deb/rpm 打包（build-linux）`needs: test`，发版前必须过两种架构的测试；NSIS 打包（build-windows）`needs: validate`，覆盖 Windows x64 与 arm64，打包前 x64 跑测试、arm64 只做编译检查
 
 **基线要求**：全量全绿，无 `#[ignore]`，无静默跳过。改动落在哪层，测试随代码补在哪层。若改动的风险只有端到端层能覆盖（如安装包真实启动），在 PR 里说明手动验证方式。
@@ -221,7 +221,7 @@ Before building this layer, weigh the cost first: real models are large, LLM cal
 
 - The check job of `ci.yml` runs the full `cargo test --manifest-path=src-tauri/Cargo.toml --lib` on ubuntu-22.04 (amd64) and ubuntu-22.04-arm (arm64) respectively
 - Frontend tests, `cargo fmt --all -- --check`, and `cargo clippy --all-targets -- -D warnings` (test code goes through compilation checks too) run once, only in the amd64 job
-- The check-windows job of `ci.yml` splits by architecture on windows-latest: x64 runs `cargo test --lib`; arm64 cross-compiles and can only `cargo check`. Both architectures build the NSIS package
+- The check-windows job of `ci.yml` splits by architecture on windows-latest: x64 runs `cargo test --lib`; arm64 cross-compiles and can only `cargo check`
 - The test job of `release.yml` likewise runs `cargo test --lib` on both architectures; deb/rpm packaging (build-linux) has `needs: test` and must pass both architectures' tests before release; NSIS packaging (build-windows) has `needs: validate` covering Windows x64 and arm64, with x64 running tests and arm64 doing compile checks only before packaging
 
 **Baseline requirement**: everything green on the full suite, no `#[ignore]`, no silent skips. Wherever a change lands, its tests land in that same layer alongside the code. If the risk of a change can be covered only by the end-to-end layer (such as real launch from an installer), describe the manual verification in the PR.

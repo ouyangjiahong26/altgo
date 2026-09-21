@@ -42,14 +42,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       # Cargo workspace 在 src-tauri；默认的根目录 target/ 不存在，必须显式指定。
-      # 保留 rust-cache 默认的 job 隔离，避免 debug 测试缓存抢占 release 打包缓存。
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
           workspaces: |
             src-tauri -> target
 
-      # 系统依赖统一在 composite action 里装；Tauri CLI 用 npm 版（见下方构建步骤）。
+      # 系统依赖统一在 composite action 里装。
       # 多装 rpm 使 apt 缓存 key 与 release 构建一致：master 每次 push 都在为
       # release 预热缓存，避免发版时缓存未命中、走慢速镜像全量下载（实测卡 20+ 分钟）。
       - uses: ./.github/actions/setup-linux-build
@@ -76,7 +75,7 @@ jobs:
         working-directory: frontend
 
       # 前端测试、fmt 和 Clippy 不依赖目标架构，单跑一次即可；两个架构仍会
-      # 分别执行测试和实际 deb 打包，覆盖各自的编译及链接路径。
+      # 分别执行测试，覆盖各自的编译及链接路径。
       - name: Run frontend tests
         if: matrix.arch == 'amd64'
         run: npm test
@@ -92,17 +91,6 @@ jobs:
 
       - name: Run tests
         run: cargo test --manifest-path=src-tauri/Cargo.toml --lib
-
-      # createUpdaterArtifacts 开启后，Linux 的 updater 产物只从 AppImage 生成
-      # （tauri-bundler 仅支持 appimage）；只打 deb 会在 bundling 阶段报
-      # "Unable to find a bundled project for the updater"。与 release 一致带上 appimage。
-      # CI 无签名私钥（TAURI_SIGNING_PRIVATE_KEY 只在 release 注入），生成 updater
-      # 产物会报 "public key found but no private key"；签名产物路径由 release 验证，
-      # 此处用 --config 覆盖关闭，仅验证各 bundle 能构建。
-      - name: Build Tauri GUI
-        run: npm --prefix frontend exec -- tauri build --bundles deb,appimage --config '{"bundle":{"createUpdaterArtifacts":false}}'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   check-windows:
     name: Check (windows)
@@ -140,16 +128,6 @@ jobs:
           curl -fSL -o "src-tauri/target/sherpa-onnx-prebuilt/${ARCHIVE}" "${URL}"
           tar -xjf "src-tauri/target/sherpa-onnx-prebuilt/${ARCHIVE}" -C src-tauri/target/sherpa-onnx-prebuilt/
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: frontend
-
       - name: Run tests
         if: matrix.arch == 'x64'
         run: cargo test --manifest-path=src-tauri/Cargo.toml --lib
@@ -158,9 +136,3 @@ jobs:
       - name: Check compile (arm64)
         if: matrix.arch == 'arm64'
         run: cargo check --manifest-path=src-tauri/Cargo.toml --target ${{ matrix.target }}
-
-      # CI 无签名私钥，updater 产物签名由 release 验证；此处仅验证打包（见 Linux job 注释）。
-      - name: Build Tauri GUI
-        run: npm --prefix frontend exec -- tauri build --target ${{ matrix.target }} --bundles nsis --config '{"bundle":{"createUpdaterArtifacts":false}}'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
