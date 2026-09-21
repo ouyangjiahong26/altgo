@@ -1,17 +1,15 @@
 # Changelog
 
-## Unreleased
+## v2.6.12 (2026-09-21)
 
 ### Added
-
-- **在线供应商目录**：设置页新增「加载更多供应商（Oh My Pi 目录）」，一键从 Oh My Pi 的模型目录（catalog.stencil.so，与 `omp models` 命令同源）拉取全部在线供应商与其实时模型清单，并入预设选择器统一搜索与选择；官方端点缺失的少数大厂（Anthropic / OpenAI / Google）自动补官方地址，与本地预置同端点的条目不重复展示。目录数据随上游更新，模型清单不再受发行版冻结限制。
 
 - **思考层级设置**：润色分区新增「思考层级」（`[polisher] thinking_level`，默认 `off` 维持自动关闭）。选低/中/高后请求按各家参数方言开启思考：OpenAI 兼容端点发 `reasoning_effort`，OpenRouter 发 `reasoning.effort`，通义/SiliconFlow 与智谱/Kimi/DeepSeek 等仅支持开关的服务商统一开启，Anthropic 协议按档给思考预算（1024/4096/16384 token）并自动抬高 `max_tokens`、省略与之不兼容的 `temperature`。
 
 ### Changed
 
+- **供应商清单全面依赖 omp 目录**：删除手写的本地供应商预置（原 13 条），设置页打开时自动从 Oh My Pi 模型目录（catalog.stencil.so，与 `omp models` 命令同源，200 余家）拉取供应商与实时模型清单（会话内一次，失败可重试），选择后自动填入地址与协议；离线或目录不可达时可直接手填 API 地址与模型。目录内同端点的不同条目均展示；预置独有的官网 / API Key 链接与图标着色随预置一并移除。
 - **移除从未使用的 libnotify 依赖**：deb/rpm/AUR 的依赖清单不再声明通知库（#141），CONTRIBUTING 与 README 同步清理 notify-send / notifications 残留描述。应用行为零变化——系统通知从未实现，结果展示统一走悬浮窗。
-- **润色供应商预置精简为四家**：预置清单只保留 Kimi、智谱 GLM、DeepSeek、小米 MiMo 及其官方 Anthropic / Coding Plan 变体入口（共 13 条），通义、豆包、文心、MiniMax、OpenAI、Claude、Gemini 与各聚合、中转服务不再预置，需要时可在设置中自行填写 API 地址与模型，或从在线目录加载。同时更新模型目录：智谱主条目从 GLM-4.7-flash / 4.6 更新为 GLM-5.3 Flash（免费默认，1M 上下文）与 GLM-5.2 / 5.1，两条 Coding Plan 条目同步以 GLM-5.3 Flash 为默认；Kimi 主条目为 K2.6 补上 1M 上下文的 K3 备选（K2 系列与 moonshot-v1 已在官方平台下线）。
 
 ## v2.6.11 (2026-09-06)
 
