@@ -197,6 +197,7 @@ pub fn run() {
             cmd::resolve_model,
             cmd::capture_activation_key,
             cmd::test_polisher_connection,
+            cmd::fetch_provider_catalog,
             cmd::list_history,
             cmd::delete_history_entries,
             cmd::clear_history,

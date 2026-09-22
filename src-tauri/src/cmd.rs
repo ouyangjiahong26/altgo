@@ -2,7 +2,7 @@
 //!
 //! Tauri commands — functions exposed to the frontend over IPC.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -407,6 +407,45 @@ pub async fn test_polisher_connection(
         .map_err(|e| polisher::describe_test_error(&e))
 }
 
+/// 供应商目录地址（与 `omp models` 同源）。拉取在 Rust 侧完成：WebView 受 CSP
+/// `connect-src 'self'` 限制，跨域请求统一走 reqwest（与润色测试连接、模型下载同范式）。
+///
+/// Provider catalog URL (same source as `omp models`). Fetched on the Rust side: the WebView
+/// runs under CSP `connect-src 'self'`, so cross-origin requests go through reqwest like
+/// every other network call (polisher test connection, model download).
+const PROVIDER_CATALOG_URL: &str = "https://catalog.stencil.so/models.json";
+
+/// 从给定 URL 拉取供应商目录 JSON，返回原始值交给前端解析（`parseCatalog`）。
+///
+/// Fetches the provider catalog from `url` and returns the raw JSON value; the frontend
+/// parses it via `parseCatalog`.
+async fn fetch_provider_catalog_from(url: &str) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| format!("目录拉取失败：{e}"))?;
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("目录拉取失败：{e}"))?;
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(format!("目录服务返回 HTTP {status}"));
+    }
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("目录解析失败：{e}"))
+}
+
+/// 拉取 omp 供应商目录（设置页供应商清单的唯一来源）。
+///
+/// Fetches the omp provider catalog (the sole source of the Settings provider list).
+#[tauri::command]
+pub async fn fetch_provider_catalog() -> Result<serde_json::Value, String> {
+    fetch_provider_catalog_from(PROVIDER_CATALOG_URL).await
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -421,6 +460,49 @@ mod tests {
     use crate::pipeline_controller::{PipelineController, PipelineStatus};
 
     use super::*;
+
+    /// 目录拉取成功：返回原始 JSON 值，交前端 `parseCatalog` 解析。
+    /// Catalog fetch success: returns the raw JSON value for the frontend to parse.
+    #[tokio::test]
+    async fn fetch_provider_catalog_from_parses_json() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/models.json")
+            .with_body(r#"{"openai":{"api":"https://api.openai.com/v1"}}"#)
+            .create_async()
+            .await;
+
+        let value = fetch_provider_catalog_from(&format!("{}/models.json", server.url()))
+            .await
+            .expect("catalog fetch should succeed");
+
+        assert_eq!(
+            value["openai"]["api"], "https://api.openai.com/v1",
+            "raw JSON must pass through untouched"
+        );
+        mock.assert();
+    }
+
+    /// 目录服务返回非 2xx：报可读的 HTTP 状态错误（设置页据此展示并可重试）。
+    /// Catalog service returns non-2xx: a readable HTTP status error the Settings page shows.
+    #[tokio::test]
+    async fn fetch_provider_catalog_from_reports_http_error() {
+        let mut server = mockito::Server::new_async().await;
+        server
+            .mock("GET", "/models.json")
+            .with_status(503)
+            .create_async()
+            .await;
+
+        let err = fetch_provider_catalog_from(&format!("{}/models.json", server.url()))
+            .await
+            .expect_err("HTTP 503 must be an error");
+
+        assert!(
+            err.contains("503"),
+            "error should name the status, got: {err}"
+        );
+    }
 
     /// 构造一个等待 stop 信号后才退出的 fake pipeline handle，
     /// 用于验证 `restart_pipeline` 的停止/启动编排。
