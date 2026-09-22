@@ -151,20 +151,15 @@ struct AudioLevelState {
 /// `audio-level` 定时派发循环：每 `interval` 短暂持锁读取最新电平，`Some` 则派发。
 ///
 /// 事件频率由定时器严格驱动（生产 interval 下固定 10 次/秒），与平台音频块/回调
-/// 节奏完全解耦：Linux parecord 约 31.8ms/块的到达时刻不再量化派发间隔（此前
-/// leading-edge 节流实际间隔 127.2ms、前端 100ms 采样窗退化为透传），前端采样
-/// 窗口每窗恰好采到一个事件，轨迹保持 10 帧/秒、10 秒窗口；Recording 期间首个
-/// 事件最迟一个 interval 内到达。每 tick 拷贝 `latest` 后立即释放锁，锁不跨
+/// 节奏解耦——选定时器而非节流器，是为了派发间隔不被块节奏量化。Recording 期间
+/// 首个事件最迟一个 interval 内到达。每 tick 拷贝 `latest` 后立即释放锁，锁不跨
 /// await。
 ///
 /// Timer-driven dispatch loop for `audio-level`: briefly locks every `interval`, reads the
 /// latest level, and emits it when `Some`. The event rate is strictly timer-driven (a fixed
-/// 10 per second under the production interval), fully decoupled from platform audio
-/// block/callback cadence: Linux parecord's ~31.8ms block arrivals no longer quantize the
-/// emission interval (the former leading-edge throttle effectively emitted every 127.2ms,
-/// degenerating the frontend's 100ms sampling window into a pass-through), each sampling
-/// window sees exactly one event, and the trace keeps its 10-frames-per-second, 10-second
-/// window; during Recording the first event arrives within one interval at the latest.
+/// 10 per second under the production interval), decoupled from platform audio block/callback
+/// cadence—a timer rather than a throttle, so the emission interval is not quantized by block
+/// arrivals. During Recording the first event arrives within one interval at the latest.
 /// Each tick copies `latest` and drops the lock immediately—the lock never spans an await.
 async fn run_audio_level_ticker(
     audio_level: Arc<std::sync::Mutex<AudioLevelState>>,
@@ -788,6 +783,17 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
         false
+    }
+
+    #[test]
+    fn audio_level_emit_interval_matches_frontend_sampling() {
+        // 契约锚定：派发间隔必须等于前端采样间隔（overlay.tsx 的
+        // TRACE_SAMPLE_INTERVAL_MS），否则采样窗每窗可能采到 0 或 2 个事件，
+        // 轨迹帧率与窗口随之漂移。
+        // Contract anchor: the emission interval must equal the frontend sampling interval
+        // (TRACE_SAMPLE_INTERVAL_MS in overlay.tsx), otherwise each sampling window may
+        // catch 0 or 2 events and the trace frame rate and window drift.
+        assert_eq!(AUDIO_LEVEL_EMIT_INTERVAL, Duration::from_millis(100));
     }
 
     #[test]
