@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.6.13 (2026-09-22)
+
+### Fixes
+
+- **修复激活键无反应**：键盘设备枚举改为解析 `/proc/bus/input/devices`，监听全部带 `kbd` handler 的输入设备。此前逻辑扫到 `/dev/input/by-id/*-kbd` 即短路，而真键盘（蓝牙、特殊接收器）可能不在 by-id，游戏鼠标的宏键盘接口反而占据该链接——Wayland 下会监听到错误设备，按住激活键无任何反应且启动无报错。同时移除对 `evtest --info` 的依赖（该选项在 evtest 中不存在，备用扫描路径从未生效过）。设置页“按下以设置”复用同一枚举，一并修复。
+
+### Added
+
+- **日志可观测性**：接入 `tracing-subscriber`（此前仅有 tracing 宏、无订阅器，全部日志被静默丢弃）。默认输出 info 级别，`RUST_LOG=debug altgo` 可细化排障。
+
 ## v2.6.12 (2026-09-21)
 
 ### Added
