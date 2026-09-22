@@ -49,51 +49,66 @@ pub struct X11Listener {
 }
 
 /// 枚举可用于 `evtest` 回退的键盘设备（供按键捕获使用）。
+///
+/// 以 `/proc/bus/input/devices` 中带 `kbd` handler 的 event 节点为准：
+/// 真键盘可能不在 `/dev/input/by-id`（蓝牙、特殊接收器），而游戏鼠标的
+/// 键盘接口反而会占据 by-id 的 `*-kbd` 链接，只扫 by-id 会漏掉真键盘。
+/// 枚举宁多勿漏——监听循环按 evdev 码过滤，多余设备只多一个空闲子进程。
+///
 /// Enumerates keyboard devices usable by the `evtest` fallback (shared with key capture).
+///
+/// Devices are taken from the `kbd`-handler event nodes in `/proc/bus/input/devices`:
+/// a real keyboard may be absent from `/dev/input/by-id` (Bluetooth, special receivers),
+/// while a gaming mouse's keyboard interface can occupy the `*-kbd` link there — scanning
+/// by-id alone misses the real keyboard. Prefer over-inclusion: the listener filters by
+/// evdev code, so surplus devices only cost one idle subprocess each.
 pub fn list_keyboard_devices() -> Result<Vec<PathBuf>, KeyListenerError> {
-    let by_id_path = PathBuf::from("/dev/input/by-id");
+    let text = std::fs::read_to_string("/proc/bus/input/devices")?;
+    Ok(parse_keyboard_devices(&text))
+}
+
+/// 解析 `/proc/bus/input/devices` 文本，返回带 `kbd` handler 的 event 节点路径。
+///
+/// 每个输入设备一段，以空行分隔；`H: Handlers=` 行形如
+/// `Handlers=sysrq kbd event16 leds`，其中 `eventN` 即设备节点。
+///
+/// Parses `/proc/bus/input/devices` text into event-node paths carrying a `kbd` handler.
+///
+/// Each input device forms a paragraph separated by blank lines; the `H: Handlers=` line
+/// looks like `Handlers=sysrq kbd event16 leds`, where `eventN` is the device node.
+fn parse_keyboard_devices(text: &str) -> Vec<PathBuf> {
     let mut devices = Vec::new();
+    let mut handlers: Option<&str> = None;
 
-    if by_id_path.exists() {
-        for entry in std::fs::read_dir(&by_id_path)? {
-            let entry = entry?;
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if name_str.ends_with("-kbd") {
-                let path = entry.path();
-                if let Ok(real_path) = std::fs::canonicalize(&path) {
-                    devices.push(real_path);
+    let flush = |handlers: &mut Option<&str>, devices: &mut Vec<PathBuf>| {
+        if let Some(h) = handlers.take() {
+            let tokens: Vec<&str> = h.split_whitespace().collect();
+            // 只有带 `kbd` handler 的设备才是键盘类；纯鼠标接口只有 `mouse0`。
+            // Only devices with a `kbd` handler are keyboard-like; pure mouse
+            // interfaces carry `mouse0` only.
+            if !tokens.contains(&"kbd") {
+                return;
+            }
+            for token in tokens {
+                if token.starts_with("event") {
+                    devices.push(PathBuf::from("/dev/input").join(token));
                 }
             }
         }
-    }
+    };
 
-    if devices.is_empty() {
-        for entry in std::fs::read_dir("/dev/input")? {
-            let entry = entry?;
-            let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with("event") {
-                let path = entry.path();
-                // 避免经 shell 插值——参数直接传给 evtest。
-                // Avoid shell interpolation — pass args directly to evtest.
-                let output = Command::new("evtest")
-                    .arg("--info")
-                    .arg(&path)
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::null())
-                    .output();
-
-                if let Ok(output) = output {
-                    let info = String::from_utf8_lossy(&output.stdout);
-                    if info.contains("EV_KEY") && info.contains("KEY") {
-                        devices.push(path);
-                    }
-                }
-            }
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("H: Handlers=") {
+            handlers = Some(rest);
+        } else if line.is_empty() {
+            flush(&mut handlers, &mut devices);
         }
     }
+    // 文件末尾可能没有空行，补最后一次。
+    // The file may not end with a blank line; flush once more.
+    flush(&mut handlers, &mut devices);
 
-    Ok(devices)
+    devices
 }
 
 impl X11Listener {
@@ -624,5 +639,46 @@ mod tests {
             _ => EVDEV_KEY_ALT_R,
         };
         assert_eq!(code, EVDEV_KEY_ALT);
+    }
+
+    #[test]
+    fn parse_keyboard_devices_picks_kbd_handlers_only() {
+        // 样例取自真实 /proc/bus/input/devices 结构：鼠标的键盘接口（event3）
+        // 与真键盘（event16）都带 kbd handler，纯鼠标接口（event2）不带。
+        // Sample mirrors real /proc/bus/input/devices structure: the mouse's keyboard
+        // interface (event3) and the real keyboard (event16) carry a kbd handler,
+        // while the pure mouse interface (event2) does not.
+        let sample = "I: Bus=0003 Vendor=046d Product=c092 Version=0111\n\
+                      N: Name=\"Logitech G102 LIGHTSYNC Gaming Mouse\"\n\
+                      P: Phys=usb-0000:00:14.0-1/input0\n\
+                      H: Handlers=mouse0 event2 \n\
+                      B: EV=1\n\
+                      \n\
+                      I: Bus=0003 Vendor=046d Product=c092 Version=0111\n\
+                      N: Name=\"Logitech G102 LIGHTSYNC Gaming Mouse Keyboard\"\n\
+                      P: Phys=usb-0000:00:14.0-1/input1\n\
+                      H: Handlers=sysrq kbd event3 \n\
+                      \n\
+                      I: Bus=0011 Vendor=0001 Product=0001 Version=0000\n\
+                      N: Name=\"Wave Keys\"\n\
+                      P: Phys=...\n\
+                      H: Handlers=sysrq kbd event16 leds \n";
+        let devices = parse_keyboard_devices(sample);
+        assert_eq!(
+            devices,
+            vec![
+                PathBuf::from("/dev/input/event3"),
+                PathBuf::from("/dev/input/event16"),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_keyboard_devices_handles_missing_trailing_blank_line() {
+        // 末段无空行结尾时也要能取到。
+        // The last paragraph without a trailing blank line must still be captured.
+        let sample = "N: Name=\"Wave Keys\"\nH: Handlers=kbd event16 leds \n";
+        let devices = parse_keyboard_devices(sample);
+        assert_eq!(devices, vec![PathBuf::from("/dev/input/event16")]);
     }
 }
