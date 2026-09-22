@@ -51,15 +51,21 @@ cargo clippy --manifest-path=src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo tauri dev      # beforeDevCommand 自动起前端 dev server（127.0.0.1:1420）
 cargo tauri build    # beforeBuildCommand 自动跑 frontend npm run build
 
-# Makefile 快捷目标
-make build && make install && make run && make test && make fmt && make lint
+# Makefile 快捷目标（每条单独运行）
+make build    # 缺 frontend/node_modules 时自动 npm install；产物 src-tauri/target/release/altgo
+make test     # 全目标 cargo test（不带 --lib）
+make fmt      # 格式检查
+make lint     # clippy -D warnings
+make install  # 安装 altgo 到 /usr/local/bin、模板到 /etc/altgo（应用不读取该路径）
+make run      # 前台运行
 
 # 前端
 cd frontend && npm install && npm test        # vitest run；test:watch 可用
 cd frontend && npm run build                  # tsc -b && vite build → frontend/dist
 
 # 文档站
-cd docs-site && npm install && npm start && npm run build
+cd docs-site && npm install && npm run build   # 产物 docs-site/build
+cd docs-site && npm start                      # dev server（热更新，前台阻塞）
 ```
 
 提交前检查（`CONTRIBUTING.md`）：fmt + clippy + `cargo test --lib` + `cd frontend && npm test` + `npm run build`。
