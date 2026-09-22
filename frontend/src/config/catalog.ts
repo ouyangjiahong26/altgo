@@ -9,9 +9,8 @@
  * endpoint get theirs from the official-URL table; the protocol maps by provider id—
  * the protocol dropdown can always correct it.
  */
+import { invoke } from "@tauri-apps/api/core";
 import type { ModelCatalogEntry, ProviderPreset } from "./modelPresets";
-
-const CATALOG_URL = "https://catalog.stencil.so/models.json";
 
 /**
  * 目录条目不带协议字段（omp 在自身代码内映射）；altgo 按 provider id 定协议，
@@ -92,12 +91,14 @@ let cached: Promise<ProviderPreset[]> | null = null;
 
 /**
  * 拉取并解析目录；会话内只拉一次，失败后允许重试。
+ * 网络请求在 Rust 侧完成（WebView 的 CSP `connect-src 'self'` 不放行跨域 fetch）。
  * Fetches and parses the catalog once per session; failures reset the cache to allow retries.
+ * The network call happens on the Rust side (the WebView CSP `connect-src 'self'` forbids
+ * cross-origin fetches).
  */
 export function loadCatalog(): Promise<ProviderPreset[]> {
   if (!cached) {
-    cached = fetch(CATALOG_URL)
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+    cached = invoke<unknown>("fetch_provider_catalog")
       .then((json) => parseCatalog(json))
       .catch((error: unknown) => {
         cached = null;
