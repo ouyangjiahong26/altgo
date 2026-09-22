@@ -73,7 +73,7 @@
 语音管道期望录音器以固定的 16kHz、单声道、16 位 PCM WAV 字节返回音频。SenseVoice 只接受这一采样率，其他配置值会在管道启动前被拒绝。
 
 **音频电平（Audio Level）**
-录音期间由录音器从实时 PCM 音频块计算出的感知音量大小（范围 0.0 ~ 1.0）。录音线程在读取音频流时计算均方根（RMS）并通过非线性增益映射为感知电平，经 `PipelineSink::on_audio_level` 和 Tauri `audio-level` 事件以轻量节流频率（约 20~30 FPS）派发给悬浮窗，作为电平轨迹的实时采样来源。
+录音期间由录音器从实时 PCM 音频块计算出的感知音量大小（范围 0.0 ~ 1.0）。录音线程在读取音频流时计算均方根（RMS）并通过非线性增益映射为感知电平，经 `PipelineSink::on_audio_level` 记录最新电平，录音期间由 Tauri `audio-level` 事件以固定 100ms 间隔（10 次/秒）定时派发给悬浮窗，作为电平轨迹的实时采样来源。
 
 **电平轨迹（Level Trace）**
 录音期间由连续音频电平采样累积成的滚动历史，显示最近一段时间的说话痕迹；松开激活键后冻结保留，直到结果浮窗出现。_Avoid_: 声纹、波形图。
@@ -183,7 +183,7 @@ The full prompt text sent to the LLM for polishing, composed from `base.txt` + `
 The voice pipeline expects recorders to return audio as fixed 16kHz mono 16-bit PCM WAV bytes. SenseVoice accepts only this sample rate; other settings are rejected before the pipeline starts.
 
 **Audio Level**
-Perceptual loudness (0.0–1.0) computed by the recorder from realtime PCM chunks during recording. The recording thread computes RMS while reading the stream and maps it through nonlinear gain onto a perceptual level; dispatched via `PipelineSink::on_audio_level` and the Tauri `audio-level` event at a light throttle (~20–30 FPS) to feed the overlay's level trace.
+Perceptual loudness (0.0–1.0) computed by the recorder from realtime PCM chunks during recording. The recording thread computes RMS while reading the stream and maps it through nonlinear gain onto a perceptual level; recorded via `PipelineSink::on_audio_level` and dispatched to the overlay as the Tauri `audio-level` event on a fixed 100ms timer (10 events per second) while recording, feeding the overlay's level trace.
 
 **Level Trace**
 A rolling history built from continuous audio-level samples during recording, showing recent speech activity; frozen once the activation key is released, kept until the result overlay appears. _Avoid_: voiceprint, waveform.
