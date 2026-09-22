@@ -456,7 +456,7 @@ Recording on every platform uniformly outputs 16kHz mono 16-bit PCM, encoded to 
 
 `pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`key-listener-backend`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`。
 
-`polish-failed` 携带润色失败原因字符串，在 `transcription-result` 之前发出；悬浮窗 done 阶段据此显示「润色失败，已使用原文」。`audio-level` 以约 20~30 FPS 把感知音量派发给悬浮窗，驱动录音阶段的实时波形。
+`polish-failed` 携带润色失败原因字符串，在 `transcription-result` 之前发出；悬浮窗 done 阶段据此显示「润色失败，已使用原文」。`audio-level` 在录音期间以固定 100ms 间隔（10 次/秒）定时派发感知音量给悬浮窗，驱动录音阶段的实时波形。
 
 ### Events
 
@@ -464,7 +464,7 @@ There are 11 Tauri events in total:
 
 `pipeline-status`, `pipeline-error`, `transcription-result`, `polish-failed`, `transcription-progress`, `audio-level`, `key-listener-backend`, `history-updated`, `overlay-state`, `model-download-progress`, `model-download-finished`.
 
-`polish-failed` carries the polishing failure reason string and is emitted before `transcription-result`; the overlay shows “Polishing failed, raw text used” during its done phase accordingly.`audio-level` dispatches perceived loudness to the overlay at roughly 20~30 FPS, driving the live waveform during recording.
+`polish-failed` carries the polishing failure reason string and is emitted before `transcription-result`; the overlay shows “Polishing failed, raw text used” during its done phase accordingly.`audio-level` dispatches perceived loudness to the overlay on a fixed 100ms timer (10 events per second) while recording, driving the live waveform.
 
 ### 序列化契约
 
