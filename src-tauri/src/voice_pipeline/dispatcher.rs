@@ -1,6 +1,6 @@
 //! 转写结果的业务调度 seam。
 //!
-//! `TauriPipelineSink` 只承担「事件 emit + 浮窗状态切换」，剪贴板写入
+//! `TauriPipelineSink` 只承担“事件 emit + 浮窗状态切换”，剪贴板写入
 //! 与历史追加由 `TranscriptionDispatch` 抽象注入。这是该 seam 的
 //! 生产实现和 trait 定义。
 //!

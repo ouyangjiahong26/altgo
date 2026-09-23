@@ -51,7 +51,7 @@ Assignment rule: **a module's tests belong to exactly one layer, assigned per mo
 
 **可用替身**：临时目录与文件、注入的闭包与参数、mockito 本地 HTTP 假服务器（model 下载与 polisher 协议）。本层不使用语音流水线的 test_doubles。
 
-**执行命令**：本地按模块过滤，如 `cargo test --manifest-path=src-tauri/Cargo.toml --lib state_machine::`；CI 双架构跑全量（见「回归基线」）。
+**执行命令**：本地按模块过滤，如 `cargo test --manifest-path=src-tauri/Cargo.toml --lib state_machine::`；CI 双架构跑全量（见“回归基线”）。
 
 ## Layer 1: Pure Logic
 

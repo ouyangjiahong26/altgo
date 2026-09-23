@@ -24,7 +24,7 @@
 
 ### Added
 
-- **思考层级设置**：润色分区新增「思考层级」（`[polisher] thinking_level`，默认 `off` 维持自动关闭）。选低/中/高后请求按各家参数方言开启思考：OpenAI 兼容端点发 `reasoning_effort`，OpenRouter 发 `reasoning.effort`，通义/SiliconFlow 与智谱/Kimi/DeepSeek 等仅支持开关的服务商统一开启，Anthropic 协议按档给思考预算（1024/4096/16384 token）并自动抬高 `max_tokens`、省略与之不兼容的 `temperature`。
+- **思考层级设置**：润色分区新增“思考层级”（`[polisher] thinking_level`，默认 `off` 维持自动关闭）。选低/中/高后请求按各家参数方言开启思考：OpenAI 兼容端点发 `reasoning_effort`，OpenRouter 发 `reasoning.effort`，通义/SiliconFlow 与智谱/Kimi/DeepSeek 等仅支持开关的服务商统一开启，Anthropic 协议按档给思考预算（1024/4096/16384 token）并自动抬高 `max_tokens`、省略与之不兼容的 `temperature`。
 
 ### Changed
 
@@ -46,7 +46,7 @@
 
 ### Fixes
 
-- **润色思考抑制补全与输出兜底**：DeepSeek、Moonshot/Kimi、z.ai 的模型已默认开启思考，润色延迟凭空多出数秒——这些域名加入「自动关闭思考」抑制表，SiliconFlow 国际站（siliconflow.com）一并覆盖（方言表对齐 zotero-pdf-translate#1464）。同时润色出口统一剥掉响应中混入的 `<think>` 思维链残渣，Anthropic 协议响应取第一个文本块，中转端点混入思考块时不再报错或污染结果。
+- **润色思考抑制补全与输出兜底**：DeepSeek、Moonshot/Kimi、z.ai 的模型已默认开启思考，润色延迟凭空多出数秒——这些域名加入“自动关闭思考”抑制表，SiliconFlow 国际站（siliconflow.com）一并覆盖（方言表对齐 zotero-pdf-translate#1464）。同时润色出口统一剥掉响应中混入的 `<think>` 思维链残渣，Anthropic 协议响应取第一个文本块，中转端点混入思考块时不再报错或污染结果。
 
 ## v2.6.9 (2026-08-26)
 
@@ -74,13 +74,13 @@
 
 ### Added
 
-- **录音悬浮窗电平轨迹**：录音期间悬浮窗以滚动电平轨迹（最近 10 秒，每 100ms 一帧）取代原 4 根即时律动条，直观呈现「刚才讲了多久、停顿在哪」；松开触发键后轨迹冻结保留在转写阶段，结果出现后退场（#138）。
+- **录音悬浮窗电平轨迹**：录音期间悬浮窗以滚动电平轨迹（最近 10 秒，每 100ms 一帧）取代原 4 根即时律动条，直观呈现“刚才讲了多久、停顿在哪”；松开触发键后轨迹冻结保留在转写阶段，结果出现后退场（#138）。
 - **结果浮窗自动淡出**：转写结果浮窗不再无限挂住等手动关闭——无任何键盘/鼠标输入时一直保留；检测到输入活动（打字、切窗口、动鼠标）后 3 秒自动淡出，粘贴完不用回头点关闭。Windows 基于全局输入检测实现完整语义，Linux 因 Wayland 无统一空闲 API 降级为固定 8 秒超时淡出（#138）。
-- **文本注入设置开关**：设置页新增「自动输入到光标位置」开关与 `[output] inject_text` 配置项（#138）。
+- **文本注入设置开关**：设置页新增“自动输入到光标位置”开关与 `[output] inject_text` 配置项（#138）。
 
 ### Changed
 
-- **⚠️ Windows 文本自动输入默认改为关闭**：此前 Windows 上转写完成后会无条件把文本直接输入到当前焦点窗口的光标处，属侵入性行为且无法关闭。现在默认只写入剪贴板，需要自动输入的用户请在设置页开启「自动输入到光标位置」（#138）。**存量 Windows 用户升级后行为变化：不再自动输入，请手动粘贴或到设置中开启**。注入本身保持一次性整段输入（非流式），Linux 行为不变。
+- **⚠️ Windows 文本自动输入默认改为关闭**：此前 Windows 上转写完成后会无条件把文本直接输入到当前焦点窗口的光标处，属侵入性行为且无法关闭。现在默认只写入剪贴板，需要自动输入的用户请在设置页开启“自动输入到光标位置”（#138）。**存量 Windows 用户升级后行为变化：不再自动输入，请手动粘贴或到设置中开启**。注入本身保持一次性整段输入（非流式），Linux 行为不变。
 
 ## v2.6.5 (2026-08-24)
 
@@ -96,7 +96,7 @@
 
 ### Added
 
-- **应用更新检查与自动更新**：支持启动时静默检查更新并在主界面顶部提示，同时在设置页提供手动「检查更新」按钮；发现新版本后支持一键下载安装并重启（#134）。可通过设置项 `gui.auto_check_update` 控制是否在启动时自动检查。
+- **应用更新检查与自动更新**：支持启动时静默检查更新并在主界面顶部提示，同时在设置页提供手动“检查更新”按钮；发现新版本后支持一键下载安装并重启（#134）。可通过设置项 `gui.auto_check_update` 控制是否在启动时自动检查。
 
 ## v2.6.3 (2026-08-24)
 
@@ -125,7 +125,7 @@
 
 ### Added
 
-- **Windows 支持**：Windows 10+（x86_64）原生实现，随版本发布 NSIS 安装包（`altgo_<版本>_x64-setup.exe`）。按键监听用 WH_KEYBOARD_LL 低级键盘钩子，录音用 cpal/WASAPI（16kHz 单声道，设备不支持时自动回退默认格式并重采样），激活键捕获与 Linux「按下以设置」体验一致（配置新增 `windows_vk_code`，与 `linux_evdev_code` 对等）。CI 增加 Windows 测试与打包 job，Release 自动产出安装包。
+- **Windows 支持**：Windows 10+（x86_64）原生实现，随版本发布 NSIS 安装包（`altgo_<版本>_x64-setup.exe`）。按键监听用 WH_KEYBOARD_LL 低级键盘钩子，录音用 cpal/WASAPI（16kHz 单声道，设备不支持时自动回退默认格式并重采样），激活键捕获与 Linux“按下以设置”体验一致（配置新增 `windows_vk_code`，与 `linux_evdev_code` 对等）。CI 增加 Windows 测试与打包 job，Release 自动产出安装包。
 - **转写文本自动输入**（Windows）：转写完成后除写入剪贴板外，通过 SendInput 把文本直接输入到当前焦点位置（支持中文）；Linux 行为不变（仅剪贴板）。
 
 ### Changed
@@ -140,7 +140,7 @@
 
 ### Changed
 
-- **设置页区块重排**：按「录音 → 润色 → 转写 → 外观」顺序渲染，润色区块默认展开，常用项无需再展开查找（#128）。
+- **设置页区块重排**：按“录音 → 润色 → 转写 → 外观”顺序渲染，润色区块默认展开，常用项无需再展开查找（#128）。
 - **默认窗口放大**：由 520×480 提至 640×600，缓解此前窗口过窄、内容拥挤的问题（#128）。
 - **供应商选择改弹窗**：从内嵌列表改为独立选择弹窗，顶部展示当前供应商摘要（图标、名称、当前模型），当前使用的预设置顶，搜索可同时匹配供应商与模型名（#128）。
 
@@ -154,16 +154,16 @@
 
 - **修复润色 API 地址拼接错误**：此前无条件在 base URL 后拼 `/v1/chat/completions`，而设置页大部分供应商预设（Kimi、智谱、通义、OpenAI、SiliconFlow）的地址自带 `/v1` 或 `/v4`，实际请求打到 `/v1/v1/...` 必然 404。现在按协议推导请求地址：地址不带路径时自动补 `/v1/...`，带版本路径（`/v1`、`/api/paas/v4` 等）时只接 `/chat/completions` 或 `/messages`，填写完整 endpoint 亦原样可用。
 - **修复 Anthropic 协议无法从设置页生效**：`protocol` 此前不在设置保存链路里，选 Anthropic 预设后仍按 OpenAI 协议请求。现在协议随预设自动带出，也可在设置页手动选择。
-- **润色失败不再静默**：实时链路润色失败只写日志并回退原文，用户无从知晓。现在失败时悬浮窗会显示「润色失败，已使用原文」（悬停可看原因）；历史页再润色在级别为「关闭」时给出明确提示。
+- **润色失败不再静默**：实时链路润色失败只写日志并回退原文，用户无从知晓。现在失败时悬浮窗会显示“润色失败，已使用原文”（悬停可看原因）；历史页再润色在级别为“关闭”时给出明确提示。
 - **配置校验补全**：润色开启时除密钥外，同时校验 API 地址与模型名非空，错误信息逐项列出缺失字段。
 
 ### Added
 
-- **供应商预设清单迁移自 cc-switch**：设置页预设从 13 家扩至 99 家（新增「第三方中转」分组），涵盖国产官方、聚合服务与中转站的 Anthropic / OpenAI 双协议端点，全部端点与默认模型取自 cc-switch 内置清单（过滤了 OAuth、Bedrock 等不适用条目，剥离了推广参数）。
+- **供应商预设清单迁移自 cc-switch**：设置页预设从 13 家扩至 99 家（新增“第三方中转”分组），涵盖国产官方、聚合服务与中转站的 Anthropic / OpenAI 双协议端点，全部端点与默认模型取自 cc-switch 内置清单（过滤了 OAuth、Bedrock 等不适用条目，剥离了推广参数）。
 - **Anthropic 协议双鉴权头**：请求同时携带 `x-api-key` 与 `Authorization: Bearer`，官方端点与多数中转端点（用 Bearer token 鉴权）均可直接使用。
 - **新增 6 家润色供应商预设**：火山方舟（豆包）、百度千帆、MiniMax、OpenRouter、Google Gemini（OpenAI 兼容端点）与本地 Ollama，预设含各自的推荐模型目录。
-- **润色默认关闭「思考」**：语音润色是轻量任务，推理模型先思考再回答会多出数秒延迟与花费。现在对通义、SiliconFlow、智谱、火山方舟、MiniMax、OpenRouter 的请求自动附带各家对应的关闭思考参数（`enable_thinking: false` / `thinking: {"type": "disabled"}` / `reasoning: {"enabled": false}`）；其他服务商的推荐模型默认不思考，不发送任何额外字段。
-- **设置页「测试连接」**：润色分区新增按钮，基于表单当前值（密钥留空则用已存密钥）发一次最小请求，立即反馈密钥无效、地址不对、超时等原因，无需先保存或录音验证。
+- **润色默认关闭“思考”**：语音润色是轻量任务，推理模型先思考再回答会多出数秒延迟与花费。现在对通义、SiliconFlow、智谱、火山方舟、MiniMax、OpenRouter 的请求自动附带各家对应的关闭思考参数（`enable_thinking: false` / `thinking: {"type": "disabled"}` / `reasoning: {"enabled": false}`）；其他服务商的推荐模型默认不思考，不发送任何额外字段。
+- **设置页“测试连接”**：润色分区新增按钮，基于表单当前值（密钥留空则用已存密钥）发一次最小请求，立即反馈密钥无效、地址不对、超时等原因，无需先保存或录音验证。
 - **清除已存密钥**：设置页可清除已保存的 API 密钥。
 
 ### Changed
@@ -224,13 +224,13 @@
 
 ### Docs
 
-- **README 重组**：重组「使用」与「开发」文档结构，修复失效链接（#116）。
+- **README 重组**：重组“使用”与“开发”文档结构，修复失效链接（#116）。
 
 ## v2.5.6 (2026-08-12)
 
 ### Refactor
 
-- **移除 IPC 死代码命令**：`get_status` 与 `stop_pipeline` 已注册但前端零调用（状态由 `tauri_sink` 推送 `pipeline-status` 事件、停止由 `save_config` 内部 `restart_pipeline` 完成），删除命令与注册，IPC 契约 16 → 14；同步清理 architecture.md / CLAUDE.md 中「疑为死代码」标注（#112）。
+- **移除 IPC 死代码命令**：`get_status` 与 `stop_pipeline` 已注册但前端零调用（状态由 `tauri_sink` 推送 `pipeline-status` 事件、停止由 `save_config` 内部 `restart_pipeline` 完成），删除命令与注册，IPC 契约 16 → 14；同步清理 architecture.md / CLAUDE.md 中“疑为死代码”标注（#112）。
 
 ## v2.5.5 (2026-08-11)
 
@@ -246,7 +246,7 @@
 - **README 文本润色**：精简开头与若干冗余表述，统一在线文档链接文本。
 - **安装章节对齐实际产物**：release 实际提供 deb / rpm / Flatpak / MSI，README 此前提了从未上架的 AppImage；改为列出三种 Linux 格式并补 rpm / Flatpak 安装命令，Releases 链接改用完整 URL。
 - **清理过时的 AppImage / ffmpeg 引用**：docs-site（quick-start、usage、首页）与 CONTRIBUTING 同步更新；CONTRIBUTING 删除指向已不存在的 `appimage.yml` workflow 的条目。
-- **移除 README 中已废弃的「桌面通知」描述**：桌面通知在 v2.4.5（#63）随 notify 输出路径删除，README 仍保留该功能描述；本次清除功能列表、设置、架构图、模块表中的过时引用。
+- **移除 README 中已废弃的“桌面通知”描述**：桌面通知在 v2.4.5（#63）随 notify 输出路径删除，README 仍保留该功能描述；本次清除功能列表、设置、架构图、模块表中的过时引用。
 
 ### Fixes
 
@@ -284,7 +284,7 @@
 
 ### Features
 
-- **MiMo ASR 语音识别后端**：新增 `engine="mimo"`，接入小米 MiMo-V2.5-ASR 云端 API，支持 wav/mp3、中英文自动检测；Settings 引擎切换新增「MiMo ASR (小米)」选项，选中自动填充 API 地址。
+- **MiMo ASR 语音识别后端**：新增 `engine="mimo"`，接入小米 MiMo-V2.5-ASR 云端 API，支持 wav/mp3、中英文自动检测；Settings 引擎切换新增“MiMo ASR (小米)”选项，选中自动填充 API 地址。
 - **模型预设选择器**：转写和润色设置可按服务商预设快速填充——润色预设含 DeepSeek、Kimi、智谱、通义、OpenAI、Anthropic、SiliconFlow，语音识别预设含 MiMo ASR、OpenAI Whisper、本地 whisper.cpp；每个预设带推荐模型目录，支持搜索和展开详情。
 - **whisper GPU 加速构建**：release 工作流安装 CUDA toolkit，本地 whisper 编译启用 GPU。
 
@@ -451,7 +451,7 @@
 - 更新 CLAUDE.md（`make build` 行为、`capture_activation_key`、`key_capture`、前端主题与样式结构）
 - 更新 CONTRIBUTING.md（工具链版本、平台依赖、`frontend` 构建校验）
 - 修复 docs-site 快速开始（移除不存在的安装脚本、修正构建命令与 MDX）；docs-site README 改用 npm
-- README / docs-site：Linux 优先；标明 Ubuntu 20.04 测试环境；强调 **input 组** 必做；文档口径为仅本地 whisper.cpp、LLM 润色走 OpenAI 兼容 API、结果以**悬浮窗**为主；删除过时「平台支持」表；开发者以 **`make build`** 为主流程；最终用户用 deb/AppImage/MSI
+- README / docs-site：Linux 优先；标明 Ubuntu 20.04 测试环境；强调 **input 组** 必做；文档口径为仅本地 whisper.cpp、LLM 润色走 OpenAI 兼容 API、结果以**悬浮窗**为主；删除过时“平台支持”表；开发者以 **`make build`** 为主流程；最终用户用 deb/AppImage/MSI
 - README / docs-site：默认配置方式改为**应用内设置**；手写 `altgo.toml` 标为高级；强调**预编译包捆绑** ffmpeg / whisper-cli，减少用户侧依赖清单
 
 ### CI / Release

@@ -89,11 +89,11 @@ pub struct KeyListenerConfig {
     /// 监听的按键名称（如 `Alt_L`、`Alt_R`），与 xmodmap keysym 一致
     /// Key name to listen for (e.g. `Alt_L`, `Alt_R`), matching an xmodmap keysym
     pub key_name: String,
-    /// Linux evtest 回退路径使用的 evdev 键码（由「按下以设置」捕获）；`None` 时沿用 Alt 预设的启发式映射
+    /// Linux evtest 回退路径使用的 evdev 键码（由“按下以设置”捕获）；`None` 时沿用 Alt 预设的启发式映射
     /// evdev keycode for the Linux evtest fallback path (captured via "press to set"); when
     /// `None`, the heuristic mapping of the Alt presets applies
     pub linux_evdev_code: Option<u16>,
-    /// Windows 使用的虚拟键码（由「按下以设置」捕获）；`None` 时由 `key_name` 解析
+    /// Windows 使用的虚拟键码（由“按下以设置”捕获）；`None` 时由 `key_name` 解析
     /// Virtual-key code used on Windows (captured via "press to set"); when `None`, resolved
     /// from `key_name`
     pub windows_vk_code: Option<u16>,
@@ -342,7 +342,7 @@ impl Config {
             }
             if !missing.is_empty() {
                 return Err(ConfigError::ValidationFailed(format!(
-                    "润色功能已开启（level = \"{}\"），但缺少：{}。请在设置的「润色」分区补全，或编辑配置文件 {} 的 [polisher] 段；不需要润色时把级别设为「关闭」。密钥也可通过环境变量 ALTGO_POLISHER_API_KEY 设置。",
+                    "润色功能已开启（level = \"{}\"），但缺少：{}。请在设置的“润色”分区补全，或编辑配置文件 {} 的 [polisher] 段；不需要润色时把级别设为“关闭”。密钥也可通过环境变量 ALTGO_POLISHER_API_KEY 设置。",
                     self.polisher.level,
                     missing.join("、"),
                     Self::default_config_path().display()

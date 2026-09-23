@@ -77,11 +77,11 @@ pub struct Machine {
     double_click_interval: Duration,
     min_press_duration: Duration,
     press_time: Option<Instant>,
-    /// 连续录音开始后直到出现一次松开前，忽略再次「按下」（避免系统按键重复在按住第二次时误触发停止）。
+    /// 连续录音开始后直到出现一次松开前，忽略再次“按下”（避免系统按键重复在按住第二次时误触发停止）。
     /// After continuous recording starts, ignore further presses until one release occurs
     /// (so OS key auto-repeat while holding the second press cannot falsely stop it).
     continuous_hold: bool,
-    /// 用「再按一次」结束连续录音后，键可能仍被按住；在收到松开前忽略按下，避免误进长按检测。
+    /// 用“再按一次”结束连续录音后，键可能仍被按住；在收到松开前忽略按下，避免误进长按检测。
     /// After ending continuous recording with "one more press", the key may still be down;
     /// ignore presses until release to avoid slipping back into long-press detection.
     idle_suppress_press_until_release: bool,

@@ -1,7 +1,7 @@
 name: Deploy Docs to GitHub Pages
 
-# Pages: 仓库 Settings → Pages → Source 选「GitHub Actions」；站点 URL 与 docs-site/docusaurus.config.ts 中 baseUrl 一致。
-# 触发方式：等 master 上的 CI 成功后再部署，避免 CI 红着却把「已修好」的文档发出去。
+# Pages: 仓库 Settings → Pages → Source 选“GitHub Actions”；站点 URL 与 docs-site/docusaurus.config.ts 中 baseUrl 一致。
+# 触发方式：等 master 上的 CI 成功后再部署，避免 CI 红着却把“已修好”的文档发出去。
 # 也可在 Actions 中手动 Run workflow（workflow_dispatch）。
 on:
   workflow_run:

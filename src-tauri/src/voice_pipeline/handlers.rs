@@ -130,7 +130,7 @@ pub fn select_text(prefer_polished: bool, output: &TranscriptionResult) -> Strin
     }
 }
 
-/// 为已有历史条目编排一次「润色后再持久化」。
+/// 为已有历史条目编排一次“润色后再持久化”。
 ///
 /// 从 `history` 读入 `id`，对 `raw_text` 执行 `formatter.polish`，经 `polish_entry` 写回。
 /// 所有阻塞 I/O 均移入 `spawn_blocking`。返回更新后的 `HistoryEntry`。

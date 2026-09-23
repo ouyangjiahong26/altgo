@@ -103,7 +103,7 @@ describe("Overlay 相位转换", () => {
   it("recording 状态下电平轨迹随 audio-level 累积，processing 冻结", () => {
     const { container } = render(<Overlay />);
     emitPhase("recording");
-    // 保证「距上次采样」超过采样间隔（fake timers 的起点可能是 0）。
+    // 保证“距上次采样”超过采样间隔（fake timers 的起点可能是 0）。
     act(() => {
       vi.advanceTimersByTime(1000);
     });

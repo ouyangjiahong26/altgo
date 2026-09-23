@@ -100,7 +100,7 @@ model = "your-model"
 
 也可以直接填完整 endpoint（以 `/chat/completions` 或 `/messages` 结尾），此时原样使用。
 
-设置页的「润色」分区有**测试连接**按钮：选好供应商预设、填入密钥后点击，会立即发一次最小请求并给出可读的结果（密钥无效、地址不对、超时等），无需先保存或实际录音验证。
+设置页的“润色”分区有**测试连接**按钮：选好供应商预设、填入密钥后点击，会立即发一次最小请求并给出可读的结果（密钥无效、地址不对、超时等），无需先保存或实际录音验证。
 
 ### The `api_base_url` Format
 
@@ -303,7 +303,7 @@ The provider list comes entirely from the Oh My Pi catalog (catalog.stencil.so, 
 
 ### 思考层级（默认关闭）
 
-语音润色是轻量文本任务，推理模型先「思考」再回答会凭空多出数秒延迟和 token 花费。默认（`thinking_level = "off"`）对支持关闭思考的服务商自动附带关闭参数，无需配置：
+语音润色是轻量文本任务，推理模型先“思考”再回答会凭空多出数秒延迟和 token 花费。默认（`thinking_level = "off"`）对支持关闭思考的服务商自动附带关闭参数，无需配置：
 
 | 服务商 | 自动附带的参数 |
 |---|---|
@@ -311,7 +311,7 @@ The provider list comes entirely from the Oh My Pi catalog (catalog.stencil.so, 
 | 智谱（bigmodel.cn / z.ai）、火山方舟、MiniMax、DeepSeek、Moonshot、Kimi | `thinking: {"type": "disabled"}` |
 | OpenRouter | `reasoning: {"enabled": false}` |
 
-需要思考时把 `thinking_level` 设为 `"low"` / `"medium"` / `"high"`（设置页「思考层级」下拉同款），请求按各家参数方言开启：
+需要思考时把 `thinking_level` 设为 `"low"` / `"medium"` / `"high"`（设置页“思考层级”下拉同款），请求按各家参数方言开启：
 
 | 服务商 | 层级开启时附带 |
 |---|---|
@@ -359,7 +359,7 @@ export ALTGO_POLISHER_API_KEY="sk-your-key"
 
 ## 按键配置
 
-与 [`configs/altgo.toml`](https://github.com/cislunarspace/altgo/blob/master/configs/altgo.toml) 一致；默认触发键为 **右 Alt**。若在设置页使用「按下以设置」，Linux 会写入 `linux_evdev_code` 字段。
+与 [`configs/altgo.toml`](https://github.com/cislunarspace/altgo/blob/master/configs/altgo.toml) 一致；默认触发键为 **右 Alt**。若在设置页使用“按下以设置”，Linux 会写入 `linux_evdev_code` 字段。
 
 ```toml
 [key_listener]
