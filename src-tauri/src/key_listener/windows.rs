@@ -164,7 +164,7 @@ impl WindowsKeyListener {
             .or_else(|| key_name_to_windows_vk_checked(&cfg.key_name))
             .ok_or_else(|| {
                 KeyListenerError::UnsupportedKey(format!(
-                    "无法将按键 '{}' 解析为 Windows VK 码，请通过「按下以设置」重新捕获",
+                    "无法将按键 '{}' 解析为 Windows VK 码，请通过“按下以设置”重新捕获",
                     cfg.key_name
                 ))
             })?;

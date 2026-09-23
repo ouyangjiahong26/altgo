@@ -76,7 +76,7 @@ const LINUX_FADE_TIMEOUT: Duration = Duration::from_secs(8);
 /// Auto-fade policy for the done overlay.
 #[derive(Clone)]
 pub enum AutoFadePolicy {
-    /// 空闲感知：done 出现即开始观察全局输入。结果出现时用户「最近刚操作过」
+    /// 空闲感知：done 出现即开始观察全局输入。结果出现时用户“最近刚操作过”
     /// （距上次输入不超过 fade_delay），或随后出现新输入，都视为用户已继续
     /// 工作，fade_delay 后淡出（倒计时不可逆）；无输入则一直保留。
     /// Idle-aware: observation of global input starts as soon as done appears. If the user acted
@@ -125,7 +125,7 @@ pub struct OverlayManager<W: OverlayWindow> {
     /// after the pipeline restarts.
     position: OverlayPosition,
     /// 代际计数：每次 set_state 递增。延迟 hide 执行前比对代际，
-    /// 防止「hide 延迟期间用户重新开始录音」时旧 hide 关掉新内容。
+    /// 防止“hide 延迟期间用户重新开始录音”时旧 hide 关掉新内容。
     /// Generation counter: incremented by every set_state. Delayed hides compare generations
     /// before running so an old hide cannot dismiss new content when the user starts recording
     /// again during the hide delay.
@@ -154,7 +154,7 @@ impl<W: OverlayWindow + 'static> OverlayManager<W> {
 
     /// 设置悬浮窗状态。
     ///
-    /// 这是一个**原子意图**：调用方只需描述「现在应该显示什么阶段」，
+    /// 这是一个**原子意图**：调用方只需描述“现在应该显示什么阶段”，
     /// 本方法内部一次性完成 resize → reposition → prepare → show → emit。
     /// 窗口尺寸是固定的，重复调用只是幂等的几何设置。
     /// Sets the overlay state.
@@ -708,7 +708,7 @@ mod tests {
     // Auto-fade (done-phase exit policy) tests
     // -----------------------------------------------------------------------
 
-    /// 受控活动时钟：测试中直接设置「距上次输入的毫秒数」。
+    /// 受控活动时钟：测试中直接设置“距上次输入的毫秒数”。
     /// Controllable activity clock: tests set "ms since last input" directly.
     #[derive(Clone)]
     struct FakeClock {
@@ -864,7 +864,7 @@ mod tests {
     fn test_activity_aware_fades_immediately_when_user_was_just_active() {
         let window = RecordingOverlayWindow::new((0, 0, 1920, 1080), 1.0);
         // 结果出现前 30ms 用户刚敲过键盘（转写期间已在打字）：
-        // 视为「正在操作」，结果一出现就开始倒计时。
+        // 视为“正在操作”，结果一出现就开始倒计时。
         // The user typed 30ms before the result appeared (typing while transcribing): treated as
         // "actively working"; start counting down the moment the result shows.
         let clock = FakeClock::new(30);

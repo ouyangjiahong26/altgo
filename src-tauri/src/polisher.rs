@@ -8,7 +8,7 @@
 //! - `heavy`：重写为结构清晰、表达准确的文字
 //!
 //! 当语言为 `zh` 时，内置系统提示会约束输出为规范简体中文，并合并：材料概括类写作要求，以及本地安装的
-//! **ljg-writes** / **ljg-plain**（lijigang/ljg-skills）中与「口语文本润色」相关的取向（非全文摘抄 skill 文件）。
+//! **ljg-writes** / **ljg-plain**（lijigang/ljg-skills）中与“口语文本润色”相关的取向（非全文摘抄 skill 文件）。
 //!
 //! 使用兼容 OpenAI 的聊天 API，支持指数退避重试（最多 3 次）。
 //!
@@ -190,10 +190,10 @@ const ZH_WRITE_GUIDANCE: &str = r#"注意写作的要求：要善于总结材料
 const ZH_LJG_GUIDANCE: &str = r#"
 
 【ljg-writes / ljg-plain（语音后润色适用；内化即可，勿输出本段标题或标签）】
-姿态与诚实：心里是对一个具体的人讲，不是对抽象的「读者们」；不确定就保留不确定感，「大概七成」比空泛的「可能」诚实；忌群体代言、忌编经历、忌元评论（如「接下来我们讨论」）；禁止用「再深入一层」「最深的一层是」等宣告深度——深度靠下一句内容让人感受到，不靠自报。
+姿态与诚实：心里是对一个具体的人讲，不是对抽象的“读者们”；不确定就保留不确定感，“大概七成”比空泛的“可能”诚实；忌群体代言、忌编经历、忌元评论（如“接下来我们讨论”）；禁止用“再深入一层”“最深的一层是”等宣告深度——深度靠下一句内容让人感受到，不靠自报。
 语言：简洁、直白、质朴；能短则短；动词用准；砍掉机械连词（此外、另外）、形容词堆叠与软化套话（某种程度上、值得注意的是）；翻译腔句式（像英译中硬套）改成自然汉语；避免同一句式套话重复出现。
-白话（ljg-plain 红线精神，按短文本尽量满足）：口语检验——像跟聪明朋友当面说吗；短词优先；一句一事，长句拆开；名词能具体则具体，动词有力，能删的形容词就删；开头少空泛铺陈与「自古以来」式引子；删开场白、拐杖词、宣传腔与夸大象征（标志着、见证了、充满活力等）；信任读者，不凑字数式手把手；专业词非必要不出现，必须出现时先大白话落地再点术语。
-磨与中文：弱化学术/ AI 腔与「谁写都一样」的模板句；从句拆开、嵌套展平，发挥汉语意合；同一意思选最顺口的地道说法。"#;
+白话（ljg-plain 红线精神，按短文本尽量满足）：口语检验——像跟聪明朋友当面说吗；短词优先；一句一事，长句拆开；名词能具体则具体，动词有力，能删的形容词就删；开头少空泛铺陈与“自古以来”式引子；删开场白、拐杖词、宣传腔与夸大象征（标志着、见证了、充满活力等）；信任读者，不凑字数式手把手；专业词非必要不出现，必须出现时先大白话落地再点术语。
+磨与中文：弱化学术/ AI 腔与“谁写都一样”的模板句；从句拆开、嵌套展平，发挥汉语意合；同一意思选最顺口的地道说法。"#;
 
 fn get_system_prompt(level: PolishLevel, language: &str) -> String {
     let lang_name = match language {
@@ -207,7 +207,7 @@ fn get_system_prompt(level: PolishLevel, language: &str) -> String {
         _ => language,
     };
 
-    // 明确约束简体，避免模型按「繁体/港台书面」习惯输出。
+    // 明确约束简体，避免模型按“繁体/港台书面”习惯输出。
     // Constrain output to Simplified Chinese explicitly; otherwise models may drift toward
     // Traditional or HK/TW written conventions.
     let zh_script_rule = if language == "zh" {
@@ -556,7 +556,7 @@ pub fn strip_thinking_tags(text: &str) -> String {
 
 /// 用给定参数构造临时润色器并发一次最小请求，验证地址、密钥与模型可用。
 ///
-/// 供设置页「测试连接」使用：不落盘、不影响流水线，
+/// 供设置页“测试连接”使用：不落盘、不影响流水线，
 /// 请求超时 20 秒、max_tokens 限制在 16 以控制花费。
 ///
 /// Builds a throwaway polisher from the given parameters and fires one minimal request,
@@ -586,7 +586,7 @@ pub async fn test_connection(
         .map(|_| ())
 }
 
-/// 把润色错误转成「测试连接」结果的可读提示，指明最可能的原因。
+/// 把润色错误转成“测试连接”结果的可读提示，指明最可能的原因。
 /// Turns polishing errors into readable "test connection" outcomes, naming the most likely cause.
 pub fn describe_test_error(e: &PolisherError) -> String {
     match e {
@@ -1603,7 +1603,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_polish_anthropic_thinking_budgets_and_raises_max_tokens() {
-        // Anthropic + 层级开启：body 带 thinking 预算，max_tokens 抬升「预算 + 配置值」，
+        // Anthropic + 层级开启：body 带 thinking 预算，max_tokens 抬升“预算 + 配置值”，
         // 且不发 temperature（与扩展思考不兼容）。精确匹配整个 body，防止 temperature 漏发。
         // Anthropic + a level on: the body carries the thinking budget, max_tokens rises to
         // budget + configured, and temperature is absent (incompatible with thinking). Exact body

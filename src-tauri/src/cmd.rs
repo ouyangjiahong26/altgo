@@ -366,7 +366,7 @@ pub async fn polish_history_entry(
 
 /// 测试润色 API 连接：基于表单当前值发一次最小请求，不落盘、不重启流水线。
 ///
-/// 密钥为空时回落到已保存的密钥，方便「填好后未保存」与「已保存」两种状态都能测。
+/// 密钥为空时回落到已保存的密钥，方便“填好后未保存”与“已保存”两种状态都能测。
 ///
 /// Tests the polish API connection: sends one minimal request from current form values, without
 /// persisting or restarting the pipeline.

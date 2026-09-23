@@ -4,7 +4,7 @@
 [key_listener]
 # 触发键的 X11 keysym：默认 Alt_R = 右侧 Alt（与 xmodmap 中 keysym 名一致）
 # 若要用左侧 Alt，改为：key_name = "Alt_L"
-# 以下为可选，通常由设置页「按下以设置」自动写入：
+# 以下为可选，通常由设置页“按下以设置”自动写入：
 # linux_evdev_code = 100   # Linux Wayland/evtest 使用的 evdev 键码（十进制）
 key_name = "Alt_R"
 long_press_threshold_ms = 200       # 长按/短按区分阈值（毫秒）

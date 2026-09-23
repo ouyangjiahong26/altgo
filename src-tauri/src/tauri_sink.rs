@@ -303,7 +303,7 @@ impl PipelineSink for TauriPipelineSink {
                     emit_pipeline_status(&*emitter, &status, PipelineStatus::Done);
 
                     // 润色失败先于结果文本告知前端，让悬浮窗在 done 阶段能同时
-                    // 展示「已回退原文」提示。
+                    // 展示“已回退原文”提示。
                     // The polish failure reaches the frontend before the result text, letting the done overlay
                     // also show the "fell back to raw text" hint.
                     if output_clone.polish_failed {
