@@ -456,7 +456,7 @@ Recording on every platform uniformly outputs 16kHz mono 16-bit PCM, encoded to 
 
 `pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`key-listener-backend`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`。
 
-`polish-failed` 携带润色失败原因字符串，在 `transcription-result` 之前发出；悬浮窗 done 阶段据此显示「润色失败，已使用原文」。`audio-level` 在录音期间以固定 100ms 间隔（10 次/秒）定时派发感知音量给悬浮窗，驱动录音阶段的实时波形。
+`polish-failed` 携带润色失败原因字符串，在 `transcription-result` 之前发出；悬浮窗 done 阶段据此显示“润色失败，已使用原文”。`audio-level` 在录音期间以固定 100ms 间隔（10 次/秒）定时派发感知音量给悬浮窗，驱动录音阶段的实时波形。
 
 ### Events
 
