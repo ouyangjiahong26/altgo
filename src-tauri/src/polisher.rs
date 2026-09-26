@@ -429,95 +429,148 @@ fn host_matches(host: &str, domain: &str) -> bool {
     host == domain || host.ends_with(&format!(".{domain}"))
 }
 
-/// 按 host 与思考层级返回控制思考的请求字段。
+/// 按 host 后缀匹配的“默认开启思考”服务商表，按各家参数方言分三组。
 ///
-/// 语音润色是轻量文本任务，默认（`Off`）对已知默认开启思考的服务商附带关闭参数，
-/// 省掉数秒延迟与 token 花费；未命中表的服务商保持原 body，避免严格校验未知字段的
-/// 服务商（OpenAI 等）拒绝请求。
+/// 语音润色是轻量文本任务：默认档（`Off`）对已知默认开启思考的服务商附带关闭参数，
+/// 否则思考会吃掉 `max_tokens`（可见文本为空）或凭空多出数秒延迟；未命中表的服务商
+/// 保持原 body，避免严格校验未知字段的服务商（OpenAI 等）拒绝请求。
 ///
-/// 用户选择层级（`Low`/`Medium`/`High`）时按各家方言开启思考：
+/// Host-suffix tables of vendors known to think by default, grouped by parameter dialect.
+///
+/// Voice polishing is a lightweight text task: at the default (`Off`) level the app attaches the
+/// vendor's disable parameter for these hosts—otherwise thinking eats `max_tokens` (empty visible
+/// text) or adds seconds of latency. Unmatched hosts keep the original body, since strict
+/// validators (OpenAI etc.) reject unknown fields.
+const ENABLE_THINKING_HOSTS: &[&str] = &[
+    "dashscope.aliyuncs.com",
+    "siliconflow.cn",
+    "siliconflow.com",
+];
+const THINKING_TYPE_HOSTS: &[&str] = &[
+    "bigmodel.cn",
+    "z.ai",
+    "volces.com",
+    "minimaxi.com",
+    "minimax.io",
+    "deepseek.com",
+    "moonshot.cn",
+    "kimi.com",
+    "kimi.ai",
+    "xiaomimimo.com",
+];
+const REASONING_HOSTS: &[&str] = &["openrouter.ai"];
+
+/// 服务商的思考参数方言。
+/// The vendor's thinking-parameter dialect.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ThinkingDialect {
+    /// `enable_thinking` 布尔开关（通义 / SiliconFlow）
+    /// Boolean `enable_thinking` toggle (dashscope / SiliconFlow)
+    EnableThinking,
+    /// `thinking: {"type": ...}`（智谱 / Kimi / DeepSeek / MiMo 等）
+    /// `thinking: {"type": ...}` (bigmodel / Kimi / DeepSeek / MiMo etc.)
+    ThinkingType,
+    /// OpenRouter 的 `reasoning` 对象
+    /// OpenRouter's `reasoning` object
+    Reasoning,
+}
+
+/// 按 host 判定思考参数方言；未命中服务商表返回 `None`。
+/// Resolves the thinking-parameter dialect for a host; `None` when the vendor table misses.
+fn thinking_dialect(host: &str) -> Option<ThinkingDialect> {
+    let h = host.to_lowercase();
+    if ENABLE_THINKING_HOSTS.iter().any(|d| host_matches(&h, d)) {
+        Some(ThinkingDialect::EnableThinking)
+    } else if THINKING_TYPE_HOSTS.iter().any(|d| host_matches(&h, d)) {
+        Some(ThinkingDialect::ThinkingType)
+    } else if REASONING_HOSTS.iter().any(|d| host_matches(&h, d)) {
+        Some(ThinkingDialect::Reasoning)
+    } else {
+        None
+    }
+}
+
+/// 按 host 与思考层级返回控制思考的请求字段（OpenAI 兼容协议）。
+///
+/// 默认（`Off`）按方言关闭思考；用户选择层级（`Low`/`Medium`/`High`）时按各家方言开启：
 /// - 通义（dashscope）/ SiliconFlow：`enable_thinking`（仅开关，不分档）
-/// - 智谱 / z.ai / 火山方舟 / MiniMax / DeepSeek / Moonshot / Kimi：
+/// - 智谱 / z.ai / 火山方舟 / MiniMax / DeepSeek / Moonshot / Kimi / MiMo：
 ///   `thinking: {"type": "enabled"}`（仅开关，不分档）
 /// - OpenRouter：`reasoning: {"effort": "<档位>"}`
 /// - 未命中表的服务商（含 OpenAI 官方）：`reasoning_effort: "<档位>"`
 ///   （OpenAI 事实标准；用户自担模型不支持时的 400）
 ///
-/// Returns the request fields controlling thinking for a host and level.
+/// Returns the request fields controlling thinking for a host and level, OpenAI-compatible
+/// protocol.
 ///
-/// Voice polishing is a lightweight text task, so the default (`Off`) attaches disable
-/// parameters only to vendors known to think by default; unmatched vendors keep the original
-/// body—strict validators (OpenAI etc.) reject unknown fields.
-///
-/// When the user picks a level (`Low`/`Medium`/`High`), thinking turns on in each vendor's
-/// dialect: on/off-only vendors just enable; OpenRouter gets `reasoning.effort`; unmatched
-/// hosts get `reasoning_effort` (the OpenAI de-facto standard; a 400 from an unsupported
-/// model is the user's opt-in risk).
+/// At the default (`Off`) the vendor dialect disables thinking. When the user picks a level
+/// (`Low`/`Medium`/`High`), thinking turns on in each vendor's dialect: on/off-only vendors just
+/// enable; OpenRouter gets `reasoning.effort`; unmatched hosts get `reasoning_effort` (the
+/// OpenAI de-facto standard; a 400 from an unsupported model is the user's opt-in risk).
 fn thinking_fields(host: &str, level: ThinkingLevel) -> Vec<(&'static str, serde_json::Value)> {
-    const ENABLE_THINKING_HOSTS: &[&str] = &[
-        "dashscope.aliyuncs.com",
-        "siliconflow.cn",
-        "siliconflow.com",
-    ];
-    const THINKING_TYPE_HOSTS: &[&str] = &[
-        "bigmodel.cn",
-        "z.ai",
-        "volces.com",
-        "minimaxi.com",
-        "minimax.io",
-        "deepseek.com",
-        "moonshot.cn",
-        "kimi.com",
-        "kimi.ai",
-    ];
-    const REASONING_HOSTS: &[&str] = &["openrouter.ai"];
-
-    /// 服务商的思考参数方言。
-    /// The vendor's thinking-parameter dialect.
-    #[derive(Clone, Copy)]
-    enum Dialect {
-        /// `enable_thinking` 布尔开关（通义 / SiliconFlow）
-        /// Boolean `enable_thinking` toggle (dashscope / SiliconFlow)
-        EnableThinking,
-        /// `thinking: {"type": ...}`（智谱 / Kimi / DeepSeek 等）
-        /// `thinking: {"type": ...}` (bigmodel / Kimi / DeepSeek etc.)
-        ThinkingType,
-        /// OpenRouter 的 `reasoning` 对象
-        /// OpenRouter's `reasoning` object
-        Reasoning,
-    }
-
-    let h = host.to_lowercase();
-    let dialect = if ENABLE_THINKING_HOSTS.iter().any(|d| host_matches(&h, d)) {
-        Some(Dialect::EnableThinking)
-    } else if THINKING_TYPE_HOSTS.iter().any(|d| host_matches(&h, d)) {
-        Some(Dialect::ThinkingType)
-    } else if REASONING_HOSTS.iter().any(|d| host_matches(&h, d)) {
-        Some(Dialect::Reasoning)
-    } else {
-        None
-    };
-
-    match (dialect, level) {
-        (Some(Dialect::EnableThinking), ThinkingLevel::Off) => {
+    match (thinking_dialect(host), level) {
+        (Some(ThinkingDialect::EnableThinking), ThinkingLevel::Off) => {
             vec![("enable_thinking", serde_json::json!(false))]
         }
-        (Some(Dialect::EnableThinking), _) => vec![("enable_thinking", serde_json::json!(true))],
-        (Some(Dialect::ThinkingType), ThinkingLevel::Off) => {
+        (Some(ThinkingDialect::EnableThinking), _) => {
+            vec![("enable_thinking", serde_json::json!(true))]
+        }
+        (Some(ThinkingDialect::ThinkingType), ThinkingLevel::Off) => {
             vec![("thinking", serde_json::json!({ "type": "disabled" }))]
         }
-        (Some(Dialect::ThinkingType), _) => {
+        (Some(ThinkingDialect::ThinkingType), _) => {
             vec![("thinking", serde_json::json!({ "type": "enabled" }))]
         }
-        (Some(Dialect::Reasoning), ThinkingLevel::Off) => {
+        (Some(ThinkingDialect::Reasoning), ThinkingLevel::Off) => {
             vec![("reasoning", serde_json::json!({ "enabled": false }))]
         }
-        (Some(Dialect::Reasoning), level) => {
+        (Some(ThinkingDialect::Reasoning), level) => {
             vec![("reasoning", serde_json::json!({ "effort": level.as_str() }))]
         }
         (None, ThinkingLevel::Off) => Vec::new(),
         (None, level) => vec![("reasoning_effort", serde_json::json!(level.as_str()))],
     }
+}
+
+/// 按 host 与思考层级返回 Anthropic 协议的思考控制字段。
+///
+/// 关闭档只对默认开启思考的服务商显式发 `disabled`：Anthropic 官方思考是选择加入，其新版
+/// 模型对 `disabled` 直接报 400，因此官方与未知端点保持不发字段。不发字段时这些服务商会
+/// 默认思考，思考与回答共享 `max_tokens`——预算被思考吃光后可见文本为空（表现为“润色失败”），
+/// 或白等数秒。
+///
+/// 开启档与协议无关：按档给思考预算，Anthropic 要求 `max_tokens` 大于预算、且思考与
+/// `temperature` 不兼容（调用方据此抬 `max_tokens`、省 `temperature`）。
+///
+/// Returns the Anthropic-protocol thinking control for a host and level.
+///
+/// At `Off` an explicit `disabled` goes only to hosts known to think by default: Anthropic's own
+/// thinking is opt-in and its newer models reject `disabled` with a 400, so official and unknown
+/// endpoints keep sending nothing. Without the field those vendors think by default and share
+/// `max_tokens` with the answer—once thinking eats the budget the visible text is empty (read as
+/// "polish failed"), or the user waits seconds for nothing.
+///
+/// The enabled levels are protocol-independent: each level sets a thinking budget, and Anthropic
+/// requires `max_tokens` above the budget while thinking is incompatible with `temperature`
+/// (callers raise `max_tokens` and drop `temperature` accordingly).
+fn anthropic_thinking(host: &str, level: ThinkingLevel) -> Option<protocol::AnthropicThinking> {
+    let budget_tokens = match level {
+        ThinkingLevel::Off => {
+            return thinking_dialect(host)
+                .is_some()
+                .then(|| protocol::AnthropicThinking {
+                    thinking_type: "disabled".to_string(),
+                    budget_tokens: None,
+                })
+        }
+        ThinkingLevel::Low => 1024,
+        ThinkingLevel::Medium => 4096,
+        ThinkingLevel::High => 16384,
+    };
+    Some(protocol::AnthropicThinking {
+        thinking_type: "enabled".to_string(),
+        budget_tokens: Some(budget_tokens),
+    })
 }
 
 /// ASCII 大小写不敏感的字串查找（返回字节下标）。
@@ -852,34 +905,7 @@ impl LLMFormatter {
                     self.do_openai_request(body).await
                 }
                 protocol::ApiProtocol::Anthropic => {
-                    // Anthropic 扩展思考：层级映射为思考预算。API 要求 max_tokens 大于
-                    // budget_tokens，且 temperature 与思考不兼容——开启时抬升
-                    // max_tokens 保住可见文本预算，temperature 不发送。
-                    // Anthropic extended thinking: levels map to token budgets. The API
-                    // requires max_tokens above budget_tokens and forbids temperature alongside
-                    // thinking—when on, max_tokens rises to keep the visible-text budget and
-                    // temperature is omitted.
-                    let thinking = self.anthropic_thinking();
-                    let max_tokens = match &thinking {
-                        Some(t) => self.max_tokens.saturating_add(t.budget_tokens),
-                        None => self.max_tokens,
-                    };
-                    let temperature = if thinking.is_some() {
-                        None
-                    } else {
-                        Some(self.temperature)
-                    };
-                    let body = protocol::AnthropicRequest {
-                        model: self.model.clone(),
-                        max_tokens,
-                        system: system_prompt.clone(),
-                        messages: vec![protocol::AnthropicMessage {
-                            role: "user".to_string(),
-                            content: text.to_string(),
-                        }],
-                        temperature,
-                        thinking,
-                    };
+                    let body = self.anthropic_body(system_prompt.clone(), text);
                     self.do_anthropic_request(&body).await
                 }
             }
@@ -893,19 +919,51 @@ impl LLMFormatter {
         Ok(strip_thinking_tags(&polished).trim().to_string())
     }
 
-    /// Anthropic 协议的思考参数：层级映射为思考预算（token，最低 1024）。
-    /// Thinking parameter for the Anthropic protocol: levels map to token budgets (min 1024).
-    fn anthropic_thinking(&self) -> Option<protocol::AnthropicThinking> {
-        let budget_tokens = match self.thinking {
-            ThinkingLevel::Off => return None,
-            ThinkingLevel::Low => 1024,
-            ThinkingLevel::Medium => 4096,
-            ThinkingLevel::High => 16384,
+    /// 组装 Anthropic 协议请求体：Anthropic 扩展思考的关闭/开启、`max_tokens` 抬升与
+    /// `temperature` 取舍都在这里。
+    ///
+    /// 关闭档对默认开启思考的服务商发 `disabled`（它们与回答共享 `max_tokens`，不关就会吃掉
+    /// 全部预算）；对官方/未知端点不发字段（其思考是选择加入，新模型对 `disabled` 报 400）。
+    /// 开启档按档给预算，此时 `max_tokens` 需大于预算并抬升配置值，且不发与思考不兼容的
+    /// `temperature`。
+    ///
+    /// Builds the Anthropic-protocol request body: the off/on handling of Anthropic extended
+    /// thinking, the `max_tokens` raise, and the `temperature` trade-off all live here.
+    ///
+    /// At `Off`, hosts known to think by default get `disabled` (their thinking shares
+    /// `max_tokens` with the answer and otherwise swallows the whole budget); official/unknown
+    /// endpoints send nothing (their thinking is opt-in and newer models reject `disabled` with a
+    /// 400). At the on levels a budget is set—`max_tokens` must exceed it and rises above the
+    /// configured value, and the thinking-incompatible `temperature` is dropped.
+    fn anthropic_body(&self, system_prompt: String, text: &str) -> protocol::AnthropicRequest {
+        let thinking = anthropic_thinking(host_of(&self.api_base_url), self.thinking);
+        let thinking_on = self.thinking != ThinkingLevel::Off;
+        let max_tokens = if thinking_on {
+            self.max_tokens.saturating_add(
+                thinking
+                    .as_ref()
+                    .and_then(|t| t.budget_tokens)
+                    .unwrap_or_default(),
+            )
+        } else {
+            self.max_tokens
         };
-        Some(protocol::AnthropicThinking {
-            thinking_type: "enabled".to_string(),
-            budget_tokens,
-        })
+        let temperature = if thinking_on {
+            None
+        } else {
+            Some(self.temperature)
+        };
+        protocol::AnthropicRequest {
+            model: self.model.clone(),
+            max_tokens,
+            system: system_prompt,
+            messages: vec![protocol::AnthropicMessage {
+                role: "user".to_string(),
+                content: text.to_string(),
+            }],
+            temperature,
+            thinking,
+        }
     }
 
     async fn do_openai_request(
@@ -1184,6 +1242,8 @@ mod tests {
             "api.moonshot.cn",
             "api.kimi.com",
             "kimi.ai",
+            "api.xiaomimimo.com",
+            "token-plan-cn.xiaomimimo.com",
         ] {
             let fields = thinking_fields(host, ThinkingLevel::Off);
             assert_eq!(
@@ -1222,6 +1282,87 @@ mod tests {
             thinking_fields("API.SILICONFLOW.CN", ThinkingLevel::Off),
             vec![("enable_thinking", serde_json::json!(false))]
         );
+    }
+
+    /// 用同一组参数构造 Anthropic 协议 formatter（host 取自 base URL，不发请求）。
+    /// Builds an Anthropic-protocol formatter from one parameter set (host comes from the base URL;
+    /// no request is sent).
+    fn anthropic_formatter(base_url: &str) -> LLMFormatter {
+        LLMFormatter::with_config(
+            "key".to_string(),
+            base_url.to_string(),
+            "m".to_string(),
+            Duration::from_secs(5),
+            1024,
+            protocol::ApiProtocol::Anthropic,
+            0.3,
+            "zh".to_string(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_anthropic_body_disables_thinking_for_default_thinking_vendors() {
+        // 关闭档 + 默认开启思考的 Anthropic 兼容端点：请求体显式 disabled，且不抬 max_tokens、
+        // 照发 temperature——不关思考时模型与回答共享 max_tokens，预算被吃光后可见文本为空。
+        // Off + an Anthropic-compatible endpoint that thinks by default: the body carries an
+        // explicit disabled, keeps max_tokens, and keeps temperature—without it the model shares
+        // max_tokens with the answer and the visible text comes back empty.
+        for base_url in [
+            "https://api.deepseek.com/anthropic",
+            "https://api.xiaomimimo.com",
+        ] {
+            let formatter = anthropic_formatter(base_url);
+            let body =
+                serde_json::to_value(formatter.anthropic_body("sys".to_string(), "原文")).unwrap();
+            assert_eq!(
+                body["thinking"],
+                serde_json::json!({ "type": "disabled" }),
+                "base_url: {base_url}"
+            );
+            assert_eq!(body["max_tokens"], 1024, "base_url: {base_url}");
+            assert!(
+                body.get("temperature").is_some(),
+                "关闭档应照发 temperature：{base_url}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_anthropic_body_keeps_official_and_unknown_hosts_untouched() {
+        // Anthropic 官方思考是选择加入、新模型对 disabled 报 400，未知端点则可能严格校验字段：
+        // 关闭档一个 thinking 字段都不发。
+        // Official Anthropic thinking is opt-in and its newer models reject disabled with a 400,
+        // while unknown endpoints may validate strictly: the off level sends no thinking field.
+        for base_url in ["https://api.anthropic.com", "https://relay.example.com/v1"] {
+            let formatter = anthropic_formatter(base_url);
+            let body =
+                serde_json::to_value(formatter.anthropic_body("sys".to_string(), "原文")).unwrap();
+            assert!(body.get("thinking").is_none(), "base_url: {base_url}");
+            assert_eq!(body["max_tokens"], 1024, "base_url: {base_url}");
+            assert!(
+                body.get("temperature").is_some(),
+                "关闭档应照发 temperature：{base_url}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_anthropic_body_enables_thinking_with_budget() {
+        // 开启档与 host 无关：按档给预算，max_tokens 抬到“预算 + 配置值”，不发 temperature
+        // （与扩展思考不兼容）。
+        // The on levels are host-independent: the level sets the budget, max_tokens rises to
+        // budget + configured, and temperature is dropped (incompatible with extended thinking).
+        let formatter = anthropic_formatter("https://api.deepseek.com/anthropic")
+            .with_thinking_level(ThinkingLevel::Medium);
+        let body =
+            serde_json::to_value(formatter.anthropic_body("sys".to_string(), "原文")).unwrap();
+        assert_eq!(
+            body["thinking"],
+            serde_json::json!({ "type": "enabled", "budget_tokens": 4096 })
+        );
+        assert_eq!(body["max_tokens"], 1024 + 4096);
+        assert!(body.get("temperature").is_none());
     }
 
     #[test]

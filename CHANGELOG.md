@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **修复 Anthropic 协议与小米 MiMo 的“关闭思考”失效导致润色过慢或失败**：`thinking_level = "off"` 时关闭参数只在 OpenAI 兼容协议路径发送，Anthropic 协议路径从不发送任何思考控制——DeepSeek、小米 MiMo 这类 Anthropic 兼容端点默认开启思考，且思考与回答共享 `max_tokens`，预算被思考吃光后可见文本为空（日志报 `LLM returned empty response`，表现为润色失败），否则白等数秒。现按服务商表在 Anthropic 协议下对默认思考的服务商显式发 `thinking: {"type": "disabled"}`（官方 Anthropic 与未知端点仍不发字段，官方思考是选择加入、新模型对 `disabled` 报 400）；同时小米 MiMo（`thinking.type`，V2.6 系列默认开启思考）补进抑制表。实测同一句转写：修复前 2.6–9.8 秒且约三分之一请求返回空文本，修复后 0.5–0.7 秒稳定出文本。
+
 ## v2.6.15 (2026-09-24)
 
 ### Style
