@@ -85,13 +85,21 @@ pub struct AnthropicRequest {
     pub thinking: Option<AnthropicThinking>,
 }
 
-/// Anthropic 扩展思考参数（`budget_tokens` 最低 1024）。
-/// Anthropic extended-thinking parameter (`budget_tokens` minimum 1024).
+/// Anthropic 扩展思考参数。
+///
+/// `type` 为 `enabled` 时必带 `budget_tokens`（最低 1024）；显式关闭思考时 `type` 为
+/// `disabled`，此时不发送 `budget_tokens`。
+///
+/// Anthropic extended-thinking parameter.
+///
+/// `budget_tokens` (minimum 1024) accompanies `type = "enabled"`; when thinking is explicitly
+/// turned off (`type = "disabled"`) no budget is sent.
 #[derive(Debug, Serialize)]
 pub struct AnthropicThinking {
     #[serde(rename = "type")]
     pub thinking_type: String,
-    pub budget_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub budget_tokens: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

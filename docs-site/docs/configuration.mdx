@@ -308,20 +308,21 @@ The provider list comes entirely from the Oh My Pi catalog (catalog.stencil.so, 
 | 服务商 | 自动附带的参数 |
 |---|---|
 | 通义（dashscope）、SiliconFlow（.cn / .com） | `enable_thinking: false` |
-| 智谱（bigmodel.cn / z.ai）、火山方舟、MiniMax、DeepSeek、Moonshot、Kimi | `thinking: {"type": "disabled"}` |
+| 智谱（bigmodel.cn / z.ai）、火山方舟、MiniMax、DeepSeek、Moonshot、Kimi、小米 MiMo | `thinking: {"type": "disabled"}` |
 | OpenRouter | `reasoning: {"enabled": false}` |
+| Anthropic 协议 + 上述默认思考的服务商（DeepSeek、小米 MiMo 等） | `thinking: {"type": "disabled"}` |
 
 需要思考时把 `thinking_level` 设为 `"low"` / `"medium"` / `"high"`（设置页“思考层级”下拉同款），请求按各家参数方言开启：
 
 | 服务商 | 层级开启时附带 |
 |---|---|
 | 通义、SiliconFlow | `enable_thinking: true`（仅开关，不分档） |
-| 智谱、火山方舟、MiniMax、DeepSeek、Moonshot、Kimi | `thinking: {"type": "enabled"}`（仅开关，不分档） |
+| 智谱、火山方舟、MiniMax、DeepSeek、Moonshot、Kimi、小米 MiMo | `thinking: {"type": "enabled"}`（仅开关，不分档） |
 | OpenRouter | `reasoning: {"effort": "low"/"medium"/"high"}` |
 | 其他服务商（含 OpenAI 官方） | `reasoning_effort: "low"/"medium"/"high"` |
 | Anthropic 协议 | `thinking: {"type": "enabled", "budget_tokens": 1024/4096/16384}`；同时自动抬高 `max_tokens`（须大于预算）且不发送 `temperature`（与思考不兼容） |
 
-其余行为不变：未命中上表的中转端点在出口剥掉响应中混入的 `<think>` 思维链残渣（Anthropic 协议取第一个文本块）；个别强制思考的模型（如智谱 GLM-5.3）不接受关闭参数，选择预设推荐的模型即可避开；模型不支持所选层级时会收到服务商报错。
+其余行为不变：未命中上表的中转端点在出口剥掉响应中混入的 `<think>` 思维链残渣（Anthropic 协议取第一个文本块）；Anthropic 协议下只有上表默认思考的服务商才显式关闭思考，Anthropic 官方与未知端点不发该字段（官方思考是选择加入，新模型对 `disabled` 直接报 400）。默认思考的服务商收不到关闭参数时，思考与回答共享 `max_tokens`——预算被思考吃光后可见文本为空，表现为润色失败；个别强制思考的模型（如智谱 GLM-5.3）不接受关闭参数，选择预设推荐的模型即可避开；模型不支持所选层级时会收到服务商报错。
 
 环境变量覆盖密钥：
 
@@ -336,20 +337,21 @@ Voice polishing is a lightweight text task; reasoning models that "think" before
 | Provider | Parameter attached automatically |
 |---|---|
 | Tongyi (dashscope), SiliconFlow (.cn / .com) | `enable_thinking: false` |
-| Zhipu (bigmodel.cn / z.ai), Volcano Ark, MiniMax, DeepSeek, Moonshot, Kimi | `thinking: {"type": "disabled"}` |
+| Zhipu (bigmodel.cn / z.ai), Volcano Ark, MiniMax, DeepSeek, Moonshot, Kimi, Xiaomi MiMo | `thinking: {"type": "disabled"}` |
 | OpenRouter | `reasoning: {"enabled": false}` |
+| Anthropic protocol + the default-thinking vendors above (DeepSeek, Xiaomi MiMo, …) | `thinking: {"type": "disabled"}` |
 
 Set `thinking_level` to `"low"` / `"medium"` / `"high"` (the Settings page "Thinking level" dropdown) to turn thinking on in each provider's dialect:
 
 | Provider | Attached when a level is on |
 |---|---|
 | Tongyi, SiliconFlow | `enable_thinking: true` (on/off only, no tiers) |
-| Zhipu, Volcano Ark, MiniMax, DeepSeek, Moonshot, Kimi | `thinking: {"type": "enabled"}` (on/off only, no tiers) |
+| Zhipu, Volcano Ark, MiniMax, DeepSeek, Moonshot, Kimi, Xiaomi MiMo | `thinking: {"type": "enabled"}` (on/off only, no tiers) |
 | OpenRouter | `reasoning: {"effort": "low"/"medium"/"high"}` |
 | Everyone else (OpenAI official included) | `reasoning_effort: "low"/"medium"/"high"` |
 | Anthropic protocol | `thinking: {"type": "enabled", "budget_tokens": 1024/4096/16384}`; `max_tokens` is raised automatically (it must exceed the budget) and `temperature` is omitted (incompatible with thinking) |
 
-Everything else is unchanged: relay endpoints missing from the table get stray `<think>` residue stripped on the way out (the Anthropic protocol takes the first text block); a few forced-thinking models (e.g. Zhipu GLM-5.3) reject the disable parameter — choose a preset-recommended model to avoid them; a model that rejects the chosen level surfaces the provider's error.
+Everything else is unchanged: relay endpoints missing from the table get stray `<think>` residue stripped on the way out (the Anthropic protocol takes the first text block); over the Anthropic protocol only the default-thinking vendors above get an explicit disable — official Anthropic and unknown endpoints send no such field (their thinking is opt-in, and newer official models reject `disabled` with a 400). When a default-thinking vendor gets no disable parameter, thinking shares `max_tokens` with the answer: once thinking eats the budget the visible text comes back empty, which surfaces as a failed polish; a few forced-thinking models (e.g. Zhipu GLM-5.3) reject the disable parameter — choose a preset-recommended model to avoid them; a model that rejects the chosen level surfaces the provider's error.
 
 Override the key via environment variable:
 
