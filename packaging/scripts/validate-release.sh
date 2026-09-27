@@ -26,8 +26,16 @@ process.stdout.write(packageInfo.version);
 ' "${METADATA_FILE}")"
 CONFIG_VERSION="$(node -e 'process.stdout.write(require("./src-tauri/tauri.conf.json").version)' )"
 FRONTEND_VERSION="$(node -e 'process.stdout.write(require("./frontend/package.json").version)' )"
+# package-lock.json 顶层与 packages[""] 两个 version 都由 npm 依据 package.json 写入，发版时须一并跟上。
+# 只改 package.json 会让锁文件版本长期滞后——npm ci 不校验该字段，故不会报错，容易被漏掉。
+LOCK_TOP_VERSION="$(node -e 'process.stdout.write(require("./frontend/package-lock.json").version)' )"
+LOCK_ROOT_VERSION="$(node -e '
+const lock = require("./frontend/package-lock.json");
+const root = lock.packages && lock.packages[""];
+process.stdout.write((root && root.version) || "");
+')"
 
-for entry in "Cargo=${CARGO_VERSION}" "Tauri=${CONFIG_VERSION}" "Frontend=${FRONTEND_VERSION}"; do
+for entry in "Cargo=${CARGO_VERSION}" "Tauri=${CONFIG_VERSION}" "Frontend=${FRONTEND_VERSION}" "FrontendLockTop=${LOCK_TOP_VERSION}" "FrontendLockRoot=${LOCK_ROOT_VERSION}"; do
     name="${entry%%=*}"
     version="${entry#*=}"
     if [[ "${version}" != "${VERSION}" ]]; then
@@ -41,4 +49,4 @@ if ! grep -Fq "## v${VERSION} " CHANGELOG.md; then
     exit 1
 fi
 
-echo "Release ${TAG} 版本校验通过（Cargo/Tauri/Frontend/CHANGELOG）"
+echo "Release ${TAG} 版本校验通过（Cargo/Tauri/Frontend/FrontendLockTop/FrontendLockRoot/CHANGELOG）"

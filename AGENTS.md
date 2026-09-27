@@ -70,7 +70,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 提交前检查（`CONTRIBUTING.md`）：fmt + clippy + `cargo test --lib` + `cd frontend && npm test` + `npm run build`。
 
-发版：push tag `v*` 触发 `release.yml`——先 `packaging/scripts/validate-release.sh` 校验 tag 与 `src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`frontend/package.json` 三处版本及 `CHANGELOG.md` 小节对齐，再双架构构建 deb/rpm/AppImage 与 NSIS/MSI、生成 AUR 与 updater `latest.json`。CI 里 Tauri CLI 走 `npm --prefix frontend exec -- tauri build`。
+发版：push tag `v*` 触发 `release.yml`——先 `packaging/scripts/validate-release.sh` 校验 tag 与 `src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`frontend/package.json`、`frontend/package-lock.json`（顶层与 `packages[""]` 两个 version 字段，共五处）及 `CHANGELOG.md` 小节对齐，再双架构构建 deb/rpm/AppImage 与 NSIS/MSI、生成 AUR 与 updater `latest.json`。CI 里 Tauri CLI 走 `npm --prefix frontend exec -- tauri build`。
 
 ## Code Conventions & Common Patterns
 
