@@ -56,7 +56,7 @@ dependencies = [
 
 [[package]]
 name = "altgo-tauri"
-version = "2.6.17"
+version = "2.6.18"
 dependencies = [
  "anyhow",
  "arboard",
