@@ -2,6 +2,7 @@
 //!
 //! 模块划分：
 //! - `sink` — 事件接收端口（PipelineSink）与共享类型
+//!   （TranscriptionResult / DispatchOutcome）
 //! - `dispatcher` — 转写结果业务调度 seam（TranscriptionDispatch）
 //! - `builder` — PipelineBuilder 组件构造
 //! - `context` — PipelineContext 事件循环

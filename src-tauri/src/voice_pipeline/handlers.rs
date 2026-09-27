@@ -153,8 +153,11 @@ pub async fn dispatch_history_polish(
         .map_err(|e| e.to_string())
 }
 
+/// 处理一次转写结果：选择文本、写剪贴板、追加历史。
+///
 /// `inject_text` 为 `true` 时（仅 Windows 有实现）把选中文本注入到当前
 /// 焦点窗口；为 `false` 时输出动作仅剩剪贴板写入。
+/// 转写为空时返回 `None`（不做任何动作）。
 pub async fn process_transcription_result(
     output: &TranscriptionResult,
     prefer_polished: bool,

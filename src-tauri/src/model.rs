@@ -19,6 +19,7 @@ use std::time::Duration;
 const HF_DOMAINS: &[&str] = &["https://huggingface.co", "https://hf-mirror.com"];
 
 /// 可通过环境变量覆盖下载基址（勿以 `/` 结尾），便于国内等网络环境使用镜像，例如：
+/// `ALTGO_MODEL_BASE_URL=https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main`
 const ENV_MODEL_BASE_URL: &str = "ALTGO_MODEL_BASE_URL";
 
 const DOWNLOAD_ATTEMPTS: u32 = 3;

@@ -220,6 +220,7 @@ DP-2 connected 1920x1080+3840+0 (normal left inverted right x axis y axis) 527mm
     #[test]
     fn test_geometry_from_work_rect_uses_work_area() {
         // 整个显示器：0,0 - 3840x2160
+        // 工作区：0,40 - 3840x2080（底部任务栏 40px）
         let (x, y, w, h) = geometry_from_work_rect(0, 40, 3840, 2120);
         assert_eq!((x, y, w, h), (0, 40, 3840, 2080));
     }

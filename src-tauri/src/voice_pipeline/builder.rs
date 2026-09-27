@@ -64,6 +64,9 @@ impl PipelineBuilder {
         Ok(Box::new(transcriber))
     }
 
+    /// 按配置构建润色器。
+    ///
+    /// 协议未知或 HTTP 客户端初始化失败时返回错误。
     /// 通过 `LLMFormatter::from_config_with_sources` 共享工厂构造，确保与
     /// IPC handler（`cmd::polish_history_entry`）走同一条 prompt source chain。
     pub fn build_polisher(&self) -> Result<LLMFormatter, PipelineError> {

@@ -1,4 +1,6 @@
 //! 录音模块。
+//!
+//! Linux：`PulseRecorder`（`parecord`）。Windows：`WindowsRecorder`（cpal / WASAPI）。
 
 #[cfg(target_os = "linux")]
 mod linux;
