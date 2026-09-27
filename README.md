@@ -2,9 +2,9 @@
 
 ![altgo](assets/banner.png)
 
-[![CI](https://github.com/cislunarspace/altgo/actions/workflows/ci.yml/badge.svg)](https://github.com/cislunarspace/altgo/actions/workflows/ci.yml)
-[![Documentation](https://img.shields.io/badge/docs-online-2f6feb)](https://cislunarspace.github.io/altgo/)
-[![Release](https://img.shields.io/github/v/release/cislunarspace/altgo)](https://github.com/cislunarspace/altgo/releases)
+[![CI](https://github.com/ouyangjiahong26/altgo/actions/workflows/ci.yml/badge.svg)](https://github.com/ouyangjiahong26/altgo/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-online-2f6feb)](https://ouyangjiahong26.github.io/altgo/)
+[![Release](https://img.shields.io/github/v/release/ouyangjiahong26/altgo)](https://github.com/ouyangjiahong26/altgo/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **altgo** 是桌面语音转文字工具。按住触发键说话，松开即自动完成录音、转写与可选润色，结果写入系统剪贴板，并在屏幕底部的悬浮窗中单行展示。
@@ -13,9 +13,9 @@
 
 支持 **Linux**（Ubuntu 22.04+，x86_64 / aarch64）与 **Windows 10+**（x86_64 / arm64），暂不支持 macOS。
 
-- [在线文档](https://cislunarspace.github.io/altgo/)
-- [Releases 下载](https://github.com/cislunarspace/altgo/releases)
-- [问题反馈](https://github.com/cislunarspace/altgo/issues)
+- [在线文档](https://ouyangjiahong26.github.io/altgo/)
+- [Releases 下载](https://github.com/ouyangjiahong26/altgo/releases)
+- [问题反馈](https://github.com/ouyangjiahong26/altgo/issues)
 
 ## 功能
 
@@ -41,7 +41,7 @@ sudo usermod -aG input "$USER"
 
 然后：
 
-1. 从 [Releases](https://github.com/cislunarspace/altgo/releases) 下载对应架构的 `.deb`、`.rpm` 或 `.AppImage`。
+1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载对应架构的 `.deb`、`.rpm` 或 `.AppImage`。
 2. 安装下载的包，例如：
 
    ```bash
@@ -69,7 +69,7 @@ sudo usermod -aG input "$USER"
 
 ### Windows
 
-从 [Releases](https://github.com/cislunarspace/altgo/releases) 下载安装包：
+从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载安装包：
 
 - `*-setup.exe`（NSIS 安装器）：双击安装，适合多数用户。
 - `*.msi`：面向需要 MSI 部署的企业环境。
@@ -105,9 +105,9 @@ x64 与 arm64 按设备架构选择对应包。安装后从开始菜单启动 al
 
 ## 文档
 
-- [在线文档](https://cislunarspace.github.io/altgo/)：快速上手、使用与架构
-- [配置指南](https://cislunarspace.github.io/altgo/docs/configuration)：配置文件字段、环境变量与日志级别
-- [FAQ](https://cislunarspace.github.io/altgo/docs/faq)：按键、录音、转写、润色与剪贴板问题排查
+- [在线文档](https://ouyangjiahong26.github.io/altgo/)：快速上手、使用与架构
+- [配置指南](https://ouyangjiahong26.github.io/altgo/docs/configuration)：配置文件字段、环境变量与日志级别
+- [FAQ](https://ouyangjiahong26.github.io/altgo/docs/faq)：按键、录音、转写、润色与剪贴板问题排查
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)：开发环境、构建、测试、CI 与发版
 - [`docs/architecture.md`](docs/architecture.md) 与 [`AGENTS.md`](AGENTS.md)：系统架构与核心模块
 - [`docs/README.md`](docs/README.md)：设计与规划文档索引

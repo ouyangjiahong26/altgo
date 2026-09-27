@@ -2,7 +2,7 @@
 
 面向最终用户的说明文档站点，提供**简体中文**（`zh-Hans`，默认）与**英文**（`en`）两个语言版本。生产环境部署在 **GitHub Pages**：
 
-**[https://cislunarspace.github.io/altgo/](https://cislunarspace.github.io/altgo/)**
+**[https://ouyangjiahong26.github.io/altgo/](https://ouyangjiahong26.github.io/altgo/)**
 
 `url` / `baseUrl` 与组织名见 [`docusaurus.config.ts`](docusaurus.config.ts)。推送 `master` 时由 [`.github/workflows/deploy-docs.yml`](../.github/workflows/deploy-docs.yml) 构建并发布（详见 [`CONTRIBUTING.md`](../CONTRIBUTING.md)）。
 
@@ -10,7 +10,7 @@
 
 A documentation site for end users, available in **Simplified Chinese** (`zh-Hans`, the default) and **English** (`en`). In production it is hosted on **GitHub Pages**:
 
-**[https://cislunarspace.github.io/altgo/](https://cislunarspace.github.io/altgo/)**
+**[https://ouyangjiahong26.github.io/altgo/](https://ouyangjiahong26.github.io/altgo/)**
 
 For `url` / `baseUrl` and the organization name, see [`docusaurus.config.ts`](docusaurus.config.ts). On pushes to `master`, [`.github/workflows/deploy-docs.yml`](../.github/workflows/deploy-docs.yml) builds and publishes the site (see [`CONTRIBUTING.md`](../CONTRIBUTING.md) for details).
 

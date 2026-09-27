@@ -33,10 +33,10 @@
   },
   "link.item.label.GitHub": {
     "message": "GitHub",
-    "description": "The label of footer link with label=GitHub linking to https://github.com/cislunarspace/altgo"
+    "description": "The label of footer link with label=GitHub linking to https://github.com/ouyangjiahong26/altgo"
   },
   "copyright": {
-    "message": "Copyright © 2026 cislunarspace. MIT License. Built with Docusaurus.",
+    "message": "Copyright © 2026 ouyangjiahong26. MIT License. Built with Docusaurus.",
     "description": "The footer copyright"
   }
 }

@@ -23,7 +23,7 @@ The remaining desktop- and audio-related system libraries are **pulled in automa
 
 ### Linux
 
-1. Download the package for your distribution from [Releases](https://github.com/cislunarspace/altgo/releases): **`.deb`** (Ubuntu/Debian) or **`.rpm`** (Fedora/RHEL).
+1. Download the package for your distribution from [Releases](https://github.com/ouyangjiahong26/altgo/releases): **`.deb`** (Ubuntu/Debian) or **`.rpm`** (Fedora/RHEL).
 2. Complete the **input group** step above.
 3. Launch the app and open **Settings**:
    - Under **Transcription**, download and enable the local model, or fill in advanced paths;
@@ -33,7 +33,7 @@ The remaining desktop- and audio-related system libraries are **pulled in automa
 
 ### Windows
 
-1. Download the **`*-setup.exe`** (NSIS installer) or **`*.msi`** matching your device architecture (x64 or arm64) from [Releases](https://github.com/cislunarspace/altgo/releases).
+1. Download the **`*-setup.exe`** (NSIS installer) or **`*.msi`** matching your device architecture (x64 or arm64) from [Releases](https://github.com/ouyangjiahong26/altgo/releases).
 2. Double-click to install, then launch altgo from the Start menu.
 3. Open **Settings**, complete model download, polishing, trigger key, and other configuration, then click **Save**.
 
@@ -45,7 +45,7 @@ The remaining desktop- and audio-related system libraries are **pulled in automa
 As with the main repository, use **`make build`** to package. **For day-to-day verification we also recommend relying primarily on `make build`.**
 
 ```bash
-git clone https://github.com/cislunarspace/altgo.git
+git clone https://github.com/ouyangjiahong26/altgo.git
 cd altgo
 cd frontend && npm install && cd ..
 make build
@@ -56,7 +56,7 @@ To iterate quickly on the frontend UI you can temporarily use `cargo tauri dev`;
 
 ## Advanced: Only If You Edit the Config File by Hand
 
-Config file location: `~/.config/altgo/altgo.toml`. Field descriptions are in the main repository's [`configs/altgo.toml`](https://github.com/cislunarspace/altgo/blob/master/configs/altgo.toml).
+Config file location: `~/.config/altgo/altgo.toml`. Field descriptions are in the main repository's [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml).
 
 ## Launching
 

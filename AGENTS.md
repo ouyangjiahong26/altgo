@@ -102,7 +102,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - 仓库没有 `tests/` 目录（`CONTRIBUTING.md` 的集成测试约定暂无实例）；`docs/testing.md` 模块清单漏 `updater.rs`、`display_backend.rs`。
 - Loop 三件套不在 `.claude/`：builder/checker 实为 `docs/agents/builder.md`、`docs/agents/checker.md`，`loop-go` 规则见下节。
 - Node 下界三处不一（CONTRIBUTING 18+ / `docs-site` engines ≥20 / CI 22）；Rust MSRV 未在 `Cargo.toml` 强制（CI 用 stable）。
-- 文档统一写仓库全名 `cislunarspace/altgo`；fork 克隆里 `gh` 会解析到 fork（`git remote -v` 现查）。
+- 文档统一写仓库全名 `ouyangjiahong26/altgo`（原 `cislunarspace/altgo` 已改名，旧名 GitHub 自动重定向；`gh` 默认仓库已设 `ouyangjiahong26/altgo`，`git remote -v` 现查）。
 
 ## Runtime/Tooling Preferences
 

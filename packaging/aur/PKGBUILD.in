@@ -4,12 +4,12 @@ pkgver=VERSION
 pkgrel=1
 pkgdesc="Linux voice-to-text tool with local SenseVoice and optional LLM polishing"
 arch=('x86_64' 'aarch64')
-url="https://github.com/cislunarspace/altgo"
+url="https://github.com/ouyangjiahong26/altgo"
 license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'xclip' 'pulseaudio' 'evtest' 'xorg-xinput' 'xorg-xmodmap')
-source_x86_64=("${pkgname}_${pkgver}_amd64.deb::https://github.com/cislunarspace/altgo/releases/download/v${pkgver}/altgo_${pkgver}_amd64.deb")
+source_x86_64=("${pkgname}_${pkgver}_amd64.deb::https://github.com/ouyangjiahong26/altgo/releases/download/v${pkgver}/altgo_${pkgver}_amd64.deb")
 sha256sums_x86_64=('AMD64_SHA256_PLACEHOLDER')
-source_aarch64=("${pkgname}_${pkgver}_arm64.deb::https://github.com/cislunarspace/altgo/releases/download/v${pkgver}/altgo_${pkgver}_arm64.deb")
+source_aarch64=("${pkgname}_${pkgver}_arm64.deb::https://github.com/ouyangjiahong26/altgo/releases/download/v${pkgver}/altgo_${pkgver}_arm64.deb")
 sha256sums_aarch64=('ARM64_SHA256_PLACEHOLDER')
 
 package() {

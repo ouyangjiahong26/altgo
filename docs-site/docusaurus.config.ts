@@ -11,11 +11,11 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://cislunarspace.github.io',
+  url: 'https://ouyangjiahong26.github.io',
   baseUrl: '/altgo/',
   trailingSlash: false,
 
-  organizationName: 'cislunarspace',
+  organizationName: 'ouyangjiahong26',
   projectName: 'altgo',
 
   onBrokenLinks: 'throw',
@@ -31,7 +31,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/cislunarspace/altgo/tree/main/docs-site/',
+          editUrl: 'https://github.com/ouyangjiahong26/altgo/tree/master/docs-site/',
         },
         blog: false,
         theme: {
@@ -74,7 +74,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/cislunarspace/altgo',
+          href: 'https://github.com/ouyangjiahong26/altgo',
           label: 'GitHub',
           position: 'right',
         },
@@ -101,11 +101,11 @@ const config: Config = {
         {
           title: '社区',
           items: [
-            {label: 'GitHub', href: 'https://github.com/cislunarspace/altgo'},
+            {label: 'GitHub', href: 'https://github.com/ouyangjiahong26/altgo'},
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} cislunarspace. MIT License. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} ouyangjiahong26. MIT License. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

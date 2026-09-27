@@ -17,7 +17,7 @@ echo "[INFO] Generating PKGBUILD for v${VERSION}..."
 checksum_for_deb() {
     local arch="$1"
     local local_deb="$2"
-    local deb_url="https://github.com/cislunarspace/altgo/releases/download/v${VERSION}/altgo_${VERSION}_${arch}.deb"
+    local deb_url="https://github.com/ouyangjiahong26/altgo/releases/download/v${VERSION}/altgo_${VERSION}_${arch}.deb"
 
     if [[ -n "${local_deb}" && -f "${local_deb}" ]]; then
         echo "[INFO] Using local ${arch} deb: ${local_deb}" >&2

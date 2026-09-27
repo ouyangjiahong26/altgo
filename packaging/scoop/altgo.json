@@ -1,18 +1,18 @@
 {
     "version": "2.6.5",
     "description": "桌面语音转文字工具：按住触发键说话，松开后自动转写并写入剪贴板",
-    "homepage": "https://github.com/cislunarspace/altgo",
+    "homepage": "https://github.com/ouyangjiahong26/altgo",
     "license": "MIT",
     "suggest": {
         "Microsoft Edge WebView2": "extras/webview2"
     },
     "architecture": {
         "64bit": {
-            "url": "https://github.com/cislunarspace/altgo/releases/download/v2.6.5/altgo_2.6.5_x64-setup.exe#/dl.7z",
+            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.6.5/altgo_2.6.5_x64-setup.exe#/dl.7z",
             "hash": "2a54654bc4f2456c2d53450433bd5c53125f73e62a437b7084797b7965d75590"
         },
         "arm64": {
-            "url": "https://github.com/cislunarspace/altgo/releases/download/v2.6.5/altgo_2.6.5_arm64-setup.exe#/dl.7z",
+            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.6.5/altgo_2.6.5_arm64-setup.exe#/dl.7z",
             "hash": "5216eaa74cb8aea9c6f2f00cf281b4fc41a73414241f8ba6d7506ef017632a13"
         }
     },
@@ -29,19 +29,19 @@
         ]
     ],
     "checkver": {
-        "github": "https://github.com/cislunarspace/altgo"
+        "github": "https://github.com/ouyangjiahong26/altgo"
     },
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/cislunarspace/altgo/releases/download/v$version/altgo_$version_x64-setup.exe#/dl.7z"
+                "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v$version/altgo_$version_x64-setup.exe#/dl.7z"
             },
             "arm64": {
-                "url": "https://github.com/cislunarspace/altgo/releases/download/v$version/altgo_$version_arm64-setup.exe#/dl.7z"
+                "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v$version/altgo_$version_arm64-setup.exe#/dl.7z"
             }
         },
         "hash": {
-            "url": "https://github.com/cislunarspace/altgo/releases/download/v$version/checksums.txt",
+            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v$version/checksums.txt",
             "regex": "(?m)^([a-f0-9]{64})\\s+\\./nsis/$basename$"
         }
     }
