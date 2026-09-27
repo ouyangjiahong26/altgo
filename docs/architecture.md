@@ -383,7 +383,7 @@ Templates load once at startup; changing the files requires an app restart to ta
 
 模块边界一律返回自定义 thiserror 枚举：`TranscriberError` / `PolisherError` / `RecorderError` / `OutputError` / `KeyListenerError` / `ModelError` / `ConfigError` / `HistoryError`。`recorder` 模块有专门测试防止 trait 边界回退到 `anyhow`。
 
-一个小不一致：运行时 handler 里的错误实际走 `to_string()` + `sink.on_error`，结构化 `PipelineError` 主要用于构建期——两套机制并行存在。
+一个小不一致：运行时 handler 里的错误不经结构化 `PipelineError`，而是取该错误的用户文案（如 `TranscriberError::message()`）交 `sink.on_error`；`PipelineError` 主要用于构建期——两套机制并行存在。
 
 ## 4. Error Model
 
@@ -396,7 +396,7 @@ Templates load once at startup; changing the files requires an app restart to ta
 
 Module boundaries always return their own thiserror enums: `TranscriberError` / `PolisherError` / `RecorderError` / `OutputError` / `KeyListenerError` / `ModelError` / `ConfigError` / `HistoryError`. The `recorder` module has dedicated tests that keep the trait boundary from slipping back to `anyhow`.
 
-One small inconsistency: errors in runtime handlers actually flow through `to_string()` + `sink.on_error`, while structured `PipelineError` serves mainly at build time—the two mechanisms coexist.
+One small inconsistency: errors in runtime handlers bypass structured `PipelineError`—they take the error's user-facing text (e.g. `TranscriberError::message()`) into `sink.on_error`, while structured `PipelineError` serves mainly at build time—the two mechanisms coexist.
 
 ## 五、平台抽象
 

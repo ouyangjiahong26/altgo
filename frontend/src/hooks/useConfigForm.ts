@@ -58,11 +58,12 @@ export function normalizeConfig(c: AppConfig): AppConfig {
     autoCheckUpdate: c.autoCheckUpdate ?? true,
     polishThinkingLevel: c.polishThinkingLevel ?? "off",
     injectText: c.injectText ?? false,
-    // 后端取值大小写不敏感（后端 eq_ignore_ascii_case）：这里统一小写归一，
-    // 避免手写 TOML 的 "Online" 让 UI 按 local 呈现、与后端实际引擎不一致。
-    // The backend value is case-insensitive server-side (eq_ignore_ascii_case), so normalize to
-    // lowercase here; otherwise a hand-written "Online" would render local UI with an online engine.
-    transcriberBackend: (c.transcriberBackend ?? "local").toLowerCase(),
+    // 后端取值大小写与前后空白都不敏感（后端 trim + eq_ignore_ascii_case）：这里同样归一，
+    // 避免手写 TOML 的 "Online" 或带空格取值让 UI 按 local 呈现、与后端实际引擎不一致。
+    // The backend value is case-insensitive and whitespace-tolerant server-side (trim +
+    // eq_ignore_ascii_case), so normalize the same way here; otherwise a hand-written "Online"
+    // would render local UI with an online engine.
+    transcriberBackend: (c.transcriberBackend ?? "local").trim().toLowerCase(),
     asrModel: c.asrModel ?? "",
     asrApiBaseUrl: c.asrApiBaseUrl ?? "",
     asrApiKey: "",
