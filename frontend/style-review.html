@@ -416,11 +416,15 @@
           <div class="sr-row" id="shadow-scale"></div>
           <h3>动效 --duration-* / --ease-*</h3>
           <div class="sr-row" id="motion-scale"></div>
-          <h3>字体 / 行高 / 字距 / 其它</h3>
-          <div class="sr-list" id="misc-tokens"></div>
           <div class="sr-caption">
             motion.css 里 <code>prefers-reduced-motion: reduce</code> 会把动画与过渡压到 0.01ms——
             系统开启“减少动态效果”时本页动画应静止。
+          </div>
+          <h3>字体 / 行高 / 字距 / 其它</h3>
+          <div class="sr-list" id="misc-tokens"></div>
+          <div class="sr-caption">
+            <code>--overlay-shadow</code> 在暗/亮两套主题下都定义为 <code>none</code>，这是刻意的：半透明阴影叠在透明窗口上，
+            部分 Linux 合成器会把它预乘成黑影（design-tokens.css 内有说明），所以该行预览必然是个无阴影方块。
           </div>
         </section>
 
