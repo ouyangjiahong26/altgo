@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <title>更新说明窗口 — 效果演示</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    />
+    <style>
+/* ===== 以下三段与应用同一份 CSS（design-tokens / design-system 基础 / update-notes） ===== */
+/* ============================================
+   altgo — structural tokens + light / dark palettes
+   ============================================ */
+
+:root {
+  /* ── Typography (both themes) ───────────────── */
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", "SF Mono", Consolas, monospace;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.025em;
+  --tracking-wide: 0.04em;
+
+  /* ── Spacing ────────────────────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  /* ── Border radius ─────────────────────────── */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* ── Motion ────────────────────────────────── */
+  --duration-fast: 100ms;
+  --duration-normal: 180ms;
+  --duration-slow: 280ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+}
+
+/* ── Night (default) ─────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --color-bg: #09090b;
+  --color-surface-1: #121215;
+  --color-surface-2: #18181c;
+  --color-surface-3: #232329;
+
+  --color-bg-card: var(--color-surface-2);
+  --color-bg-card-hover: var(--color-surface-3);
+  --color-bg-input: #141418;
+  --color-bg-input-focus: #1c1c21;
+  --color-bg-muted: var(--color-surface-3);
+
+  --color-text: #f4f4f5;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+
+  --color-accent: #818cf8;
+  --color-accent-hover: #a5b4fc;
+  --color-accent-glow: rgba(129, 140, 248, 0.22);
+  --color-accent-soft: #c4b5fd;
+  --color-accent-tint-bg: rgba(129, 140, 248, 0.14);
+  --color-accent-tint-border: rgba(129, 140, 248, 0.38);
+  --color-accent-tint-shadow: rgba(129, 140, 248, 0.12);
+
+  --color-green: #34d399;
+  --color-green-bg: rgba(52, 211, 153, 0.12);
+  --color-green-glow: rgba(52, 211, 153, 0.28);
+  --color-red: #fb7185;
+  --color-red-bg: rgba(251, 113, 133, 0.12);
+  --color-red-glow: rgba(251, 113, 133, 0.28);
+  --color-amber: #fbbf24;
+  --color-amber-bg: rgba(251, 191, 36, 0.12);
+  --color-amber-glow: rgba(251, 191, 36, 0.28);
+
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-focus: var(--color-accent);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+
+  --color-hover-surface: rgba(255, 255, 255, 0.07);
+  --color-on-primary: #ffffff;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.65);
+  --shadow-glow-accent: 0 0 0 1px var(--color-accent), 0 0 22px var(--color-accent-glow);
+  --shadow-glow-green: 0 0 20px var(--color-green-glow);
+  --shadow-glow-red: 0 0 20px var(--color-red-glow);
+  --shadow-glow-amber: 0 0 20px var(--color-amber-glow);
+
+  /* Solid (fully opaque) variant — avoids alpha-over-alpha compositing with the
+     window shadow, which produced black fringes on some Linux compositors. */
+  --overlay-surface-solid: rgb(22, 22, 28);
+  --overlay-border: rgba(255, 255, 255, 0.12);
+  --overlay-text: rgba(244, 244, 245, 0.94);
+  --overlay-result-text: #e4e4e7;
+  --overlay-muted: rgba(255, 255, 255, 0.55);
+  --overlay-processing-track: rgba(255, 255, 255, 0.14);
+  /* 不用 box-shadow：半透明阴影叠在透明窗口上，部分 Linux 合成器会把它
+     预乘成黑影（2026-07 在 mutter/X11 实测复现）。层次靠实色 surface +
+     细 border 表达。 */
+  --overlay-shadow: none;
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  --status-ring-track: rgba(255, 255, 255, 0.08);
+
+  --danger-border: rgba(251, 113, 133, 0.35);
+  --danger-hover-bg: rgba(251, 113, 133, 0.2);
+}
+
+/* ── Day ───────────────────────────────────── */
+[data-theme="light"] {
+  --color-bg: #eceef2;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #f4f5f8;
+  --color-surface-3: #e8eaef;
+
+  --color-bg-card: #ffffff;
+  --color-bg-card-hover: #f4f5f8;
+  --color-bg-input: #ffffff;
+  --color-bg-input-focus: #fafbfc;
+  --color-bg-muted: var(--color-surface-3);
+
+  --color-text: #18181b;
+  --color-text-secondary: #52525b;
+  --color-text-muted: #71717a;
+
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-accent-glow: rgba(79, 70, 229, 0.2);
+  --color-accent-soft: #7c3aed;
+  --color-accent-tint-bg: rgba(79, 70, 229, 0.1);
+  --color-accent-tint-border: rgba(79, 70, 229, 0.35);
+  --color-accent-tint-shadow: rgba(79, 70, 229, 0.08);
+
+  --color-green: #059669;
+  --color-green-bg: rgba(5, 150, 105, 0.1);
+  --color-green-glow: rgba(5, 150, 105, 0.2);
+  --color-red: #e11d48;
+  --color-red-bg: rgba(225, 29, 72, 0.08);
+  --color-red-glow: rgba(225, 29, 72, 0.2);
+  --color-amber: #d97706;
+  --color-amber-bg: rgba(217, 119, 6, 0.1);
+  --color-amber-glow: rgba(217, 119, 6, 0.22);
+
+  --color-border: rgba(24, 24, 27, 0.1);
+  --color-border-subtle: rgba(24, 24, 27, 0.06);
+  --color-border-focus: var(--color-accent);
+  --color-border-strong: rgba(24, 24, 27, 0.14);
+
+  --color-hover-surface: rgba(24, 24, 27, 0.06);
+  --color-on-primary: #ffffff;
+
+  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.06);
+  --shadow-md: 0 6px 20px rgba(24, 24, 27, 0.1);
+  --shadow-lg: 0 12px 36px rgba(24, 24, 27, 0.12);
+  --shadow-glow-accent: 0 0 0 1px var(--color-accent), 0 0 20px var(--color-accent-glow);
+  --shadow-glow-green: 0 0 18px var(--color-green-glow);
+  --shadow-glow-red: 0 0 18px var(--color-red-glow);
+  --shadow-glow-amber: 0 0 18px var(--color-amber-glow);
+
+  --overlay-surface-solid: rgb(248, 248, 250);
+  --overlay-border: rgba(24, 24, 27, 0.12);
+  --overlay-text: rgba(24, 24, 27, 0.92);
+  --overlay-result-text: #27272a;
+  --overlay-muted: rgba(24, 24, 27, 0.55);
+  --overlay-processing-track: rgba(24, 24, 27, 0.12);
+  /* 不用 box-shadow：原因见 dark 主题同名变量的注释。 */
+  --overlay-shadow: none;
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2352525b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  --status-ring-track: rgba(24, 24, 27, 0.12);
+
+  --danger-border: rgba(225, 29, 72, 0.3);
+  --danger-hover-bg: rgba(225, 29, 72, 0.14);
+}
+
+
+
+/* ============================================
+   Global Base Styles
+   ============================================ */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* 与透明无边框窗口配合：四角由 #root/.layout 着色，此处透明才能看到圆角 */
+  background: transparent;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+}
+
+#root.maximized {
+  border-radius: 0;
+}
+
+/* ============================================
+   Scrollbar Styling
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ============================================
+   Selection
+   ============================================ */
+
+::selection {
+  background: var(--color-accent);
+  color: white;
+}
+
+/* ============================================
+   Focus Styles
+   ============================================ */
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   CJK letter-spacing
+   ============================================ */
+
+/* tracking-wide 是为英文大写小标题设计的；中文界面下字距松散，恢复正常字距 */
+:lang(zh) .layout-subtitle,
+:lang(zh) .settings-section-title,
+:lang(zh) .settings-section-toggle,
+:lang(zh) .home-result-label,
+:lang(zh) .settings-model-card-badge {
+  letter-spacing: normal;
+}
+
+/* ============================================
+   更新说明窗口（label `update-notes`）
+   Release-notes window
+   ============================================ */
+
+/* 窗口不透明：把 design-system 的透明底色换成本主题底色，
+   否则无边框窗口的空白处会露出 WebView 默认白底。 */
+html,
+body {
+  background: var(--color-bg);
+}
+
+.update-notes-window {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+/* ── 自绘标题栏 ───────────────────────────────── */
+
+.update-notes-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.update-notes-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.update-notes-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.update-notes-close:hover {
+  background: var(--color-hover-surface);
+  color: var(--color-text);
+}
+
+/* ── 版本摘要 ─────────────────────────────────── */
+
+.update-notes-summary {
+  flex: none;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.update-notes-headline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.update-notes-versions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.update-notes-version--latest {
+  color: var(--color-text-secondary);
+  /* 版本对之间用一条竖线分隔，不用箭头等特殊字形。 */
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--color-border);
+}
+
+.update-notes-date {
+  margin-left: auto;
+}
+
+/* ── 说明正文（滚动区） ────────────────────────── */
+
+.update-notes-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  /* 正文用 --text-sm：16px 根字号下 13px，跟随应用字体大小档位缩放。 */
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.update-notes-empty {
+  padding: var(--space-6) 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* ── 更新说明（受限 Markdown 渲染结果） ─────────── */
+
+.release-notes-heading {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+
+.release-notes > .release-notes-heading:first-child {
+  margin-top: 0;
+}
+
+:lang(zh) .release-notes-heading {
+  letter-spacing: normal;
+}
+
+.release-notes-list {
+  margin: 0;
+  padding-left: var(--space-4);
+  list-style: disc;
+}
+
+.release-notes-item {
+  margin-bottom: var(--space-2);
+}
+
+.release-notes-item:last-child {
+  margin-bottom: 0;
+}
+
+.release-notes-sublist {
+  margin-top: var(--space-1);
+  padding-left: var(--space-4);
+  list-style: circle;
+  color: var(--color-text-muted);
+}
+
+.release-notes-paragraph {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  word-break: break-word;
+}
+
+.release-notes strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.release-notes code {
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+/* ── 操作区 ───────────────────────────────────── */
+
+.update-notes-actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-1);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.update-notes-error {
+  font-size: var(--text-xs);
+  color: var(--color-red);
+}
+
+.update-notes-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition:
+    background var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.update-notes-btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-primary);
+}
+
+.update-notes-btn--primary:hover {
+  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow-accent);
+}
+
+.update-notes-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+
+/* ===== 仅本演示页自身的排版 ===== */
+html {
+  background: #3f3f46;
+}
+body {
+  overflow: auto;
+  user-select: auto;
+  background: #3f3f46;
+  padding: 16px;
+  font-size: 17px;
+}
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 340px);
+  gap: 16px;
+  align-items: start;
+}
+.demo-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.demo-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: #e4e4e7;
+}
+.demo-window {
+  width: 340px;
+  height: 400px;
+  border: 1px solid #52525b;
+  overflow: hidden;
+}
+.demo-window .update-notes-window {
+  height: 400px;
+}
+    </style>
+  </head>
+  <body>
+    <div class="demo-grid">
+      <div class="demo-pane">
+        <div class="demo-label">深色 · 有更新（就地更新档，340×400）</div>
+        <div class="demo-window" data-theme="dark">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-summary"><div class="update-notes-headline">发现新版本 v2.6.18</div><div class="update-notes-versions"><span class="update-notes-version">当前 2.6.17</span><span class="update-notes-version update-notes-version--latest">最新 2.6.18</span><span class="update-notes-date">2026-09-27</span></div></div><div class="update-notes-body"><div class="release-notes"><h4 class="release-notes-heading">Changed</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>悬浮窗精简为单行极简胶囊</strong></li><li class="release-notes-item"><strong>设置界面改版</strong><ul class="release-notes-sublist"><li class="release-notes-subitem">子条目</li></ul></li></ul><h4 class="release-notes-heading">Fixes</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>更新与分发渠道指向新仓库名</strong></li></ul></div></div><div class="update-notes-actions"><button type="button" class="update-notes-btn update-notes-btn--primary"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>立即更新并重启</button></div></div>
+        </div>
+      </div>
+      <div class="demo-pane">
+        <div class="demo-label">深色 · 空态（无数据 / 浏览器直开）</div>
+        <div class="demo-window" data-theme="dark">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-body"><p class="update-notes-empty">暂无更新信息</p></div><div class="update-notes-actions"><button type="button" class="update-notes-btn update-notes-btn--primary">打开下载页面</button></div></div>
+        </div>
+      </div>
+      <div class="demo-pane">
+        <div class="demo-label">浅色 · 有更新</div>
+        <div class="demo-window" data-theme="light">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-summary"><div class="update-notes-headline">发现新版本 v2.6.18</div><div class="update-notes-versions"><span class="update-notes-version">当前 2.6.17</span><span class="update-notes-version update-notes-version--latest">最新 2.6.18</span><span class="update-notes-date">2026-09-27</span></div></div><div class="update-notes-body"><div class="release-notes"><h4 class="release-notes-heading">Changed</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>悬浮窗精简为单行极简胶囊</strong></li><li class="release-notes-item"><strong>设置界面改版</strong><ul class="release-notes-sublist"><li class="release-notes-subitem">子条目</li></ul></li></ul><h4 class="release-notes-heading">Fixes</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>更新与分发渠道指向新仓库名</strong></li></ul></div></div><div class="update-notes-actions"><button type="button" class="update-notes-btn update-notes-btn--primary"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>立即更新并重启</button></div></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

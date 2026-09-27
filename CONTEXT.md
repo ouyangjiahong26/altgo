@@ -103,6 +103,9 @@ _Avoid_: capture mode、key capture mode。
 **检查模式（Check Mode）**
 检查更新的触发模式：`Silent`（静默模式，启动时触发，失败时不打扰用户，发现新版本时以轻量徽标提示）与 `Manual`（手动模式，用户主动点击触发，带加载状态并在超时或失败时反馈具体原因）。
 
+**更新说明（Release Notes）**
+手动检查发现新版本时弹出的独立窗口（label `update-notes`），展示该版本的分类变更条目，并就地提供更新操作（就地更新或打开下载页）。内容取自 CHANGELOG.md 当前版本小节，经 latest.json 的 `notes` 字段随检查结果到达前端；`## vX.Y.Z` 版本行与末尾的对比样板行不渲染，版本信息由窗口头部展示。_Avoid_: 更新内容弹窗、changelog 窗口。
+
 **更新支持级别（Update Support Tier）**
 不同平台及打包分发方式下的更新能力分级：
 - `InPlace`（就地更新）：Windows（NSIS）与 Linux（AppImage），支持由更新器自动下载差量/全量包并就地替换重启。
