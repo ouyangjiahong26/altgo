@@ -1,7 +1,7 @@
-/* Overlay island UI — composite-layer-only animations for 60fps */
+/* 悬浮窗岛 UI — 仅使用合成层动画以保证 60fps */
 
 /* ============================================
-   Container — handles entry/exit transitions
+   容器 — 处理进入/退出过渡
    ============================================ */
 
 .island-container {
@@ -9,11 +9,9 @@
   align-items: flex-end;
   justify-content: center;
   /* 窗口 280×64：胶囊 40px + 底部 12px + 顶部 12px 余量。 */
-  /* Window 280×64: 40px pill + 12px bottom gap + 12px top margin. */
   padding-bottom: 12px;
-  /* Animate transform only on the transparent top-level container. Fading the
-     whole transparent window caused black-halo compositing on some Linux WMs;
-     opacity now lives on the inner solid island instead. */
+  /* 只对透明顶层容器做 transform 动画。给整个透明窗口做淡入淡出，在部分 Linux
+     窗管上会产生黑色光晕合成问题；现在把 opacity 放在内部实心岛上。 */
   transition: transform var(--duration-normal) var(--ease-out);
   will-change: transform;
 }
@@ -49,9 +47,6 @@
 
 /* 全相位同一胶囊几何（248×40、全圆角），相位切换只剩内容 crossfade。
    40px = 单行文本 + 呼吸空间；248px = 窗口 280px 两侧各留 16px。 */
-/* One pill geometry shared by all phases (248×40, fully rounded); phase switches
-   are pure content crossfades. 40px = one text line plus breathing room;
-   248px = window 280px minus 16px on each side. */
 
 .island {
   display: flex;
@@ -62,7 +57,7 @@
   width: 248px;
   height: 40px;
   padding: 0 14px;
-  /* Replaced backdrop-filter with solid translucent background for GPU composite performance */
+  /* 用实色半透明背景替代 backdrop-filter，以提升 GPU 合成性能 */
   background: var(--overlay-surface-solid);
   border-radius: var(--radius-full);
   border: 1px solid var(--overlay-border);
@@ -71,8 +66,7 @@
   font-weight: 500;
   letter-spacing: 0.2px;
   box-shadow: var(--overlay-shadow);
-  /* Confine paint/compositing to the solid island so shadow blur cannot bleed
-     into the transparent window backing. */
+  /* 把绘制/合成限制在实心岛内，避免阴影模糊渗入透明窗口背景。 */
   isolation: isolate;
   contain: paint;
   transition: opacity var(--duration-normal) var(--ease-out);
@@ -84,8 +78,6 @@
    ============================================ */
 
 /* 8px 实心红点 + 向外扩散的环（只动 transform/opacity，合成层友好）。 */
-/* 8px solid red dot with an expanding ring (transform/opacity only —
-   compositor-friendly). */
 .dot {
   position: relative;
   width: 8px;
@@ -125,9 +117,6 @@
 
 /* 最新一帧在右侧；视口宽度固定（53 条 ×2px + 52px 间隙 = 158px），从零帧起
    布局即稳定，旧帧随新帧进入从左侧裁出，胶囊内容不随录音时长增长。 */
-/* Newest frame on the right; fixed viewport width (53 bars ×2px + 52px of gaps
-   = 158px) keeps layout stable from frame zero—old bars are clipped out on the
-   left as new ones enter, so pill content never grows with recording length. */
 .level-trace {
   display: flex;
   align-items: center;
@@ -148,7 +137,7 @@
 }
 
 /* ============================================
-   Processing Indicator
+   处理中指示器
    ============================================ */
 
 .processing-ring {
@@ -162,7 +151,7 @@
   flex: none;
 }
 
-/* Transcription progress — uses scaleX (composite layer only) */
+/* 转写进度 — 使用 scaleX（仅合成层） */
 .overlay-tx-progress-track {
   width: 158px;
   height: 3px;
@@ -184,7 +173,7 @@
   );
   background-size: 200% 100%;
   box-shadow: 0 0 6px 0 var(--color-amber-glow);
-  /* scaleX instead of width — no layout recalc, pure GPU composite */
+  /* 用 scaleX 而非 width — 不触发重排，纯 GPU 合成 */
   transform-origin: left center;
   transition: transform 0.35s var(--ease-out);
   will-change: transform;
@@ -241,7 +230,7 @@
 }
 
 /* ============================================
-   Done Indicator
+   完成指示器
    ============================================ */
 
 .done-indicator {
@@ -260,8 +249,6 @@
 }
 
 /* 润色失败：✓ 圆盘转琥珀，与文本后的 ⚠ 一起提示已回退原文（悬停 ⚠ 看原因）。 */
-/* Polish failed: the ✓ disc turns amber and, together with the ⚠ after the
-   text, hints that raw output was kept (hover the ⚠ for the reason). */
 .done-indicator--failed {
   background: var(--color-amber-bg);
   color: var(--color-amber);
@@ -271,12 +258,10 @@
 }
 
 /* ============================================
-   Result Display
+   结果展示
    ============================================ */
 
 /* 单行省略：悬浮窗只承担“扫一眼确认”，全文在剪贴板与主窗历史。 */
-/* Single line with ellipsis: the overlay is only a glance-confirmation; the
-   full text lives in the clipboard and the main-window history. */
 .result-text {
   flex: 1;
   min-width: 0;
@@ -304,9 +289,6 @@
 
 /* 默认透明但保留占位（淡入时不引起文本重排）。悬浮窗 focusable=false，
    无键盘焦点路径，透明态可点击无碍。 */
-/* Invisible by default but keeps its slot (no text reflow on fade-in). The
-   overlay window is focusable=false—no keyboard path—so the transparent
-   click target is harmless. */
 .btn-close {
   width: 16px;
   height: 16px;

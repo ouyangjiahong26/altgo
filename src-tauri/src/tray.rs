@@ -1,6 +1,4 @@
 //! 系统托盘配置。
-//!
-//! System tray configuration.
 
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -27,8 +25,6 @@ pub fn create_tray(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(window) = app.get_webview_window("main") {
                     // 部分 Linux 窗口管理器下，窗口最小化到任务栏/dock 后，
                     // 先 `show` 再 `unminimize` 比反过来更可靠。
-                    // `show` then `unminimize` works more reliably than the reverse on some Linux WMs
-                    // when the window was minimized to the taskbar / dock.
                     let _ = window.show();
                     let _ = window.unminimize();
                     let _ = window.set_focus();

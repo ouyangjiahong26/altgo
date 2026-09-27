@@ -1,4 +1,4 @@
-/** Theme preference persisted locally (not in Tauri config). */
+/** 主题偏好存本地（不进 Tauri 配置）。 */
 
 export const THEME_PREF_KEY = "altgo-theme-pref";
 
@@ -9,7 +9,7 @@ export function getThemePref(): ThemePref {
     const v = localStorage.getItem(THEME_PREF_KEY);
     if (v === "light" || v === "dark" || v === "system") return v;
   } catch {
-    /* ignore */
+    /* 忽略 */
   }
   return "system";
 }
@@ -30,7 +30,7 @@ export function setThemePref(pref: ThemePref): void {
   try {
     localStorage.setItem(THEME_PREF_KEY, pref);
   } catch {
-    /* ignore */
+    /* 忽略 */
   }
   applyThemeToDocument(pref);
   window.dispatchEvent(new CustomEvent("altgo-theme-changed"));

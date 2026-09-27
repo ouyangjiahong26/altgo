@@ -2,10 +2,6 @@
 //!
 //! 把具体的 `tauri::WebviewWindow` 操作挡在 `OverlayManager` 之外，
 //! manager 经由 `OverlayWindow` 接口即可测试。
-//! Tauri adapter for the overlay window seam.
-//!
-//! Keeps concrete `tauri::WebviewWindow` operations out of `OverlayManager`, so the
-//! manager can be tested through the `OverlayWindow` interface.
 
 use tauri::{Emitter, LogicalSize, Manager, PhysicalPosition};
 
@@ -14,7 +10,6 @@ use crate::overlay::seam::{OverlayError, OverlayState, OverlayWindow};
 const OVERLAY_WINDOW_LABEL: &str = "overlay";
 
 /// `OverlayWindow` 的 Tauri 实现。
-/// Tauri implementation of `OverlayWindow`.
 #[derive(Clone)]
 pub struct TauriOverlayWindow {
     app: tauri::AppHandle,
@@ -118,7 +113,6 @@ fn platform_primary_monitor_geometry() -> Option<(i32, i32, i32, i32)> {
 }
 
 /// 使用 `xrandr` 获取主显示器的物理像素几何。
-/// Uses `xrandr` to get primary monitor geometry in physical pixels.
 #[cfg(target_os = "linux")]
 fn xrandr_primary_monitor() -> Option<(i32, i32, i32, i32)> {
     let output = std::process::Command::new("xrandr").output().ok()?;
@@ -186,9 +180,6 @@ fn parse_xrandr_geometry(output: &str) -> Vec<(i32, i32, i32, i32, bool)> {
 
 /// 从工作区矩形提取 `(x, y, width, height)`，不关心各平台结构体的字段命名。
 /// 由测试共享，保证几何提取逻辑在每个平台都被覆盖到。
-/// Extracts `(x, y, width, height)` from a work-area rect, regardless of how
-/// the platform struct names it. Shared by tests so geometry extraction is
-/// exercised on every platform.
 #[allow(dead_code)]
 fn geometry_from_work_rect(left: i32, top: i32, right: i32, bottom: i32) -> (i32, i32, i32, i32) {
     (left, top, right - left, bottom - top)
@@ -220,8 +211,6 @@ DP-2 connected 1920x1080+3840+0 (normal left inverted right x axis y axis) 527mm
 
     // Windows 路径需要 AppHandle，只能在真实运行时验证；
     // 此处仅覆盖 Linux/xrandr 路径（无显示环境下返回 None 也不得 panic）。
-    // The Windows path needs an AppHandle and can only be verified in real runtime;
-    // here only the Linux/xrandr path is covered (returning None with no display must not panic).
     #[cfg(target_os = "linux")]
     #[test]
     fn test_platform_primary_monitor_geometry_runs_without_panicking() {
@@ -231,8 +220,6 @@ DP-2 connected 1920x1080+3840+0 (normal left inverted right x axis y axis) 527mm
     #[test]
     fn test_geometry_from_work_rect_uses_work_area() {
         // 整个显示器：0,0 - 3840x2160
-        // Full monitor: 0,0 - 3840x2160
-        // Work area: 0,40 - 3840x2080 (40px taskbar at bottom)
         let (x, y, w, h) = geometry_from_work_rect(0, 40, 3840, 2120);
         assert_eq!((x, y, w, h), (0, 40, 3840, 2080));
     }
@@ -240,8 +227,6 @@ DP-2 connected 1920x1080+3840+0 (normal left inverted right x axis y axis) 527mm
     #[test]
     fn test_geometry_from_work_rect_distinguishes_from_full_monitor() {
         // 同一显示器会报告 rcMonitor=(0,0,3840,2160)。有任务栏时 rcWork 至少应在一个维度上严格更小。
-        // Same monitor would report rcMonitor=(0,0,3840,2160). rcWork should be
-        // strictly smaller in at least one dimension when a taskbar is present.
         let full = geometry_from_work_rect(0, 0, 3840, 2160);
         let work = geometry_from_work_rect(0, 40, 3840, 2120);
         assert_ne!(full, work);
@@ -254,7 +239,6 @@ DP-2 connected 1920x1080+3840+0 (normal left inverted right x axis y axis) 527mm
     #[test]
     fn test_geometry_from_work_rect_negative_origin() {
         // 位于主显示器左侧的副屏 x 为负值。
-        // Secondary monitor placed to the left of the primary has negative x.
         let (x, y, w, h) = geometry_from_work_rect(-1920, 0, 0, 1080);
         assert_eq!((x, y, w, h), (-1920, 0, 1920, 1080));
     }

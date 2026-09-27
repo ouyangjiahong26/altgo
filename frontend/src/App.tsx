@@ -10,8 +10,6 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
 
   // 首次安装向导是整窗流程，不套主窗导航；完成后才进入正常两页界面。
-  // The first-run wizard is a full-window flow without the main navigation; the regular
-  // two-page UI appears only after it finishes.
   if (showOnboarding) {
     return <Onboarding onDone={() => setShowOnboarding(false)} />;
   }

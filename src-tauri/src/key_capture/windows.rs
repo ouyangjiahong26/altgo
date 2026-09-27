@@ -1,10 +1,6 @@
 //! Windows 激活键捕获（WH_KEYBOARD_LL）。
 //!
 //! 临时挂一个低级键盘钩子，阻塞等待下一次物理按键。
-//!
-//! Windows activation-key capture (WH_KEYBOARD_LL).
-//!
-//! Temporarily installs a low-level keyboard hook and blocks until the next physical key press.
 
 use std::sync::mpsc;
 use std::time::Duration;
@@ -15,7 +11,6 @@ use crate::key_listener::windows::{spawn_ll_keyboard_hook, HookHandle};
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Windows 平台激活键捕获器。
-/// Windows activation-key capturer.
 pub struct WindowsKeyCapture;
 
 impl WindowsKeyCapture {
@@ -36,7 +31,6 @@ impl KeyCapture for WindowsKeyCapture {
         let hook: HookHandle = spawn_ll_keyboard_hook(move |vk, pressed| {
             if pressed && tx.send(vk).is_ok() {
                 // 收到第一个按键即结束钩子线程。
-                // End the hook thread as soon as the first key arrives.
                 unsafe {
                     let tid = windows::Win32::System::Threading::GetCurrentThreadId();
                     let _ = windows::Win32::UI::WindowsAndMessaging::PostThreadMessageW(

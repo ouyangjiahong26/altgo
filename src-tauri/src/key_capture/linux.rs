@@ -1,10 +1,6 @@
 //! Linux 激活键捕获（evtest）。
 //!
 //! 通过 `evtest` 监听 `/dev/input/event*`，阻塞等待一次按键。
-//!
-//! Linux activation-key capture (evtest).
-//!
-//! Listens on `/dev/input/event*` through `evtest`, blocking until one key press arrives.
 
 use std::io::{BufRead, Read};
 use std::path::PathBuf;
@@ -18,12 +14,10 @@ use super::{evdev_code_to_keysym_name, CaptureActivationResponse, KeyCapture};
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Linux 平台激活键捕获器。
-/// Linux activation-key capturer.
 pub struct LinuxKeyCapture;
 
 impl LinuxKeyCapture {
     /// 创建新的捕获器。
-    /// Creates a new capturer.
     pub fn new() -> Self {
         Self
     }

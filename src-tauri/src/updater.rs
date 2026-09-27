@@ -2,11 +2,6 @@
 //!
 //! 负责检查应用新版本、下载更新及安装引导。
 //! 支持后台静默模式与手动模式，处理 10 秒超时与不同打包类型的分级支持。
-//!
-//! App auto-update module.
-//!
-//! Checks for new versions, downloads updates, and guides installation. Supports both background
-//! silent mode and manual mode, with 10-second timeouts and per-packaging-format support tiers.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -16,7 +11,6 @@ use crate::pipeline_controller::{PipelineController, PipelineStatus};
 use serde::{Deserialize, Serialize};
 
 /// 检查模式：静默模式（启动时触发）或手动模式（用户主动触发）。
-/// Check mode: silent (triggered at startup) or manual (user-initiated).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CheckMode {
@@ -25,20 +19,16 @@ pub enum CheckMode {
 }
 
 /// 更新支持级别。
-/// Update support tier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UpdateSupportTier {
     /// 就地更新：Windows 与 Linux AppImage
-    /// In-place update: Windows and Linux AppImage
     InPlace,
     /// 外部引导：Linux deb/rpm/AUR
-    /// External guidance: Linux deb/rpm/AUR
     External,
 }
 
 /// 检查更新返回的结果。
-/// Result returned by an update check.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCheckResponse {
@@ -51,7 +41,6 @@ pub struct UpdateCheckResponse {
 }
 
 /// 错误类别。
-/// Error category.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UpdateErrorKind {
@@ -63,7 +52,6 @@ pub enum UpdateErrorKind {
 }
 
 /// 检查更新失败的详细错误。
-/// Detailed error of a failed update check.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateErrorResponse {
@@ -72,7 +60,6 @@ pub struct UpdateErrorResponse {
 }
 
 /// 解析当前运行环境的更新支持级别。
-/// Resolves this runtime's update support tier.
 pub fn detect_support_tier() -> UpdateSupportTier {
     #[cfg(windows)]
     {
@@ -93,7 +80,6 @@ pub fn detect_support_tier() -> UpdateSupportTier {
 }
 
 /// 原始更新信息。
-/// Raw update information.
 #[derive(Debug, Clone)]
 pub struct UpdateInfoRaw {
     pub version: String,
@@ -103,7 +89,6 @@ pub struct UpdateInfoRaw {
 }
 
 /// 更新提供者 trait（抽象 seam，用于测试和生产）。
-/// Update provider trait (an abstraction seam for tests and production).
 pub trait UpdateProvider: Send + Sync {
     fn check_update_raw<'a>(
         &'a self,
@@ -115,8 +100,6 @@ pub trait UpdateProvider: Send + Sync {
 }
 
 /// 核心编排函数：在指定超时时间内执行更新检查，并映射为结构化响应。
-/// Core orchestration: runs the update check within the given timeout and maps it onto a
-/// structured response.
 pub async fn check_update_core<P: UpdateProvider + ?Sized>(
     provider: &P,
     _mode: CheckMode,
@@ -195,7 +178,6 @@ pub async fn check_update_core<P: UpdateProvider + ?Sized>(
 }
 
 /// 生产环境更新提供者，直接调用 `tauri_plugin_updater`。
-/// Production update provider, calling `tauri_plugin_updater` directly.
 pub struct TauriUpdateProvider {
     pub app: tauri::AppHandle,
 }
@@ -250,7 +232,6 @@ impl UpdateProvider for TauriUpdateProvider {
 }
 
 /// 核心编排函数：在检查流水线状态后执行更新安装。
-/// Core orchestration: checks pipeline state before performing the update install.
 pub async fn install_update_core<P: UpdateProvider + ?Sized>(
     provider: &P,
     controller: &PipelineController,
@@ -397,7 +378,6 @@ mod tests {
         assert!(err.message.contains("无法连接到更新服务器"));
 
         // 测试 Could not fetch a valid release JSON 的映射
-        // Tests the mapping of "Could not fetch a valid release JSON"
         let provider2 = MockUpdateProvider::new(Err(
             "Could not fetch a valid release JSON from the remote".to_string(),
         ));

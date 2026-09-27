@@ -1,15 +1,9 @@
-//! Structured error types for the altgo pipeline.
-//!
-//! Provides user-facing error messages (Chinese) and distinguishes
-//! between fatal errors (stop pipeline) and recoverable errors (degrade gracefully).
-//!
 //! altgo 流水线的结构化错误类型。
 //!
 //! 提供面向用户的错误消息（中文），并区分致命错误（停管道）与可恢复错误（降级继续）。
 
 use std::path::PathBuf;
 
-/// Top-level pipeline error with fatal/recoverable distinction.
 /// 顶层流水线错误，区分致命 / 可恢复两类。
 #[derive(Debug, thiserror::Error)]
 pub enum PipelineError {
@@ -29,24 +23,18 @@ impl PipelineError {
         matches!(self, Self::Recoverable(_))
     }
 
-    /// Wrap a `TranscriberError` as a fatal `TranscriberInitFailed` (for
-    /// construction-time failures) or as a recoverable `TranscriptionFailed`
-    /// (for runtime failures). Callers choose which via this method.
     /// 把 `TranscriberError` 包装为致命的 `TranscriberInitFailed`（构造期失败）
     /// 或可恢复的 `TranscriptionFailed`（运行期失败）。调用方经由该方法选择。
     pub fn fatal_transcriber(e: TranscriberError) -> Self {
         Self::Fatal(FatalError::TranscriberInitFailed(e))
     }
 
-    /// Wrap a `PolisherError` as a fatal `PolisherInitFailed` (for construction
-    /// time) or as a recoverable `PolishingFailed` (for runtime failures).
     /// 把 `PolisherError` 包装为致命的 `PolisherInitFailed`（构造期）
     /// 或可恢复的 `PolishingFailed`（运行期）。
     pub fn fatal_polisher(e: PolisherError) -> Self {
         Self::Fatal(FatalError::PolisherInitFailed(e))
     }
 
-    /// Returns a user-facing error message in Chinese.
     /// 返回面向用户的中文错误消息。
     pub fn message(&self) -> String {
         match self {
@@ -56,7 +44,6 @@ impl PipelineError {
     }
 }
 
-/// Fatal errors that should stop the pipeline.
 /// 应终止流水线的致命错误。
 #[derive(Debug, thiserror::Error)]
 pub enum FatalError {
@@ -107,7 +94,6 @@ impl FatalError {
     }
 }
 
-/// Recoverable errors that allow graceful degradation.
 /// 允许优雅降级的可恢复错误。
 #[derive(Debug, thiserror::Error)]
 pub enum RecoverableError {
@@ -135,7 +121,6 @@ impl RecoverableError {
     }
 }
 
-/// Transcriber-specific errors.
 /// 转写器专属错误。
 #[derive(Debug, thiserror::Error)]
 pub enum TranscriberError {
@@ -182,7 +167,6 @@ impl TranscriberError {
     }
 }
 
-/// Polisher-specific errors.
 /// 润色器专属错误。
 #[derive(Debug, thiserror::Error)]
 pub enum PolisherError {
@@ -241,7 +225,6 @@ impl PolisherError {
     }
 }
 
-/// Recorder-specific errors.
 /// 录音器专属错误。
 #[derive(Debug, thiserror::Error)]
 pub enum RecorderError {
@@ -269,7 +252,6 @@ impl RecorderError {
     }
 }
 
-/// Output (clipboard) errors.
 /// 输出（剪贴板）错误。
 #[derive(Debug, thiserror::Error)]
 pub enum OutputError {
@@ -280,7 +262,6 @@ pub enum OutputError {
     ClipboardFailed(String),
 }
 
-/// Key listener errors.
 /// 按键监听器错误。
 #[derive(Debug, thiserror::Error)]
 pub enum KeyListenerError {
@@ -300,7 +281,6 @@ pub enum KeyListenerError {
     Io(#[from] std::io::Error),
 }
 
-/// Model management errors.
 /// 模型管理错误。
 #[derive(Debug, thiserror::Error)]
 pub enum ModelError {
@@ -317,7 +297,6 @@ pub enum ModelError {
     HttpError(String),
 }
 
-/// Configuration errors.
 /// 配置错误。
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
@@ -334,7 +313,6 @@ pub enum ConfigError {
     ValidationFailed(String),
 }
 
-/// History store errors.
 /// 历史记录存储错误。
 #[derive(Debug, thiserror::Error)]
 pub enum HistoryError {

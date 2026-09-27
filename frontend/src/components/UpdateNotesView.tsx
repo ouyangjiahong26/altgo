@@ -8,10 +8,6 @@ import { RELEASES_URL, type UpdateInfo } from "../updateNotes";
  *
  * 抽出来的原因是窗口标记只能有一份——更新说明窗口（`update-notes.tsx`）与
  * 样式预览页都渲染它，各写一份会悄悄漂移。
- *
- * Presentational layer of the release-notes window: data and callbacks come from
- * the caller; it never touches Tauri APIs. Keeping the markup in one place means
- * the window entry and the style preview page cannot drift apart.
  */
 
 export interface UpdateNotesViewProps {
@@ -65,7 +61,6 @@ export default function UpdateNotesView({
             </span>
             {info.date && (
               // latest.json 的日期是完整 ISO 时间戳，头部只展示日期部分。
-              // latest.json carries a full ISO timestamp; show only the date.
               <span className="update-notes-date">{info.date.slice(0, 10)}</span>
             )}
           </div>

@@ -1,6 +1,4 @@
-/** 首次安装引导标记：与主题/字号/窗口尺寸偏好一样存 localStorage，不进 Tauri 配置。
- * First-run onboarding flag: lives in localStorage like the theme/font/window preferences,
- * never in the Tauri config. */
+/** 首次安装引导标记：与主题/字号/窗口尺寸偏好一样存 localStorage，不进 Tauri 配置。 */
 export const ONBOARDING_KEY = "altgo-onboarded";
 
 export function isOnboarded(): boolean {
@@ -15,6 +13,6 @@ export function completeOnboarding(): void {
   try {
     localStorage.setItem(ONBOARDING_KEY, "1");
   } catch {
-    /* ignore */
+    /* 忽略 */
   }
 }

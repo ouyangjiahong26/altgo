@@ -2,11 +2,6 @@
 //!
 //! 历史通过 `HistoryStore` 访问：调用方不直接处理文件路径，
 //! 也不调用模块私有 helper。所有路径 I/O 与并发互斥都由 store 内部完成。
-//!
-//! Transcription text history (persisted as JSON; no audio stored).
-//!
-//! History is accessed through `HistoryStore`: callers never deal with file paths
-//! nor call module-private helpers. All path I/O and mutual exclusion live inside the store.
 
 use crate::error::HistoryError;
 use serde::{Deserialize, Serialize};
@@ -23,10 +18,8 @@ pub struct HistoryEntry {
     pub id: String,
     pub created_at_ms: u64,
     /// 原始转写（快捷润色以此为输入）
-    /// Raw transcription (quick polish takes this as input)
     pub raw_text: String,
     /// 当前展示文本（润色后或与 raw 相同）
-    /// Currently displayed text (polished, or the same as raw)
     pub text: String,
 }
 
@@ -55,7 +48,6 @@ fn save_raw(path: &std::path::Path, data: &HistoryFile) -> Result<(), HistoryErr
         .map_err(|e| HistoryError::SerializeError(format!("serialize history: {e}")))?;
     fs::write(path, s)?;
 
-    // Restrict file permissions to owner-only (protect transcription data at rest).
     // 将文件权限限制为仅属主可读写（保护落盘的转写数据）。
     #[cfg(unix)]
     {
@@ -66,8 +58,6 @@ fn save_raw(path: &std::path::Path, data: &HistoryFile) -> Result<(), HistoryErr
     Ok(())
 }
 
-/// Holds the history file path and exposes named operations.
-/// Callers never handle the path directly — all I/O goes through the store.
 /// 持有历史文件路径并提供具名操作。
 /// 调用方从不直接接触路径——所有 I/O 一律经由 store 完成。
 #[derive(Clone)]
@@ -88,7 +78,6 @@ impl HistoryStore {
         Ok(file.entries)
     }
 
-    /// Number of entries currently stored.
     /// 当前存储的条目数量。
     pub fn count(&self) -> Result<usize, HistoryError> {
         Ok(self.list()?.len())
@@ -158,7 +147,6 @@ impl HistoryStore {
     }
 
     /// 用润色后文本更新条目。先查存在，再写入。
-    /// Updates an entry with polished text. Checks existence first, then writes.
     pub fn polish_entry(&self, id: &str, new_text: &str) -> Result<HistoryEntry, HistoryError> {
         let _entry = self
             .get(id)?
@@ -251,7 +239,6 @@ mod tests {
         assert_eq!(updated.text, "polished text");
         assert_eq!(updated.raw_text, "raw text");
         // 再次读取确认持久化
-        // Read again to confirm persistence.
         let fetched = store.get(&e.id).unwrap().unwrap();
         assert_eq!(fetched.text, "polished text");
     }

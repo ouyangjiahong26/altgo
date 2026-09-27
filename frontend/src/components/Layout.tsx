@@ -16,7 +16,6 @@ export default function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     // 启动时静默检查更新（受配置控制；若网络失败静默忽略）
-    // Silent update check at startup (config-gated; network failures are ignored silently)
     const performSilentUpdateCheck = async () => {
       try {
         const cfg = await invoke<{ autoCheckUpdate: boolean }>("get_config");
@@ -28,7 +27,6 @@ export default function Layout({ children }: LayoutProps) {
         }
       } catch {
         // 静默检查失败不打扰用户
-        // A silent-check failure never disturbs the user
       }
     };
 
@@ -44,7 +42,7 @@ export default function Layout({ children }: LayoutProps) {
         const maximized = await win.isMaximized();
         setIsMaximized(maximized);
       } catch {
-        // ignore
+        // 忽略
       }
     };
 
@@ -71,7 +69,7 @@ export default function Layout({ children }: LayoutProps) {
     try {
       await getCurrentWindow().minimize();
     } catch {
-      // ignore
+      // 忽略
     }
   };
 
@@ -79,7 +77,7 @@ export default function Layout({ children }: LayoutProps) {
     try {
       await getCurrentWindow().toggleMaximize();
     } catch {
-      // ignore
+      // 忽略
     }
   };
 
@@ -87,7 +85,7 @@ export default function Layout({ children }: LayoutProps) {
     try {
       await getCurrentWindow().hide();
     } catch {
-      // ignore
+      // 忽略
     }
   };
 
@@ -104,7 +102,7 @@ export default function Layout({ children }: LayoutProps) {
     try {
       getCurrentWindow().startDragging();
     } catch {
-      // ignore
+      // 忽略
     }
   };
 

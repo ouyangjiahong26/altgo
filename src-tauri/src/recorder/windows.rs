@@ -2,12 +2,6 @@
 //!
 //! 使用 cpal（WASAPI）从默认输入设备采集音频，回调里统一转换为
 //! 16kHz 单声道 s16le PCM 写入共享 `Buffer`，输出与 `PulseRecorder` 一致。
-//!
-//! Windows recorder.
-//!
-//! Captures audio from the default input device via cpal (WASAPI); the callback uniformly
-//! converts it to 16kHz mono s16le PCM written into a shared `Buffer`, matching the output of
-//! `PulseRecorder`.
 
 use crate::audio::{self, Buffer};
 use crate::error::RecorderError;
@@ -19,21 +13,15 @@ use std::sync::{Arc, Mutex, RwLock};
 /// cpal 的 `Stream` 在 Windows 上不是 `Send`（内部持有原生指针），
 /// 但 `Recorder` 要求跨线程。这里显式声明发送安全性：WASAPI 流的
 /// play/pause/drop 均为线程安全操作，cpal 仅因裸指针未标 `Send`。
-///
-/// cpal's `Stream` is not `Send` on Windows (it holds raw native pointers) while `Recorder`
-/// requires cross-thread use. Send-safety is asserted explicitly here: WASAPI stream
-/// play/pause/drop are all thread-safe operations; cpal only lacks the `Send` marker over raw pointers.
 struct SendStream(cpal::Stream);
 unsafe impl Send for SendStream {}
 
 /// WASAPI 录音器，输出固定为单声道 16kHz s16le（ASR 输入要求）。
-/// WASAPI recorder with output fixed to mono 16kHz s16le (the ASR input requirement).
 pub struct WindowsRecorder {
     sample_rate: u32,
     shared_buffer: Arc<Buffer>,
     recording: Arc<AtomicBool>,
     // Stream 必须保持存活才有数据；stop 时 drop。
-    // The stream must stay alive for data to flow; dropped on stop.
     stream: Mutex<Option<SendStream>>,
     audio_level_cb: Arc<RwLock<Option<AudioLevelCallback>>>,
 }
@@ -63,9 +51,6 @@ impl WindowsRecorder {
 
         // 优先请求目标格式；WASAPI 共享模式下系统会自动转换采样率/声道。
         // 若设备拒绝，回退到默认配置，回调里做降采样与混单声道。
-        // Prefer requesting the target format; in WASAPI shared mode the system converts sample
-        // rate/channels automatically. If the device refuses, fall back to the default config and
-        // downsample/downmix in the callback.
         let target_config = cpal::StreamConfig {
             channels: 1,
             sample_rate: cpal::SampleRate(self.sample_rate),
@@ -130,7 +115,6 @@ impl WindowsRecorder {
     fn stop(&self) -> Result<Vec<u8>, RecorderError> {
         self.recording.store(false, Ordering::SeqCst);
         // Drop stream 停止采集，回调中最后写入的数据已在 Buffer 里。
-        // Dropping the stream stops capture; whatever the callback wrote last is already in the Buffer.
         self.stream.lock().expect("stream mutex poisoned").take();
 
         let pcm_data = self.shared_buffer.read_all();
@@ -143,7 +127,6 @@ impl WindowsRecorder {
 }
 
 /// 按目标采样率构建 f32 输入流。
-/// Builds an f32 input stream at the target sample rate.
 fn build_stream(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
@@ -162,9 +145,6 @@ fn build_stream(
 
 /// 把 f32 帧转换为 s16le PCM 追加到 `buffer`：先按声道平均混成单声道，
 /// 源/目标采样率不同时做线性插值重采样（语音识别够用），返回追加的 PCM 数据。
-/// Converts f32 frames into s16le PCM appended to `buffer`: channels are first averaged into
-/// mono, then linear-interpolation resampling runs when source/target rates differ (adequate for
-/// speech recognition). Returns the appended PCM data.
 fn append_pcm(
     buffer: &Buffer,
     data: &[f32],
@@ -223,8 +203,6 @@ mod tests {
     fn append_pcm_passthrough_same_rate() {
         let buf = Buffer::new();
         // 16kHz 单声道，4 个采样；逐帧插值时最后一帧缺右邻，输出 3 帧
-        // 16kHz mono, 4 samples; frame-by-frame interpolation leaves the last frame without a right
-        // neighbor, yielding 3 frames.
         append_pcm(&buf, &[0.0, 0.5, -0.5, 0.25], 16_000, 1, 16_000);
         let pcm = buf.read_all();
         assert_eq!(pcm.len(), 6);
@@ -235,7 +213,6 @@ mod tests {
     fn append_pcm_downsamples_half_rate() {
         let buf = Buffer::new();
         // 32kHz → 16kHz：4 个采样应产出 ~2 个
-        // 32kHz → 16kHz: 4 samples should yield ~2
         append_pcm(&buf, &[0.0, 0.5, -0.5, 0.25], 32_000, 1, 16_000);
         let pcm = buf.read_all();
         assert_eq!(pcm.len(), 4); // 2 个 s16 采样
@@ -245,11 +222,9 @@ mod tests {
     fn append_pcm_mixes_stereo() {
         let buf = Buffer::new();
         // 双声道 (L=0.5, R=-0.5) → 单声道 0.0
-        // Stereo (L=0.5, R=-0.5) → mono 0.0
         append_pcm(&buf, &[0.5, -0.5], 16_000, 2, 16_000);
         let pcm = buf.read_all();
         // 只有 1 帧，pos+1.0 < 1 不成立 → 无输出，但不得 panic
-        // Single frame: pos+1.0 < 1 never holds → no output, but must not panic
         assert!(pcm.is_empty());
     }
 

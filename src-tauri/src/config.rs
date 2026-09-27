@@ -7,16 +7,6 @@
 //! - `ALTGO_POLISHER_API_KEY` — 覆盖文本润色 API 密钥
 //!
 //! 默认配置路径为 `~/.config/altgo/altgo.toml`。
-//!
-//! Configuration loading.
-//!
-//! Loads altgo config from a TOML file; every field carries a `serde(default)`, so partial config
-//! files work fine.
-//!
-//! The text-polishing API key can be overridden via an environment variable:
-//! - `ALTGO_POLISHER_API_KEY` — overrides the polisher API key
-//!
-//! Default config path: `~/.config/altgo/altgo.toml`.
 
 use crate::error::ConfigError;
 use serde::de::DeserializeOwned;
@@ -25,7 +15,6 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// serde 辅助模块：TOML 中为 `u64` 毫秒，Rust 侧为 `Duration`。
-/// Serde helper: `u64` milliseconds in TOML, `Duration` on the Rust side.
 mod duration_ms {
     use serde::{Deserialize, Deserializer, Serializer};
     use std::time::Duration;
@@ -41,7 +30,6 @@ mod duration_ms {
 }
 
 /// serde 辅助模块：TOML 中为 `u64` 秒，Rust 侧为 `Duration`。
-/// Serde helper: `u64` seconds in TOML, `Duration` on the Rust side.
 mod duration_secs {
     use serde::{Deserialize, Deserializer, Serializer};
     use std::time::Duration;
@@ -57,56 +45,40 @@ mod duration_secs {
 }
 
 /// altgo 主配置结构体，包含所有子系统的配置。
-/// The root altgo config struct, covering every subsystem.
 #[derive(Debug, Default, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct Config {
     /// 按键监听配置
-    /// Key listener settings
     pub key_listener: KeyListenerConfig,
     /// 录音配置
-    /// Recording settings
     pub recorder: RecorderConfig,
     /// 语音识别配置
-    /// Speech recognition settings
     pub transcriber: TranscriberConfig,
     /// 文本润色配置
-    /// Text polishing settings
     pub polisher: PolisherConfig,
     /// 输出（剪切板/通知）配置
-    /// Output (clipboard/injection) settings
     pub output: OutputConfig,
     /// GUI 配置
-    /// GUI settings
     pub gui: GuiConfig,
 }
 
 /// 按键监听配置。
-/// Key listener settings.
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct KeyListenerConfig {
     /// 监听的按键名称（如 `Alt_L`、`Alt_R`），与 xmodmap keysym 一致
-    /// Key name to listen for (e.g. `Alt_L`, `Alt_R`), matching an xmodmap keysym
     pub key_name: String,
     /// Linux evtest 回退路径使用的 evdev 键码（由“按下以设置”捕获）；`None` 时沿用 Alt 预设的启发式映射
-    /// evdev keycode for the Linux evtest fallback path (captured via "press to set"); when
-    /// `None`, the heuristic mapping of the Alt presets applies
     pub linux_evdev_code: Option<u16>,
     /// Windows 使用的虚拟键码（由“按下以设置”捕获）；`None` 时由 `key_name` 解析
-    /// Virtual-key code used on Windows (captured via "press to set"); when `None`, resolved
-    /// from `key_name`
     pub windows_vk_code: Option<u16>,
     /// 长按阈值（毫秒），超过此时间视为长按录音
-    /// Long-press threshold (ms); holding beyond it starts recording
     #[serde(with = "duration_ms", alias = "long_press_threshold_ms")]
     pub long_press_threshold: Duration,
     /// 双击间隔（毫秒），两次点击在此时间窗口内视为双击
-    /// Double-click interval (ms); two presses within this window count as a double click
     #[serde(with = "duration_ms", alias = "double_click_interval_ms")]
     pub double_click_interval: Duration,
     /// 最短按下时长（毫秒），过滤 IME 导致的瞬时分合
-    /// Minimum press duration (ms), filtering out spurious IME press/release flickers
     #[serde(with = "duration_ms", alias = "min_press_duration_ms")]
     pub min_press_duration: Duration,
 }
@@ -125,12 +97,10 @@ impl Default for KeyListenerConfig {
 }
 
 /// 录音配置。
-/// Recording settings.
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct RecorderConfig {
     /// 采样率（Hz），默认 16000
-    /// Sample rate (Hz), default 16000
     pub sample_rate: u32,
 }
 
@@ -146,28 +116,18 @@ impl Default for RecorderConfig {
 ///
 /// 遗留的旧版 TOML 字段会被 `serde(default)` 静默忽略
 /// （见测试 `test_load_ignores_legacy_cloud_transcriber_fields`）。
-///
-/// Local speech recognition settings.
-///
-/// Legacy cloud-transcriber TOML fields are silently ignored through `serde(default)`
-/// (see test `test_load_ignores_legacy_cloud_transcriber_fields`).
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct TranscriberConfig {
     /// 模型名称（如 "sense-voice"）或模型目录路径
-    /// Model name (e.g. "sense-voice") or model directory path
     pub model: String,
     /// 语言代码（如 `"zh"`、`"en"`；空字符串表示自动检测）
-    /// Language code (e.g. `"zh"`, `"en"`; empty string = auto-detect)
     pub language: String,
     /// 本地引擎线程数；`0` 表示按 CPU 并行度自动取满
-    /// Local engine thread count; `0` fills all CPU cores automatically
     pub threads: u32,
     /// 转写后端："local"（默认）或 "online"（小米 MiMo 在线识别）
-    /// Transcription backend: "local" (default) or "online" (Xiaomi MiMo)
     pub backend: String,
     /// [transcriber.online] 在线 ASR 配置
-    /// [transcriber.online] online ASR settings
     pub online: OnlineTranscriberConfig,
 }
 
@@ -185,23 +145,16 @@ impl Default for TranscriberConfig {
 
 /// 在线转写后端配置（小米 MiMo）。
 /// 在线后端仅在 `[transcriber] backend = "online"` 时生效。
-///
-/// Online transcription backend settings (Xiaomi MiMo).
-/// Only takes effect when `[transcriber] backend = "online"`.
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct OnlineTranscriberConfig {
     /// API 密钥（可通过 `ALTGO_TRANSCRIBER_API_KEY` 环境变量覆盖）
-    /// API key (overridable via the `ALTGO_TRANSCRIBER_API_KEY` env var)
     pub api_key: String,
     /// API 基础 URL（默认小米 MiMo 网关，已含 /v1）
-    /// API base URL (defaults to the Xiaomi MiMo gateway, /v1 included)
     pub api_base_url: String,
     /// 在线 ASR 模型名称
-    /// Online ASR model name
     pub model: String,
     /// 请求超时时间（秒）
-    /// Request timeout (seconds)
     #[serde(with = "duration_secs", alias = "timeout_seconds")]
     pub timeout: Duration,
 }
@@ -218,40 +171,29 @@ impl Default for OnlineTranscriberConfig {
 }
 
 /// 文本润色配置。
-/// Text polishing settings.
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct PolisherConfig {
     /// API 协议：`"openai"`（OpenAI/DeepSeek 等）或 `"anthropic"`
-    /// API protocol: `"openai"` (OpenAI/DeepSeek etc.) or `"anthropic"`
     pub protocol: String,
     /// API 密钥（可通过 `ALTGO_POLISHER_API_KEY` 环境变量覆盖）
-    /// API key (overridable via the `ALTGO_POLISHER_API_KEY` env var)
     pub api_key: String,
     /// API 基础 URL（如 `https://api.openai.com`、`https://api.anthropic.com`）
-    /// API base URL (e.g. `https://api.openai.com`, `https://api.anthropic.com`)
     pub api_base_url: String,
     /// 模型名称（如 `"gpt-3.5-turbo"`、`"claude-sonnet-4-20250514"`）
-    /// Model name (e.g. `"gpt-3.5-turbo"`, `"claude-sonnet-4-20250514"`)
     pub model: String,
     /// 润色级别：`"none"`、`"light"`、`"medium"`、`"heavy"`
-    /// Polish level: `"none"`, `"light"`, `"medium"`, `"heavy"`
     pub level: String,
     /// 请求超时时间（秒）
-    /// Request timeout (seconds)
     #[serde(with = "duration_secs", alias = "timeout_seconds")]
     pub timeout: Duration,
     /// 最大生成 token 数
-    /// Max generated tokens
     pub max_tokens: u32,
     /// LLM temperature（0.0 - 2.0），默认 0.3
-    /// LLM temperature (0.0 - 2.0), default 0.3
     pub temperature: f32,
     /// 思考层级：`"off"`（默认，自动关闭思考）、`"low"`、`"medium"`、`"high"`
-    /// Thinking level: `"off"` (default, thinking auto-off), `"low"`, `"medium"`, `"high"`
     pub thinking_level: String,
     /// 自定义 system prompt，为空时使用内置 prompt
-    /// Custom system prompt; the built-in prompt applies when empty
     pub system_prompt: String,
 }
 
@@ -273,16 +215,12 @@ impl Default for PolisherConfig {
 }
 
 /// 输出配置。
-/// Output settings.
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct OutputConfig {
     /// 注入/复制时是否优先使用润色后的文本
-    /// Whether injection/copy prefers polished text over raw transcription
     pub prefer_polished: bool,
     /// 转写完成后是否把文本注入到当前焦点窗口（仅 Windows 实现注入；默认关闭，仅写剪贴板）
-    /// Whether to inject text into the focused window after transcription (implemented on Windows
-    /// only; off by default—clipboard only)
     pub inject_text: bool,
 }
 
@@ -296,18 +234,14 @@ impl Default for OutputConfig {
 }
 
 /// GUI 配置。
-/// GUI settings.
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct GuiConfig {
     /// 界面语言：`"zh"` 或 `"en"`
-    /// UI language: `"zh"` or `"en"`
     pub language: String,
     /// 悬浮窗位置：`"bottom_center"`（默认）或 `"top_center"`
-    /// Overlay position: `"bottom_center"` (default) or `"top_center"`
     pub overlay_position: String,
     /// 启动时是否自动检查更新（默认开启）
-    /// Whether to check updates automatically at startup (on by default)
     pub auto_check_update: bool,
 }
 
@@ -325,8 +259,6 @@ impl Config {
     /// 从指定路径加载配置文件。如果文件不存在，返回默认配置。
     /// 环境变量 `ALTGO_POLISHER_API_KEY`
     /// 会覆盖配置文件中的对应字段。
-    /// Loads the config from the given path. A missing file yields the default config.
-    /// The `ALTGO_POLISHER_API_KEY` env var overrides the corresponding file field.
     pub fn load(path: &Path) -> Result<Self, ConfigError> {
         Self::load_with_env(path, |name| std::env::var(name))
     }
@@ -350,8 +282,6 @@ impl Config {
 
     /// 校验已加载的配置。
     /// 在 `load()` 之后调用；润色开启时检查 [polisher] 的 API key。
-    /// Validate the loaded configuration.
-    /// Call this after `load()` to check the polisher API key when polishing is enabled.
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.recorder.sample_rate != crate::recorder::SAMPLE_RATE {
             return Err(ConfigError::ValidationFailed(format!(
@@ -362,7 +292,6 @@ impl Config {
         }
 
         // 转写后端取值校验；online 时逐项校验 [transcriber.online] 必填字段。
-        // Validate the backend value; when online, check each required [transcriber.online] field.
         {
             let backend = self.transcriber.backend.trim().to_lowercase();
             if backend != "local" && backend != "online" {
@@ -392,7 +321,6 @@ impl Config {
         }
 
         // 润色开启时逐项校验 [polisher] 必填字段，错误信息指明缺失项。
-        // When polishing is enabled, validate each required [polisher] field and point at missing ones.
         if self.polisher.level != "none" {
             let protocol = self.polisher.protocol.trim().to_lowercase();
             if protocol != "openai" && protocol != "anthropic" {
@@ -425,14 +353,12 @@ impl Config {
     }
 
     /// 将配置保存到指定路径。
-    /// Saves the config to the given path.
     pub fn save(&self, path: &Path) -> Result<(), ConfigError> {
         let content = toml::to_string_pretty(self).map_err(|e| {
             ConfigError::SerializeError(format!("failed to serialize config to TOML: {e}"))
         })?;
 
         // 确保父目录存在。
-        // Ensure parent directory exists.
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -440,7 +366,6 @@ impl Config {
         std::fs::write(path, content)?;
 
         // 文件权限收紧为仅属主可读（保护落盘的 API key）。
-        // Restrict file permissions to owner-only (protect API keys at rest).
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -452,7 +377,6 @@ impl Config {
     }
 
     /// 返回默认配置文件路径（`~/.config/altgo/altgo.toml`）。
-    /// Returns the default config file path (`~/.config/altgo/altgo.toml`).
     pub fn default_config_path() -> PathBuf {
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("."))
@@ -474,17 +398,12 @@ where
 }
 
 // ---------------------------------------------------------------------------
-// ConfigPatch — partial update for Config
 // ConfigPatch —— Config 的部分更新
 // ---------------------------------------------------------------------------
 
 /// 三态反序列化：JSON 字段缺失 = 不修改；`null` = 清除；值 = 设置。
 ///
 /// 泛型实现，适用于任意可从 JSON 值反序列化的类型。
-///
-/// Three-state deserialization: JSON field absent = no change; `null` = clear; value = set.
-///
-/// Generic, works with any type deserializable from a JSON value.
 fn deserialize_opt_patch<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -510,7 +429,6 @@ fn apply_nested_opt<T>(target: &mut Option<T>, patch: Option<Option<T>>) {
 }
 
 /// serde 辅助模块：将 `deserialize_opt_patch<u16>` 暴露为模块形式供 `deserialize_with` 使用。
-/// Serde helper: re-exports `deserialize_opt_patch<u16>` as a module form for `deserialize_with`.
 mod opt_patch_u16 {
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Option<u16>>, D::Error>
     where
@@ -522,33 +440,21 @@ mod opt_patch_u16 {
 
 /// 应用于内存中配置的部分更新。全部字段可选；
 /// 缺省字段保持不变。
-/// Partial update applied to the in-memory config. All fields are optional;
-/// absent fields are left unchanged.
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigPatch {
     /// 按键名称；缺省不修改。
-    /// Key name; absent means no change.
     pub key_name: Option<String>,
     /// 三态更新：`None` = 字段缺省（不修改）；`Some(None)` = JSON `null`（清除）；
     /// `Some(Some(v))` = 设为 v。
-    ///
-    /// Three-state update: `None` = field absent (no change); `Some(None)` = JSON `null`
-    /// (clear); `Some(Some(v))` = set to v.
     #[serde(default, deserialize_with = "opt_patch_u16::deserialize")]
     pub linux_evdev_code: Option<Option<u16>>,
     /// 三态更新：`None` = 字段缺省（不修改）；`Some(None)` = JSON `null`（清除）；
     /// `Some(Some(v))` = 设为 v。
-    ///
-    /// Three-state update: `None` = field absent (no change); `Some(None)` = JSON `null`
-    /// (clear); `Some(Some(v))` = set to v.
     #[serde(default, deserialize_with = "opt_patch_u16::deserialize")]
     pub windows_vk_code: Option<Option<u16>>,
     /// 三态更新：`None` = 字段缺省（不修改）；`Some(None)` = JSON `null`（清除）；
     /// `Some(Some(v))` = 设为 v。
-    ///
-    /// Three-state update: `None` = field absent (no change); `Some(None)` = JSON `null`
-    /// (clear); `Some(Some(v))` = set to v.
     pub language: Option<String>,
     pub model: Option<String>,
     pub transcriber_backend: Option<String>,
@@ -569,7 +475,6 @@ pub struct ConfigPatch {
 
 impl ConfigPatch {
     /// 将 patch 中的 `Some` 字段写入 `cfg`。
-    /// Writes every `Some` field of the patch into `cfg`.
     pub fn apply_to_config(&self, cfg: &mut Config) {
         if let Some(ref v) = self.key_name {
             cfg.key_listener.key_name = v.clone();
@@ -589,7 +494,6 @@ impl ConfigPatch {
             cfg.transcriber.backend = v.clone();
         }
         // `Some("")` 即清除已存密钥，与 polish_api_key 行为一致。
-        // `Some("")` clears the stored key, matching polish_api_key behavior.
         if let Some(v) = &self.asr_api_key {
             cfg.transcriber.online.api_key = v.clone();
         }
@@ -777,7 +681,6 @@ timeout = 30
         assert_eq!(cfg.transcriber.online.model, "mimo-v2.5-asr");
         assert_eq!(cfg.transcriber.online.timeout, Duration::from_secs(30));
         // 配置合法，校验通过。
-        // Valid config passes validation.
         assert!(cfg.validate().is_ok());
     }
 
@@ -825,13 +728,11 @@ timeout = 30
         assert_eq!(cfg.transcriber.online.model, "mimo-x");
 
         // 空串即清除密钥。
-        // Empty string clears the key.
         let patch: ConfigPatch = serde_json::from_str(r#"{"asrApiKey":""}"#).unwrap();
         patch.apply_to_config(&mut cfg);
         assert_eq!(cfg.transcriber.online.api_key, "");
 
         // 缺省字段不修改。
-        // Absent fields leave values unchanged.
         let patch: ConfigPatch = serde_json::from_str(r#"{}"#).unwrap();
         patch.apply_to_config(&mut cfg);
         assert_eq!(cfg.transcriber.backend, "online");
@@ -884,7 +785,6 @@ timeout = 30
     #[test]
     fn test_validate_local_mode_no_polisher_key() {
         // 本地转写且润色关闭时不应要求 API key。
-        // Local transcription with polishing disabled should not require an API key.
         let mut cfg = Config::default();
         cfg.polisher.level = "none".to_string();
         cfg.polisher.api_key = String::new();
@@ -902,7 +802,6 @@ timeout = 30
     #[test]
     fn test_validate_polisher_requires_key_when_enabled() {
         // 润色级别 != "none" 时必须有 API key。
-        // When polisher level != "none", API key is required.
         let mut cfg = Config::default();
         cfg.polisher.level = "medium".to_string();
         cfg.polisher.api_key = String::new();
@@ -939,7 +838,6 @@ timeout = 30
     }
 
     // -- ConfigPatch 测试 -----------------------------------------------------
-    // -- ConfigPatch tests ---------------------------------------------------
 
     #[test]
     fn evdev_json_null_clears() {
@@ -973,7 +871,6 @@ timeout = 30
         assert_eq!(cfg.transcriber.language, "en");
         assert_eq!(cfg.polisher.level, "heavy");
         // 未修改的字段保留默认值
-        // Unchanged fields keep defaults
         assert_eq!(cfg.transcriber.model, "");
     }
 
@@ -1011,7 +908,6 @@ timeout = 30
         assert!(cfg.output.inject_text);
 
         // 缺省字段不修改
-        // Absent fields leave values unchanged
         let patch: ConfigPatch = serde_json::from_str(r#"{}"#).unwrap();
         patch.apply_to_config(&mut cfg);
         assert!(cfg.output.inject_text);

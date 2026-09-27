@@ -1,9 +1,9 @@
-/* ─── Fonts ─── */
+/* ─── 字体 ─── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ─── Root variables ─── */
+/* ─── 根变量 ─── */
 :root {
-  /* Brand palette — obsidian + teal */
+  /* 品牌配色 — 曜石黑 + 青绿 */
   --ifm-color-primary: #14b8a6;
   --ifm-color-primary-dark: #12a89a;
   --ifm-color-primary-darker: #119e91;
@@ -12,38 +12,38 @@
   --ifm-color-primary-lighter: #1ad3be;
   --ifm-color-primary-lightest: #2dddd0;
 
-  /* Background */
+  /* 背景 */
   --ifm-background-color: #0d1117;
   --ifm-background-surface-color: #161b22;
 
-  /* Text */
+  /* 文本 */
   --ifm-color-content: #e6edf3;
   --ifm-color-content-secondary: #8b949e;
   --ifm-heading-color: #f0f6fc;
   --ifm-font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
   --ifm-font-family-monospace: 'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Code */
+  /* 代码 */
   --docusaurus-highlighted-code-line-bg: rgba(20, 184, 166, 0.12);
   --ifm-code-font-size: 90%;
   --ifm-code-border-radius: 8px;
   --ifm-code-padding-horizontal: 0.4rem;
   --ifm-code-padding-vertical: 0.15rem;
 
-  /* Navbar */
+  /* 导航栏 */
   --ifm-navbar-background-color: rgba(13, 17, 23, 0.88);
   --ifm-navbar-height: 64px;
   --ifm-navbar-link-color: #8b949e;
   --ifm-navbar-link-hover-color: #14b8a6;
   --ifm-navbar-padding-vertical: 0.6rem;
 
-  /* Footer */
+  /* 页脚 */
   --ifm-footer-background-color: #0a0c10;
   --ifm-footer-color: #8b949e;
   --ifm-footer-link-color: #8b949e;
   --ifm-footer-link-hover-color: #14b8a6;
 
-  /* Sidebar */
+  /* 侧边栏 */
   --ifm-sidebar-border-color: #21262d;
   --ifm-menu-color: #8b949e;
   --ifm-menu-color-active: #f0f6fc;
@@ -51,16 +51,16 @@
   --ifm-menu-link-padding-vertical: 0.5rem;
   --ifm-menu-link-padding-horizontal: 1rem;
 
-  /* Links */
+  /* 链接 */
   --ifm-link-color: #14b8a6;
   --ifm-link-hover-decoration: none;
   --ifm-link-hover-color: #2dddd0;
 
-  /* Tables */
+  /* 表格 */
   --ifm-table-border-color: #21262d;
   --ifm-table-stripe-background: rgba(22, 27, 34, 0.5);
 
-  /* Borders & radius */
+  /* 边框与圆角 */
   --ifm-border-radius: 10px;
   --ifm-global-radius: 10px;
   --ifm-spacing-horizontal: 1.5rem;
@@ -69,15 +69,15 @@
   --border-radius-lg: 12px;
   --border-radius-xl: 16px;
 
-  /* Tabs */
+  /* 标签页 */
   --ifm-tabs-color: #8b949e;
   --ifm-tabs-color-active: #14b8a6;
   --ifm-tabs-border-radius: 8px;
 
-  /* Announcement bar */
+  /* 公告栏 */
   --docusaurus-announcement-bar-height: 0px;
 
-  /* Shadows */
+  /* 阴影 */
   --ifm-global-shadow-lw: 0 1px 2px rgba(0, 0, 0, 0.2);
   --ifm-global-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
   --ifm-global-shadow-tl: 0 12px 40px rgba(0, 0, 0, 0.4);
@@ -112,7 +112,7 @@
   --ifm-table-stripe-background: rgba(241, 245, 249, 0.5);
 }
 
-/* ─── Base ─── */
+/* ─── 基础 ─── */
 html {
   scroll-behavior: smooth;
 }
@@ -127,7 +127,7 @@ body {
   color: inherit;
 }
 
-/* ─── Scrollbar ─── */
+/* ─── 滚动条 ─── */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -154,7 +154,7 @@ body {
   background: #94a3b8;
 }
 
-/* ─── Navbar ─── */
+/* ─── 导航栏 ─── */
 .navbar {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -183,7 +183,7 @@ body {
   color: var(--ifm-color-primary);
 }
 
-/* ─── Sidebar ─── */
+/* ─── 侧边栏 ─── */
 .theme-doc-sidebar-container {
   border-right: 1px solid var(--ifm-sidebar-border-color) !important;
 }
@@ -210,13 +210,13 @@ body {
   border-radius: 6px;
 }
 
-/* ─── Breadcrumbs ─── */
+/* ─── 面包屑 ─── */
 .breadcrumbs__item--active .breadcrumbs__link {
   color: var(--ifm-color-primary);
   font-weight: 600;
 }
 
-/* ─── Doc content ─── */
+/* ─── 文档内容 ─── */
 .theme-doc-markdown {
   line-height: 1.75;
 }
@@ -249,7 +249,7 @@ body {
   margin-bottom: 1.25rem;
 }
 
-/* ─── Code blocks ─── */
+/* ─── 代码块 ─── */
 .prism-code {
   background: #0d1117 !important;
   border-radius: var(--border-radius-lg) !important;
@@ -263,7 +263,7 @@ body {
   border-color: #e2e8f0;
 }
 
-/* Inline code */
+/* 行内代码 */
 code {
   background: rgba(20, 184, 166, 0.08);
   color: #14b8a6;
@@ -278,7 +278,7 @@ code {
   color: #0d9488;
 }
 
-/* ─── Admonitions ─── */
+/* ─── 提示框 ─── */
 .theme-admonition {
   border-radius: 12px;
   border-left-width: 4px;
@@ -304,7 +304,7 @@ code {
   border-left-color: #3b82f6;
 }
 
-/* ─── Tables ─── */
+/* ─── 表格 ─── */
 .theme-doc-markdown table {
   border-radius: 10px;
   overflow: hidden;
@@ -323,7 +323,7 @@ code {
   padding: 0.6rem 1rem;
 }
 
-/* ─── Pagination ─── */
+/* ─── 分页 ─── */
 .pagination-nav__link {
   border-radius: 12px;
   border: 1px solid var(--ifm-sidebar-border-color);
@@ -335,7 +335,7 @@ code {
   box-shadow: 0 4px 12px rgba(20, 184, 166, 0.06);
 }
 
-/* ─── Footer ─── */
+/* ─── 页脚 ─── */
 .footer {
   border-top: 1px solid var(--ifm-sidebar-border-color);
   padding: 3rem 0;
@@ -360,7 +360,7 @@ code {
   margin-top: 2rem;
 }
 
-/* ─── Doc nav grid (intro page) ─── */
+/* ─── 文档导航网格（介绍页） ─── */
 .doc-nav-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -405,7 +405,7 @@ code {
   line-height: 1.5;
 }
 
-/* ─── Tabs ─── */
+/* ─── 标签页 ─── */
 .tabs {
   border-bottom: 1px solid var(--ifm-sidebar-border-color);
 }
@@ -424,14 +424,14 @@ code {
   font-weight: 600;
 }
 
-/* ─── Search (if enabled) ─── */
+/* ─── 搜索（如启用） ─── */
 .DocSearch-Button {
   border-radius: 10px !important;
   background: var(--ifm-background-surface-color) !important;
   border: 1px solid var(--ifm-sidebar-border-color) !important;
 }
 
-/* ─── Responsive ─── */
+/* ─── 响应式 ─── */
 @media screen and (max-width: 996px) {
   .navbar-sidebar {
     background: var(--ifm-background-color);

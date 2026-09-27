@@ -1,6 +1,4 @@
 //! PipelineContext — 拥有所有组件并运行事件循环。
-//!
-//! PipelineContext — owns all components and runs the event loop.
 
 use std::sync::{Arc, Mutex};
 
@@ -15,7 +13,6 @@ use super::sink::PipelineSink;
 use crate::pipeline_controller::PipelineStatus;
 
 /// 流水线运行期间全部组件的持有者。
-/// Owns all components needed while the pipeline runs.
 pub struct PipelineContext {
     pub(crate) recorder: Box<dyn Recorder>,
     pub(crate) transcriber: Box<dyn Transcriber>,
@@ -23,7 +20,6 @@ pub struct PipelineContext {
     pub(crate) polish_level: PolishLevel,
     pub(crate) listener: Mutex<Option<Box<dyn KeyListener>>>,
     // 状态机参数
-    // State machine parameters
     pub(crate) long_press_threshold: std::time::Duration,
     pub(crate) double_click_interval: std::time::Duration,
     pub(crate) min_press_duration: std::time::Duration,
@@ -31,7 +27,6 @@ pub struct PipelineContext {
 
 impl PipelineContext {
     /// 运行流水线事件循环，直到 `stop_rx` 触发。
-    /// Run the pipeline event loop until `stop_rx` fires.
     pub async fn run(self, stop_rx: tokio::sync::oneshot::Receiver<()>, sink: impl PipelineSink) {
         let mut recorder = self.recorder;
         let transcriber = self.transcriber;
@@ -39,12 +34,9 @@ impl PipelineContext {
         let polish_level = self.polish_level;
         // 把 sink 包进 Arc，让 handler 在异步任务生命周期结束后仍能使用，
         // 进度转发器也需要持有它。
-        // Wrap the sink in an Arc so handlers can keep using it after the
-        // async task lifecycle (and so progress forwarders can hold it).
         let sink: Arc<dyn PipelineSink> = Arc::new(sink);
 
         // 为录音器配置音频电平回调，把实时计算的 RMS 电平推入 sink
-        // Configure the recorder's audio level callback, pushing the realtime RMS level into the sink
         let level_sink = sink.clone();
         recorder.set_audio_level_callback(Some(Arc::new(move |level: f32| {
             level_sink.on_audio_level(level);
@@ -72,7 +64,6 @@ impl PipelineContext {
         sink.on_key_listener_backend(key_backend);
 
         // 创建状态机，直接集成到主循环
-        // Create the state machine, integrated directly into the main loop
         let mut machine = Machine::new(
             self.long_press_threshold,
             self.double_click_interval,
@@ -86,7 +77,6 @@ impl PipelineContext {
         loop {
             let cmd = tokio::select! {
                 // 按键事件
-                // Key events
                 event = key_events.recv() => match event {
                     Some(ev) => machine.process(ev),
                     None => {
@@ -95,12 +85,10 @@ impl PipelineContext {
                     }
                 },
                 // 超时事件
-                // Timeout events
                 _ = async { tokio::time::sleep_until(deadline.unwrap()).await }, if deadline.is_some() => {
                     machine.poll_timeout()
                 }
                 // 停止信号
-                // Stop signal
                 _ = &mut stop_rx => {
                     tracing::info!("pipeline stop requested");
                     break;
@@ -133,7 +121,7 @@ impl PipelineContext {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// 测试
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
@@ -249,7 +237,6 @@ mod tests {
         let run_handle = tokio::spawn(ctx.run(stop_rx, sink.clone()));
 
         // 给事件循环留出进入 select! 的时间。
-        // Give the event loop time to enter its select!.
         tokio::time::sleep(std::time::Duration::from_millis(30)).await;
 
         handle.send(KeyEvent { pressed: true });
@@ -258,7 +245,6 @@ mod tests {
         handle.send(KeyEvent { pressed: false });
 
         // 等待转写与润色重试结束（每次重试都做退避）。
-        // Wait for transcription + polish retries (each retry backs off).
         for _ in 0..300 {
             if !sink.results().is_empty() {
                 break;
@@ -308,13 +294,11 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(30)).await;
 
         // 第一次短按。
-        // First short press.
         handle.send(KeyEvent { pressed: true });
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         handle.send(KeyEvent { pressed: false });
 
         // 双击窗口内的第二次按下。
-        // Second press inside the double-click window.
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         handle.send(KeyEvent { pressed: true });
 
@@ -365,7 +349,6 @@ mod tests {
         handle.send(KeyEvent { pressed: false });
 
         // 等待超过双击间隔，让状态机先回到稳态。
-        // Wait longer than the double-click interval so the state machine settles.
         tokio::time::sleep(std::time::Duration::from_millis(120)).await;
 
         let _ = stop_tx.send(());

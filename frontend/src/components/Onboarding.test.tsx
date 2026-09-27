@@ -8,7 +8,6 @@ const { invokeMock, loadCatalogMock, listenerHandlers, savedPatches } = vi.hoist
   loadCatalogMock: vi.fn(),
   listenerHandlers: new Map<string, (event: { payload: unknown }) => void>(),
   // 后端收到过的 save_config patch，按到达顺序记录（最后一条 = 最终落盘内容）。
-  // save_config patches in arrival order; the last one is what lands on disk.
   savedPatches: [] as Record<string, unknown>[],
 }));
 
@@ -71,8 +70,6 @@ vi.mock("../config/catalog", () => ({ loadCatalog: loadCatalogMock }));
 vi.mock("../i18n", () => {
   // t 保持稳定引用：useModelManager 的 refreshModels 以 t 为依赖，identity 变化会让
   // 取模型列表的 effect 每轮渲染重跑，形成无限循环。
-  // Keep t referentially stable: useModelManager's refreshModels depends on t, and a new
-  // identity every render would re-run the model-list effect forever.
   const t = (key: string) => key;
   return { useTranslation: () => ({ t, lang: "zh", setLang: vi.fn() }) };
 });
@@ -107,7 +104,6 @@ describe("首次安装引导", () => {
     render(<App />);
 
     // 向导持有全量配置：挂载即读取一次，读到后才渲染欢迎屏。
-    // The wizard owns the whole config: one read on mount, and the welcome screen appears after it.
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("get_config"));
     await waitFor(() => expect(screen.getByText("onboarding.welcome_title")).toBeTruthy());
     expect(screen.queryByText("nav.settings")).toBeNull();
@@ -118,7 +114,6 @@ describe("首次安装引导", () => {
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("get_config"));
 
     // 欢迎 → 触发键 → 引擎 → 润色（级别为关闭时按钮显示“跳过”）→ 完成。
-    // welcome → key → engine → polish (the button reads “skip” while the level is off) → done.
     for (let i = 0; i < 4; i++) {
       fireEvent.click(
         screen.getByRole("button", { name: /onboarding\.(next|polish_skip)/ }),
@@ -138,15 +133,12 @@ describe("首次安装引导", () => {
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("get_config"));
 
     // 引擎步点击“下载并启用”：下载要等 model-download-finished，耗时可超过向导本身。
-    // Click Download & enable on the engine step: it resolves only when
-    // model-download-finished arrives, which can outlive the whole wizard.
     fireEvent.click(screen.getByRole("button", { name: "onboarding.next" }));
     fireEvent.click(screen.getByRole("button", { name: "onboarding.next" }));
     fireEvent.click(screen.getByRole("button", { name: "settings.download_and_use" }));
     fireEvent.click(screen.getByRole("button", { name: "onboarding.next" }));
 
     // 润色步：填级别、API 地址与模型（两个 textbox 依次是地址与模型）。
-    // Polish step: level, API URL and model (the two textboxes are URL then model).
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "medium" } });
     const [apiUrl, model] = screen.getAllByRole("textbox");
     fireEvent.change(apiUrl, { target: { value: "https://api.deepseek.com/v1" } });
@@ -158,7 +150,6 @@ describe("首次安装引导", () => {
     expect(savedPatches.some((patch) => patch.polishLevel === "medium")).toBe(true);
 
     // 下载结束：只允许写 model 一个字段，其他字段绝不能随旧快照回写。
-    // The download finishes: it may write the model field only; nothing else may be reverted.
     listenerHandlers.get("model-download-finished")?.({
       payload: { name: "sense-voice-small", success: true, path: "/tmp/sense-voice-small" },
     });

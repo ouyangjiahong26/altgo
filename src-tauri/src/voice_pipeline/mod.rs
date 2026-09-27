@@ -2,7 +2,6 @@
 //!
 //! 模块划分：
 //! - `sink` — 事件接收端口（PipelineSink）与共享类型
-//!   （TranscriptionResult / DispatchOutcome）
 //! - `dispatcher` — 转写结果业务调度 seam（TranscriptionDispatch）
 //! - `builder` — PipelineBuilder 组件构造
 //! - `context` — PipelineContext 事件循环
@@ -39,10 +38,6 @@ use std::sync::Arc;
 ///
 /// 阻塞当前异步任务直到 `stop_rx` 触发。
 /// 所有状态变化与结果均经 `sink` 上报。
-/// Run the voice pipeline end-to-end.
-///
-/// Blocks the current async task until `stop_rx` fires.
-/// All state changes and results are reported via `sink`.
 pub async fn run(
     cfg: Arc<crate::config::Config>,
     stop_rx: tokio::sync::oneshot::Receiver<()>,

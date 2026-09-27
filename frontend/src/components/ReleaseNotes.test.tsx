@@ -3,7 +3,6 @@ import { render } from "@testing-library/react";
 import ReleaseNotes, { parseReleaseNotes, renderInline, entryTitle } from "./ReleaseNotes";
 
 // 近似 release_notes.md 的真实形态：`# altgo vX` + `## vX (日期)` + 分类 + 条目 + 分隔线 + 对比链接。
-// Mirrors the real shape of release_notes.md.
 const SAMPLE = [
   "# altgo v2.6.18",
   "",

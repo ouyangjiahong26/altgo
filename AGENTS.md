@@ -82,7 +82,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - **依赖注入**：组件在构造期一次性注入 trait object（`Box<dyn Recorder>`、`Arc<dyn Output>`…）；副作用（emit、download、spawn）抽成闭包/trait 参数，使单测不起 Tauri app。
 - **serde**：IPC 面向结构体 `#[serde(rename_all = "camelCase")]`；状态/枚举值 `snake_case`；配置全字段 `serde(default)`（部分 TOML 可用，未知值回退默认）。
 - **配置补丁**：`ConfigPatch` 三态语义——缺省 = 不改、`null` = 清除、值 = 设置（`config.rs`）。
-- **注释**：双语成对（中文在前、英文在后），解释“为什么”而非“是什么”；公开 API 加文档注释；函数 < 50 行、文件 < 1000 行（`CONTRIBUTING.md`）。
+- **注释**：只写中文，不写英文对照，解释“为什么”而非“是什么”；公开 API 加文档注释；函数 < 50 行、文件 < 1000 行（`CONTRIBUTING.md`）。工具指令注释（`eslint-disable`、`ts-expect-error`、`/// <reference types=…>` 等）保持原样。
 - **日志/可见性**：`tracing` 结构化字段（如 `tracing::info!(backend, "key listener active")`）；内部实现收紧 `pub(crate)`。
 - **前端**：i18n 自研字典（`frontend/src/i18n/`，key 形如 `settings.save`）；状态色/间距等一律走 `styles/design-tokens.css` 的 CSS 变量，不写死颜色；改动 token、基础层或组件样式时同步更新样式审查页 `frontend/style-review.html`。
 

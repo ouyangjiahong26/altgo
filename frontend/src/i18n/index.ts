@@ -347,7 +347,6 @@ export function useTranslation() {
   }, [lang]);
 
   // 经 storage 事件同步其他同源窗口（如 overlay）的语言设置。
-  // Sync language from other same-origin windows (e.g. overlay) via storage events.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === LANG_KEY && e.newValue) {
@@ -359,7 +358,6 @@ export function useTranslation() {
   }, []);
 
   // 经 CustomEvent 在同一窗口内同步语言（与 theme.ts 相同的做法）。
-  // Sync language within the same window via CustomEvent (like theme.ts).
   useEffect(() => {
     const onLangChanged = () => {
       const v = localStorage.getItem(LANG_KEY) || "zh";

@@ -6,15 +6,6 @@
 //!
 //! 运行时组合：`base.txt` + `{level}-suffix.txt` → 完整 system prompt。
 //! 模板启动时加载一次；修改文件需重启应用生效。
-//!
-//! Prompt template management.
-//!
-//! Loads prompt templates from `resources/prompts/`:
-//! - `base.txt`: shared instruction + Chinese writing guidance
-//! - `{level}-suffix.txt`: level-specific instruction
-//!
-//! Runtime composition: `base.txt` + `{level}-suffix.txt` → complete system prompt.
-//! Templates are loaded once at startup; restart the app to pick up edits.
 
 use crate::polisher::PolishLevel;
 use std::collections::HashMap;
@@ -23,7 +14,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 /// Prompt 加载或校验过程中可能出现的错误。
-/// Errors that can occur during prompt loading or validation.
 #[derive(Debug, thiserror::Error)]
 pub enum PromptError {
     #[error("Prompt file not found: {0}")]
@@ -40,7 +30,6 @@ pub enum PromptError {
 }
 
 /// 管理 prompt 模板。
-/// Manages prompt templates.
 #[derive(Clone, Debug)]
 pub struct PromptStore {
     prompts_dir: PathBuf,
@@ -65,9 +54,6 @@ impl PromptStore {
     /// 为给定 prompts 目录创建新的 PromptStore。
     ///
     /// 不会立即加载 prompt——调用 `load()` 或 `ensure_loaded()` 加载。
-    /// Creates a new PromptStore for the given prompts directory.
-    ///
-    /// Does not load prompts immediately—call `load()` or `ensure_loaded()`.
     pub fn new(prompts_dir: PathBuf) -> Self {
         Self {
             prompts_dir,
@@ -81,9 +67,6 @@ impl PromptStore {
     /// 从磁盘加载全部 prompt 模板。
     ///
     /// 任一文件缺失或为空时返回错误。
-    /// Loads all prompt templates from disk.
-    ///
-    /// Returns error if any file is missing or empty.
     pub fn load(&self) -> Result<(), PromptError> {
         let base = self.load_file("base.txt")?;
         let light = self.load_file("light-suffix.txt")?;
@@ -100,7 +83,6 @@ impl PromptStore {
     }
 
     /// 缓存为空时从磁盘加载，否则返回已缓存的 prompt。
-    /// Loads prompts if cache is empty, otherwise returns cached prompts.
     pub fn ensure_loaded(&self) -> Result<(), PromptError> {
         let cache = self.cache.lock().unwrap();
         if cache.base.is_empty() {
@@ -114,9 +96,6 @@ impl PromptStore {
     /// 组合出指定润色档位的完整 system prompt。
     ///
     /// 未加载时返回错误。
-    /// Composes the complete system prompt for the given polish level.
-    ///
-    /// Returns error if prompts haven't been loaded yet.
     pub fn get_system_prompt(&self, level: PolishLevel) -> Result<String, PromptError> {
         if matches!(level, PolishLevel::None) {
             return Ok(String::new());
@@ -229,11 +208,9 @@ mod tests {
         let store = PromptStore::new(temp_dir.path().to_path_buf());
 
         // 首次调用触发加载
-        // First call loads
         assert!(store.ensure_loaded().is_ok());
 
         // 第二次调用命中缓存
-        // Second call uses cache
         assert!(store.ensure_loaded().is_ok());
     }
 }

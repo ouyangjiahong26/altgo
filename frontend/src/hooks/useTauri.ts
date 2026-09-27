@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/event";
 
 /**
- * Subscribe to a Tauri event. Returns the latest payload (or `initial` if no event yet).
+ * 订阅一个 Tauri 事件，返回最新载荷（尚无事件时返回 `initial`）。
  *
- * The callback is captured in the effect closure, so changing it does not re-subscribe.
- * Use the returned `payload` to drive UI; if you need a derived transformation, do it
- * in the caller.
+ * 回调在 effect 闭包中被捕获，因此改动它不会重新订阅。
+ * 用返回的 `payload` 驱动 UI；若需要派生转换，请在调用方完成。
  */
 export function useTauriEvent<T>(
   event: string,
@@ -27,7 +26,6 @@ export function useTauriEvent<T>(
       unlistenPromise.then((fn) => fn());
     };
     // callback 特意不作为依赖项；需要的消费方可自行 memo。
-    // callback is intentionally not a dep; consumers that need it can memoise.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event]);
 

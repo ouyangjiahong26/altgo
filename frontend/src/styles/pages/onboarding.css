@@ -1,9 +1,8 @@
 /* ============================================
-   First-run Onboarding Styles
+   首次运行引导样式
    ============================================ */
 
 /* 覆盖整窗的全屏向导：无导航、无侧边栏，只有拖拽条 + 内容 + 底部按钮。 */
-/* Full-window wizard overlay: drag strip, content, footer buttons — no navigation. */
 .onboarding {
   position: fixed;
   inset: 0;
@@ -15,7 +14,6 @@
 }
 
 /* 窗口无系统装饰，引导期间靠这条拖拽区移动窗口（同 Layout header 的做法）。 */
-/* The window has no decorations; this strip keeps it draggable during onboarding. */
 .onboarding-drag {
   flex: none;
   height: 34px;
@@ -75,7 +73,6 @@
 }
 
 /* 引擎单选卡 */
-/* Engine choice cards */
 .onboarding-choice {
   display: flex;
   align-items: flex-start;
@@ -123,7 +120,6 @@
 }
 
 /* 完成页摘要 */
-/* Done-step summary */
 .onboarding-summary {
   display: flex;
   flex-direction: column;

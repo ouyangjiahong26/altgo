@@ -2,11 +2,6 @@
 //!
 //! 使用 `parecord` 子进程从默认 PulseAudio 音频源捕获 16 位 PCM 音频（16kHz 单声道）。
 //! 在独立线程中运行，通过共享的 `Buffer` 累积音频数据。
-//!
-//! Linux recorder.
-//!
-//! Captures 16-bit PCM audio (16kHz mono) from the default PulseAudio source via a `parecord`
-//! subprocess. Runs on its own thread, accumulating audio into a shared `Buffer`.
 
 use crate::audio::{self, Buffer};
 use crate::error::RecorderError;
@@ -17,7 +12,6 @@ use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 
 /// PulseAudio 录音器，从默认音频源捕获 16 位 PCM 音频（16kHz 单声道）。
-/// PulseAudio recorder capturing 16-bit PCM (16kHz mono) from the default source.
 pub struct PulseRecorder {
     sample_rate: u32,
     shared_buffer: Arc<Buffer>,
@@ -28,7 +22,6 @@ pub struct PulseRecorder {
 
 impl PulseRecorder {
     /// 创建新的录音器。输出固定为单声道 16kHz（ASR 输入要求）。
-    /// Creates a new recorder. Output is fixed to mono 16kHz (the ASR input requirement).
     pub fn new(sample_rate: u32) -> Self {
         Self {
             sample_rate,
@@ -40,7 +33,6 @@ impl PulseRecorder {
     }
 
     /// 开始录音。
-    /// Starts recording.
     pub fn start(&mut self) -> Result<(), RecorderError> {
         if self.recording.load(Ordering::SeqCst) {
             return Err(RecorderError::StartFailed("already recording".to_string()));
@@ -106,7 +98,6 @@ impl PulseRecorder {
             }
 
             // 停止 parecord 并把管道里剩余的音频数据取干净。
-            // Stop parecord and drain remaining audio data from the pipe.
             let _ = child.kill();
             while let Ok(n) = reader.read(&mut chunk) {
                 if n == 0 {
@@ -122,12 +113,10 @@ impl PulseRecorder {
     }
 
     /// 停止录音并返回 WAV 编码的音频数据。
-    /// Stops recording and returns WAV-encoded audio data.
     pub fn stop(&self) -> Result<Vec<u8>, RecorderError> {
         self.recording.store(false, Ordering::SeqCst);
 
         // 等待录音线程结束。
-        // Wait for the recording thread to finish.
         if let Some(handle) = self.done.lock().expect("done mutex poisoned").take() {
             if let Err(e) = handle.join() {
                 let msg = if let Some(s) = e.downcast_ref::<&str>() {

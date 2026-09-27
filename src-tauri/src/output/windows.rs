@@ -2,18 +2,12 @@
 //!
 //! 剪贴板通过 arboard 写入；文本注入通过 SendInput 的 Unicode 事件实现
 //! （支持中日韩字符）。
-//!
-//! Windows output module.
-//!
-//! The clipboard is written through arboard; text injection goes through SendInput Unicode events
-//! (CJK characters included).
 
 use super::Output;
 use crate::error::OutputError;
 use std::sync::Arc;
 
-/// Windows output adapter。
-/// Windows output adapter（Windows 输出适配器）。
+/// Windows 输出适配器。
 pub struct WindowsOutput;
 
 impl WindowsOutput {
@@ -47,7 +41,6 @@ impl Output for WindowsOutput {
 }
 
 /// 通过 SendInput 发送 Unicode 文本到当前焦点窗口。
-/// Sends Unicode text to the currently focused window via SendInput.
 fn send_unicode_text(text: &str) -> Result<(), OutputError> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,

@@ -25,13 +25,13 @@ export interface ModelCatalogEntry {
 export interface ProviderPreset {
   /** 供应商名称 */
   name: string;
-  /** i18n key */
+  /** i18n 键 */
   nameKey?: string;
   /** 官网链接 */
   websiteUrl: string;
   /** 获取 API Key 的链接 */
   apiKeyUrl?: string;
-  /** API Base URL */
+  /** API 基础地址 */
   apiBaseUrl: string;
   /** 分类 */
   category: ProviderCategory;

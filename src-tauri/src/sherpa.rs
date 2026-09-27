@@ -6,16 +6,6 @@
 //!
 //! 推理是 CPU 密集的同步操作，通过 `tokio::task::spawn_blocking` 放进
 //! blocking 线程池，避免阻塞异步 runtime。
-//!
-//! SenseVoice local speech recognition backend (sherpa-onnx embedded).
-//!
-//! sherpa-onnx is compiled into the main binary: the model loads once at pipeline startup and
-//! stays resident; afterwards each utterance only decodes waveform and runs inference—no
-//! subprocess approach, since the ~230MB SenseVoice int8 model often takes longer to cold-load
-//! than to transcribe.
-//!
-//! Inference is CPU-intensive synchronous work, dispatched through `tokio::task::spawn_blocking`
-//! onto the blocking thread pool so the async runtime is never stalled.
 
 use crate::error::TranscriberError;
 use crate::resource::effective_threads;
@@ -30,9 +20,6 @@ use std::sync::Arc;
 ///
 /// `Clone` 极廉价（`Arc<OfflineRecognizer>` 共享），识别器本身线程安全
 /// （sherpa-onnx 的 `unsafe impl Send + Sync`），可并发转写多个流。
-///
-/// Clone is nearly free (`Arc<OfflineRecognizer>` shared); the recognizer itself is thread-safe
-/// (sherpa-onnx `unsafe impl Send + Sync`) and can transcribe multiple streams concurrently.
 #[derive(Clone)]
 pub struct SherpaTranscriber {
     recognizer: Arc<OfflineRecognizer>,
@@ -48,7 +35,6 @@ impl std::fmt::Debug for SherpaTranscriber {
 }
 
 /// 把配置语言归一化为 SenseVoice 可接受的值；空字符串按自动检测处理。
-/// Normalizes a configured language into a value SenseVoice accepts; an empty string means auto-detection.
 fn normalize_language(language: &str) -> &str {
     match language.trim() {
         "" => "auto",
@@ -63,12 +49,6 @@ impl SherpaTranscriber {
     /// （见 `crate::model` 的下载逻辑）。
     /// `language`：`"auto"` 自动检测（中/英/日/韩/粤），或 `"zh"` / `"en"` /
     /// `"ja"` / `"ko"` / `"yue"` 指定；空字符串按 `"auto"` 处理。
-    /// Creates the resident recognizer and loads the model immediately.
-    ///
-    /// `model_dir` should contain the SenseVoice model's `model.int8.onnx` and `tokens.txt`
-    /// (see download logic in `crate::model`). `language` accepts `"auto"` for auto detection
-    /// (Chinese/English/Japanese/Korean/Cantonese) or a fixed code like `"zh"` / `"en"` /
-    /// `"ja"` / `"ko"` / `"yue"`; empty strings are treated as `"auto"`.
     pub fn new(
         model_dir: PathBuf,
         language: String,
@@ -109,8 +89,6 @@ impl SherpaTranscriber {
     }
 
     /// 同步转写：WAV 解码 → 推理 → 返回文本。调用方应放入 blocking 线程池。
-    /// Synchronous transcription: WAV decode → inference → text. Callers should dispatch it
-    /// onto a blocking thread pool.
     pub fn transcribe_blocking(
         &self,
         audio_data: &[u8],

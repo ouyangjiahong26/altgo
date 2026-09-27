@@ -5,23 +5,12 @@
 //! - `Buffer`：基于 `Mutex<Vec<u8>>` 的线程安全字节缓冲区，用于累积录音数据
 //! - `encode_wav`：将原始 PCM 数据编码为带 44 字节头的 WAV 格式
 //! - `decode_wav_to_f32`：将 16 位 PCM WAV 数据解码为 [-1.0, 1.0] 范围的浮点采样
-//!
-//! Audio module.
-//!
-//! Provides a thread-safe PCM audio buffer and WAV encoding/decoding.
-//!
-//! - `Buffer`: thread-safe byte buffer backed by `Mutex<Vec<u8>>`, for accumulating recorded data
-//! - `encode_wav`: encodes raw PCM data into WAV format with a 44-byte header
-//! - `decode_wav_to_f32`: decodes 16-bit PCM WAV data into float samples in [-1.0, 1.0]
 
 use std::sync::Mutex;
 
 /// 线程安全的 PCM 音频字节缓冲区。
 ///
 /// 使用 `Mutex<Vec<u8>>` 保护内部数据，支持跨线程并发读写。
-/// Thread-safe PCM audio byte buffer.
-///
-/// Internal data is guarded by `Mutex<Vec<u8>>`, allowing concurrent cross-thread reads/writes.
 pub struct Buffer {
     data: Mutex<Vec<u8>>,
 }
@@ -34,14 +23,12 @@ impl Default for Buffer {
 
 impl Buffer {
     /// 创建新的空缓冲区。
-    /// Creates a new empty buffer.
     pub fn new() -> Self {
         Self {
             data: Mutex::new(Vec::new()),
         }
     }
 
-    /// Execute a closure with exclusive access to the buffer data.
     /// 以独占访问执行闭包，操作缓冲区数据。
     fn with_lock<F, R>(&self, f: F) -> R
     where
@@ -52,19 +39,16 @@ impl Buffer {
     }
 
     /// 向缓冲区追加数据。
-    /// Appends data to the buffer.
     pub fn write(&self, chunk: &[u8]) {
         self.with_lock(|data| data.extend_from_slice(chunk));
     }
 
     /// 返回当前缓冲区内容的副本。
-    /// Returns a copy of the current buffer contents.
     pub fn read_all(&self) -> Vec<u8> {
         self.with_lock(|data| data.clone())
     }
 
     /// 清空缓冲区。
-    /// Clears the buffer.
     pub fn reset(&self) {
         self.with_lock(|data| data.clear());
     }
@@ -74,9 +58,6 @@ impl Buffer {
 ///
 /// 参数：`pcm_data`（PCM 字节数据）、`sample_rate`（采样率）、
 /// `channels`（声道数）、`bits_per_sample`（位深）。
-/// Encodes raw PCM data into WAV format with a 44-byte header.
-///
-/// Parameters: `pcm_data` (PCM byte data), `sample_rate`, `channels`, `bits_per_sample`.
 pub fn encode_wav(
     pcm_data: &[u8],
     sample_rate: u32,
@@ -102,28 +83,25 @@ pub fn encode_wav(
         return Err(anyhow::anyhow!("PCM data too large for WAV format (>4GB)"));
     }
     let data_size = pcm_data.len() as u32;
-    let file_size = 36 + data_size; // RIFF header - 8 + data（RIFF 头减 8 再加数据）
+    let file_size = 36 + data_size; // RIFF 头 - 8 + 数据
 
     let mut wav = Vec::with_capacity(44 + pcm_data.len());
 
-    // RIFF header
     // RIFF 头
     wav.extend_from_slice(b"RIFF");
     wav.extend_from_slice(&file_size.to_le_bytes());
     wav.extend_from_slice(b"WAVE");
 
-    // fmt chunk
     // fmt 块
     wav.extend_from_slice(b"fmt ");
-    wav.extend_from_slice(&16u32.to_le_bytes()); // chunk size
-    wav.extend_from_slice(&1u16.to_le_bytes()); // PCM format
+    wav.extend_from_slice(&16u32.to_le_bytes()); // 块大小
+    wav.extend_from_slice(&1u16.to_le_bytes()); // PCM 格式
     wav.extend_from_slice(&channels.to_le_bytes());
     wav.extend_from_slice(&sample_rate.to_le_bytes());
     wav.extend_from_slice(&byte_rate.to_le_bytes());
     wav.extend_from_slice(&block_align.to_le_bytes());
     wav.extend_from_slice(&bits_per_sample.to_le_bytes());
 
-    // data chunk
     // data 块
     wav.extend_from_slice(b"data");
     wav.extend_from_slice(&data_size.to_le_bytes());
@@ -135,10 +113,6 @@ pub fn encode_wav(
 /// 从 16 位 PCM 字节数据中计算感知音频电平（范围 [0.0, 1.0]）。
 ///
 /// 计算 PCM 采样点的均方根（RMS），并通过非线性增益映射到人耳感知的音量电平。
-/// Computes the perceptual audio level ([0.0, 1.0]) from 16-bit PCM bytes.
-///
-/// Computes the root mean square (RMS) of PCM samples and maps it through a nonlinear gain
-/// to a perceived loudness level.
 pub fn calculate_audio_level(pcm_data: &[u8]) -> f32 {
     let n_samples = pcm_data.len() / 2;
     if n_samples == 0 {
@@ -155,7 +129,6 @@ pub fn calculate_audio_level(pcm_data: &[u8]) -> f32 {
     let ratio = (rms / 32768.0) as f32;
 
     // 感知增益曲线：放大日常语音幅度，上限截断为 1.0
-    // Perceptual gain curve: amplifies everyday speech levels, capped at 1.0
     const PERCEPTUAL_GAIN: f32 = 3.0;
     (ratio * PERCEPTUAL_GAIN).sqrt().min(1.0)
 }
@@ -169,7 +142,6 @@ pub fn decode_wav_to_f32(wav_data: &[u8]) -> Result<Vec<f32>, &'static str> {
     }
 
     // 定位 data 块。
-    // Find the data chunk.
     let mut offset = 12u32;
     let mut data_offset = 0u32;
     let mut data_size = 0u32;
@@ -187,7 +159,6 @@ pub fn decode_wav_to_f32(wav_data: &[u8]) -> Result<Vec<f32>, &'static str> {
             break;
         }
         offset += 8 + chunk_size;
-        // Pad to even boundary.
         // 对齐到偶数边界。
         if chunk_size % 2 != 0 {
             offset += 1;
@@ -243,8 +214,6 @@ mod tests {
         buf.write(b"original");
         let copy = buf.read_all();
         buf.reset();
-        // The copy should still contain the original data.
-        // 副本应仍包含原始数据。
         // 副本应仍包含原始数据。
         assert_eq!(copy, b"original");
     }
@@ -272,33 +241,29 @@ mod tests {
         let pcm = vec![0u8; 100];
         let wav = encode_wav(&pcm, 16000, 1, 16).unwrap();
 
-        // RIFF header
         // RIFF 头
         assert_eq!(&wav[0..4], b"RIFF");
         assert_eq!(u32::from_le_bytes(wav[4..8].try_into().unwrap()), 136); // 36 + 100
         assert_eq!(&wav[8..12], b"WAVE");
 
-        // fmt chunk
         // fmt 块
         assert_eq!(&wav[12..16], b"fmt ");
-        assert_eq!(u32::from_le_bytes(wav[16..20].try_into().unwrap()), 16); // chunk size
+        assert_eq!(u32::from_le_bytes(wav[16..20].try_into().unwrap()), 16); // 块大小
         assert_eq!(u16::from_le_bytes(wav[20..22].try_into().unwrap()), 1); // PCM
-        assert_eq!(u16::from_le_bytes(wav[22..24].try_into().unwrap()), 1); // channels
-        assert_eq!(u32::from_le_bytes(wav[24..28].try_into().unwrap()), 16000); // sample rate
-        assert_eq!(u32::from_le_bytes(wav[28..32].try_into().unwrap()), 32000); // byte rate
-        assert_eq!(u16::from_le_bytes(wav[32..34].try_into().unwrap()), 2); // block align
-        assert_eq!(u16::from_le_bytes(wav[34..36].try_into().unwrap()), 16); // bits
+        assert_eq!(u16::from_le_bytes(wav[22..24].try_into().unwrap()), 1); // 声道数
+        assert_eq!(u32::from_le_bytes(wav[24..28].try_into().unwrap()), 16000); // 采样率
+        assert_eq!(u32::from_le_bytes(wav[28..32].try_into().unwrap()), 32000); // 字节率
+        assert_eq!(u16::from_le_bytes(wav[32..34].try_into().unwrap()), 2); // 块对齐
+        assert_eq!(u16::from_le_bytes(wav[34..36].try_into().unwrap()), 16); // 位深
 
-        // data chunk
         // data 块
         assert_eq!(&wav[36..40], b"data");
-        assert_eq!(u32::from_le_bytes(wav[40..44].try_into().unwrap()), 100); // data size
+        assert_eq!(u32::from_le_bytes(wav[40..44].try_into().unwrap()), 100); // 数据大小
         assert_eq!(&wav[44..], &pcm[..]);
     }
 
     #[test]
     fn test_encode_decode_roundtrip() {
-        // Create PCM data with known samples.
         // 构造采样值已知的 PCM 数据。
         let samples: Vec<i16> = vec![0, 1000, -1000, 32767, -32768];
         let mut pcm = Vec::new();
@@ -355,17 +320,16 @@ mod tests {
         let pcm = vec![0u8; 100];
         let wav = encode_wav(&pcm, 16000, 2, 16).unwrap();
 
-        assert_eq!(u32::from_le_bytes(wav[28..32].try_into().unwrap()), 64000); // byte rate
-        assert_eq!(u16::from_le_bytes(wav[32..34].try_into().unwrap()), 4); // block align
+        assert_eq!(u32::from_le_bytes(wav[28..32].try_into().unwrap()), 64000); // 字节率
+        assert_eq!(u16::from_le_bytes(wav[32..34].try_into().unwrap()), 4); // 块对齐
     }
 
     #[test]
     fn test_decode_wav_no_data_chunk() {
-        // Minimal WAV with fmt chunk but no data chunk (at least 44 bytes long).
         // 只有 fmt 块、没有 data 块的最小 WAV（总长至少 44 字节）。
         let mut wav = Vec::new();
         wav.extend_from_slice(b"RIFF");
-        wav.extend_from_slice(&42u32.to_le_bytes()); // file size after this point
+        wav.extend_from_slice(&42u32.to_le_bytes()); // 此后的文件大小
         wav.extend_from_slice(b"WAVE");
         wav.extend_from_slice(b"fmt ");
         wav.extend_from_slice(&16u32.to_le_bytes());
@@ -375,7 +339,6 @@ mod tests {
         wav.extend_from_slice(&32000u32.to_le_bytes());
         wav.extend_from_slice(&2u16.to_le_bytes());
         wav.extend_from_slice(&16u16.to_le_bytes());
-        // Pad with 14 bytes of filler so total length is >= 44 without a data chunk.
         // 用 14 字节填充使总长 >= 44 且不含 data 块。
         wav.extend_from_slice(b"junk");
         wav.extend_from_slice(&6u32.to_le_bytes());
@@ -387,7 +350,6 @@ mod tests {
 
     #[test]
     fn test_decode_wav_truncated_data_chunk() {
-        // data chunk claims 100 bytes but only 4 bytes follow.
         // data 块声称有 100 字节，但后面只有 4 字节。
         let mut wav = Vec::new();
         wav.extend_from_slice(b"RIFF");
@@ -406,18 +368,15 @@ mod tests {
         wav.extend_from_slice(&[0x00, 0x01, 0xFF, 0xFF]);
 
         let decoded = decode_wav_to_f32(&wav).unwrap();
-        // Only two complete samples are available.
         // 只有两个完整采样可用。
         assert_eq!(decoded.len(), 2);
     }
 
     #[test]
     fn test_decode_wav_odd_chunk_padding() {
-        // Place an odd-sized 'junk' chunk before data; decoder must skip the padding byte.
         // 在 data 前放一个奇数大小的 'junk' 块；解码器必须跳过填充字节。
         let mut wav = Vec::new();
         wav.extend_from_slice(b"RIFF");
-        // file size = 4 (WAVE) + 8 + 16 (fmt) + 8 + 3 (junk) + 1 (pad) + 8 + 4 (data) = 50
         // 文件大小 = 4 (WAVE) + 8 + 16 (fmt) + 8 + 3 (junk) + 1 (pad) + 8 + 4 (data) = 50
         wav.extend_from_slice(&50u32.to_le_bytes());
         wav.extend_from_slice(b"WAVE");
@@ -431,8 +390,8 @@ mod tests {
         wav.extend_from_slice(&16u16.to_le_bytes());
         wav.extend_from_slice(b"junk");
         wav.extend_from_slice(&3u32.to_le_bytes());
-        wav.extend_from_slice(&[0x01, 0x02, 0x03]); // odd length -> pad byte follows（奇数长度 → 后跟填充字节）
-        wav.push(0x00); // padding（填充）
+        wav.extend_from_slice(&[0x01, 0x02, 0x03]); // 奇数长度 → 后跟填充字节
+        wav.push(0x00); // 填充
         wav.extend_from_slice(b"data");
         wav.extend_from_slice(&4u32.to_le_bytes());
         wav.extend_from_slice(&0i32.to_le_bytes());
@@ -443,11 +402,9 @@ mod tests {
 
     #[test]
     fn test_decode_wav_with_list_chunk() {
-        // data chunk preceded by a LIST chunk.
         // data 块前面有一个 LIST 块。
         let mut wav = Vec::new();
         wav.extend_from_slice(b"RIFF");
-        // WAVE + fmt(24) + LIST(12) + data(8+4) = 4+24+12+12 = 52
         // 文件大小：WAVE + fmt(24) + LIST(12) + data(8+4) = 52
         wav.extend_from_slice(&52u32.to_le_bytes());
         wav.extend_from_slice(b"WAVE");
@@ -484,7 +441,6 @@ mod tests {
 
     #[test]
     fn test_calculate_audio_level_max_amplitude() {
-        // Max positive i16 is 32767
         // i16 的最大正值是 32767
         let mut pcm = Vec::new();
         for _ in 0..512 {
@@ -496,14 +452,12 @@ mod tests {
 
     #[test]
     fn test_calculate_audio_level_normal_speech_gain() {
-        // Normal speech amplitude around 2000-4000 (~0.06 - 0.12 raw ratio)
         // 正常语音幅度约 2000-4000（原始比率约 0.06 - 0.12）
         let mut pcm = Vec::new();
         for _ in 0..512 {
             pcm.extend_from_slice(&3000i16.to_le_bytes());
         }
         let level = calculate_audio_level(&pcm);
-        // With perceptual gain, this should produce a comfortable visible level in [0.2, 0.9]
         // 经感知增益后应落在可见的舒适区间 [0.2, 0.9]
         assert!(level > 0.2 && level <= 1.0, "level was {}", level);
     }

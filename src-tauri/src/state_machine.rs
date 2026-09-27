@@ -10,34 +10,16 @@
 //!
 //! 状态机提供同步接口（`process`、`poll_timeout`、`next_deadline`），
 //! 由调用方（`voice_pipeline::PipelineContext`）在 `tokio::select!` 主循环中驱动。
-//!
-//! State machine module.
-//!
-//! Implements a five-state key state machine that distinguishes two recording modes,
-//! long press and double click:
-//!
-//! - `Idle` — waiting for a key press
-//! - `PotentialPress` — pressed, waiting whether the long-press threshold is reached
-//! - `Recording` — triggered by a long press; releasing stops recording
-//! - `WaitSecondClick` — after a short press is released, waiting for the second click
-//! - `ContinuousRecording` — triggered by double click; pressing again stops it, and
-//!   system key auto-repeat during the second hold is ignored until release
-//!
-//! The machine exposes a synchronous interface (`process`, `poll_timeout`, `next_deadline`)
-//! driven by the caller (`voice_pipeline::PipelineContext`) in its `tokio::select!` main loop.
 
 use crate::key_listener::KeyEvent;
 use std::time::{Duration, Instant};
 
 /// 状态机发出的命令。
-/// Command emitted by the state machine.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
     /// 开始录音
-    /// Start recording
     StartRecord,
     /// 停止录音
-    /// Stop recording
     StopRecord,
 }
 
@@ -60,17 +42,6 @@ pub(super) enum State {
 /// - WaitSecondClick + 按下 → ContinuousRecording（发出 StartRecord）
 /// - WaitSecondClick + 计时器过期 → Idle（忽略）
 /// - ContinuousRecording + 按下 → Idle（发出 StopRecord）
-///
-/// Key state machine distinguishing long-press recording from double-click continuous recording.
-///
-/// Transitions:
-/// - Idle + press → PotentialPress (starts the long-press timer)
-/// - PotentialPress + release before the timer → WaitSecondClick
-/// - PotentialPress + timer fires → Recording (emits StartRecord)
-/// - Recording + release → Idle (emits StopRecord)
-/// - WaitSecondClick + press → ContinuousRecording (emits StartRecord)
-/// - WaitSecondClick + timer expiry → Idle (ignored)
-/// - ContinuousRecording + press → Idle (emits StopRecord)
 pub struct Machine {
     state: State,
     long_press_threshold: Duration,
@@ -78,12 +49,8 @@ pub struct Machine {
     min_press_duration: Duration,
     press_time: Option<Instant>,
     /// 连续录音开始后直到出现一次松开前，忽略再次“按下”（避免系统按键重复在按住第二次时误触发停止）。
-    /// After continuous recording starts, ignore further presses until one release occurs
-    /// (so OS key auto-repeat while holding the second press cannot falsely stop it).
     continuous_hold: bool,
     /// 用“再按一次”结束连续录音后，键可能仍被按住；在收到松开前忽略按下，避免误进长按检测。
-    /// After ending continuous recording with "one more press", the key may still be down;
-    /// ignore presses until release to avoid slipping back into long-press detection.
     idle_suppress_press_until_release: bool,
 }
 
@@ -92,11 +59,6 @@ impl Machine {
     ///
     /// `long_press_threshold`：长按触发阈值
     /// `double_click_interval`：双击检测时间窗口
-    ///
-    /// Creates a new state machine instance.
-    ///
-    /// `long_press_threshold`: long-press trigger threshold
-    /// `double_click_interval`: double-click detection time window
     pub fn new(
         long_press_threshold: Duration,
         double_click_interval: Duration,
@@ -114,7 +76,6 @@ impl Machine {
     }
 
     /// 处理按键事件，返回需要发出的命令（如果有）。
-    /// Handles a key event and returns the command to emit (if any).
     pub fn process(&mut self, event: KeyEvent) -> Option<Command> {
         let old_state = self.state;
         let cmd = match self.state {
@@ -134,15 +95,10 @@ impl Machine {
             }
             State::PotentialPress => {
                 if !event.pressed {
-                    // Released before long-press threshold.
-                    // Reject if the press was too short — likely IME noise.
                     // 在长按阈值前松开。
                     // 若按下时长过短则拒绝——多半是输入法噪音。
                     if let Some(pt) = self.press_time {
                         if Instant::now().duration_since(pt) < self.min_press_duration {
-                            // Too quick — treat as spurious IME release.
-                            // Reset to Idle so a subsequent spurious release
-                            // won't advance to WaitSecondClick without a real press.
                             // 过快——视为输入法的虚假松开。
                             // 回到 Idle，让后续的虚假松开
                             // 不致在没有真实按下的情况下推进到 WaitSecondClick。
@@ -167,7 +123,6 @@ impl Machine {
             }
             State::WaitSecondClick => {
                 if event.pressed {
-                    // Double click detected → continuous recording.
                     // 检测到双击 → 连续录音。
                     self.state = State::ContinuousRecording;
                     self.press_time = None;
@@ -200,7 +155,6 @@ impl Machine {
     }
 
     /// 检查是否需要触发基于计时器的状态转换。
-    /// Checks whether a timer-based transition should fire.
     pub fn poll_timeout(&mut self) -> Option<Command> {
         let now = Instant::now();
 
@@ -232,7 +186,6 @@ impl Machine {
         }
     }
 
-    /// Returns the next deadline for a timer-based transition, if any.
     /// 返回下一次基于计时器的状态转换期限（若存在）。
     pub fn next_deadline(&self) -> Option<Instant> {
         match self.state {
@@ -285,7 +238,6 @@ mod tests {
 
         assert_eq!(sm.process(press()), Some(Command::StartRecord));
 
-        // Still holding (or OS key-repeat): must not stop until release.
         // 仍按住中（或系统键连发）：松开前不得停止。
         assert_eq!(sm.process(press()), None);
         assert_eq!(sm.process(release()), None);
@@ -371,7 +323,6 @@ mod tests {
         assert_eq!(sm.poll_timeout(), Some(Command::StartRecord));
         assert_eq!(sm.state, State::Recording);
 
-        // Another pressed event while already recording must be ignored.
         // 已在录音时的另一个按下事件必须被忽略。
         assert_eq!(sm.process(press()), None);
         assert_eq!(sm.state, State::Recording);
@@ -392,7 +343,6 @@ mod tests {
         assert_eq!(sm.process(release()), None);
         assert_eq!(sm.state, State::WaitSecondClick);
 
-        // Additional release events in WaitSecondClick must be ignored.
         // WaitSecondClick 中多余的松开事件必须被忽略。
         assert_eq!(sm.process(release()), None);
         assert_eq!(sm.state, State::WaitSecondClick);
@@ -416,7 +366,6 @@ mod tests {
         sm.process(release());
         assert_eq!(sm.state, State::Idle);
 
-        // Transition into ContinuousRecording and check deadline is None.
         // 转入 ContinuousRecording，并检查期限为 None。
         sm.process(press());
         std::thread::sleep(Duration::from_millis(110));
@@ -430,19 +379,16 @@ mod tests {
     fn test_min_press_duration_boundary() {
         let threshold = Duration::from_millis(300);
         let interval = Duration::from_millis(300);
-        // A min_press_duration equal to the threshold makes short presses rejected.
         // min_press_duration 等于阈值时，短按会被拒绝。
         let min_press = threshold;
         let mut sm = Machine::new(threshold, interval, min_press);
 
         assert_eq!(sm.process(press()), None);
 
-        // Release immediately: duration is strictly less than min_press_duration.
         // 立即松开：时长严格小于 min_press_duration。
         assert_eq!(sm.process(release()), None);
         assert_eq!(sm.state, State::Idle);
 
-        // Verify exactly min_press_duration is accepted: sleep at least that long.
         // 验证恰好达到 min_press_duration 即被接受：至少睡够这么久。
         assert_eq!(sm.process(press()), None);
         std::thread::sleep(min_press + Duration::from_millis(5));
@@ -457,7 +403,6 @@ mod tests {
         let min_press = Duration::from_millis(1);
         let mut sm = Machine::new(threshold, interval, min_press);
 
-        // Enter continuous recording and stop it, which sets the suppress flag.
         // 进入连续录音并停止它，这一步会设置抑制标志。
         sm.process(press());
         std::thread::sleep(Duration::from_millis(110));
@@ -468,12 +413,10 @@ mod tests {
         assert_eq!(sm.state, State::Idle);
         assert!(sm.idle_suppress_press_until_release);
 
-        // Presses are ignored while the flag is set and the key is still down.
         // 标志置位且键仍被按住时，按下被忽略。
         assert_eq!(sm.process(press()), None);
         assert_eq!(sm.state, State::Idle);
 
-        // The release resets the flag; subsequent press is processed normally.
         // 松开会重置标志；其后的按下照常处理。
         assert_eq!(sm.process(release()), None);
         assert!(!sm.idle_suppress_press_until_release);

@@ -9,7 +9,7 @@ import "./styles/overlay-base.css";
 import "./styles/motion.css";
 import "./overlay.css";
 
-/** Overlay state emitted from Rust OverlayManager. */
+/** Rust 侧 OverlayManager 发出的悬浮窗状态。 */
 interface OverlayState {
   phase: "recording" | "processing" | "done" | "hidden";
 }
@@ -30,13 +30,13 @@ export function traceBarHeight(level: number): number {
 
 export interface PhaseTransitionResult {
   action: "show" | "crossfade" | "exit" | "none";
-  /** show: phase to display; exit→hidden: null to clear after animation */
+  /** show：要展示的相位；exit→hidden：动画结束后置 null 以清除 */
   phase?: Phase;
-  /** crossfade: current phase to keep during exit animation */
+  /** crossfade：退出动画期间继续保持的当前相位 */
   exitPhase?: Phase;
-  /** crossfade: phase to enter after delay */
+  /** crossfade：延迟后进入的相位 */
   enterPhase?: Phase;
-  /** crossfade: delay in ms before entering new phase */
+  /** crossfade：进入新相位前的延迟（毫秒） */
   delay?: number;
 }
 
@@ -55,18 +55,15 @@ export function computePhaseTransition(
   newPhase: "recording" | "processing" | "done" | "hidden"
 ): PhaseTransitionResult {
   // 进入隐藏状态
-  // Enter the hidden state
   if (newPhase === "hidden") {
     if (prevPhase !== null && prevPhase !== "hidden") {
       return { action: "exit" };
     }
     // hidden→hidden 或 null→hidden：清除
-    // hidden→hidden or null→hidden: clear
     return { action: "show", phase: null };
   }
 
   // 进入可见状态
-  // Enter a visible state
   if (prevPhase === null || prevPhase === "hidden") {
     return { action: "show", phase: newPhase };
   }
@@ -74,7 +71,6 @@ export function computePhaseTransition(
     return { action: "none" };
   }
   // 可见→不同可见：crossfade
-  // Visible→another visible phase: crossfade
   return {
     action: "crossfade",
     exitPhase: prevPhase,
@@ -87,19 +83,15 @@ export function Overlay() {
   const { t } = useTranslation();
 
   // 当前视觉相位——完全由 Rust 侧的 overlay-state 事件驱动。
-  // Current visual phase — driven entirely by overlay-state event from Rust.
   const [phase, setPhase] = useState<string | null>(null);
 
   // 转写结果文本（done 阶段展示）。
-  // Transcription result text (shown in done phase).
   const [result, setResult] = useState<string | null>(null);
 
   // 润色失败原因（done 阶段在文本下方提示已回退原文）。
-  // Polish failure reason (the done phase hints below the text that raw output was kept).
   const [polishError, setPolishError] = useState<string | null>(null);
 
   // processing 阶段的进度信息。
-  // Progress info during processing.
   const [txProgress, setTxProgress] = useState<{
     phase: string;
     fraction: number | null;
@@ -107,21 +99,15 @@ export function Overlay() {
 
   // 电平轨迹：录音期间按 TRACE_SAMPLE_INTERVAL_MS 采样的电平历史（最多
   // TRACE_MAX_FRAMES 帧）。松开后不再采样也不再渲染，结果出现即清空。
-  // Level trace: level history sampled at TRACE_SAMPLE_INTERVAL_MS during recording (up to
-    // TRACE_MAX_FRAMES frames). Sampling and rendering stop on release; cleared once the
-    // result arrives.
   const [levelTrace, setLevelTrace] = useState<number[]>([]);
   const lastSampleAtRef = useRef(0);
 
   // 是否处于退出过渡中（切换 CSS 类）。
-  // Whether we are in an exit transition (CSS class toggle).
   const [isExiting, setIsExiting] = useState(false);
   // Crossfade（相位间切换）只做淡出，不带退出位移；exit（隐藏）才滑出。
-  // Crossfade (switching between phases) only fades without exit movement; exit (hiding) slides out.
   const [isCrossfading, setIsCrossfading] = useState(false);
 
   // 记录上一相位以确定过渡方向。
-  // Track previous phase for transition direction.
   const prevPhaseRef = useRef<Phase>(null);
   const crossfadeTimerRef = useRef<number | null>(null);
 
@@ -159,7 +145,6 @@ export function Overlay() {
           break;
         case "crossfade":
           // 进入可见相位时清除转写状态
-          // Clear transcription state when entering a visible phase
           setTxProgress(null);
           if (newPhase !== "done") {
             setResult(null);
@@ -168,12 +153,9 @@ export function Overlay() {
           if (newPhase === "recording") {
             // 新一轮录音：轨迹重新累积（不存在 processing→recording 路径，
             // 进入 recording 即代表上一轮已结束）。
-            // A new recording round restarts trace accumulation (there is no processing→recording path,
-                        // so reaching recording means the previous round has ended).
             setLevelTrace([]);
           } else if (newPhase === "done") {
             // 结果文本已出，轨迹完成使命随 crossfade 退场。
-            // Result text is in; the trace bows out with the crossfade.
             setLevelTrace([]);
           }
           setIsCrossfading(true);
@@ -194,7 +176,6 @@ export function Overlay() {
       }
 
       // show/exit 分支也清除转写状态（进入非 done 的可见相位时）
-      // The show/exit branches also clear transcription state (entering a visible non-done phase)
       if (newPhase !== "hidden" && newPhase !== "done") {
         setTxProgress(null);
         setResult(null);
@@ -213,7 +194,6 @@ export function Overlay() {
       if (!active) return;
       const level = event.payload ?? 0;
       // 仅录音相位采样；processing/done/hidden 不采。
-      // Sample only during recording; processing/done/hidden don't sample.
       if (prevPhaseRef.current !== "recording") return;
       const now = Date.now();
       if (now - lastSampleAtRef.current < TRACE_SAMPLE_INTERVAL_MS) return;
@@ -255,7 +235,6 @@ export function Overlay() {
     };
   }, []);
 
-  // Listen for CSS transition end to fully clear hidden state.
   // 只响应容器自身的 transitionend；子元素（进度条、按钮等）的
   // transition 结束会冒泡上来，不得因此提前清除内容。
   const handleTransitionEnd = (event: React.TransitionEvent) => {
@@ -275,7 +254,6 @@ export function Overlay() {
       await invoke("hide_overlay");
     } catch {
       // 浮窗 hide 失败——静默忽略
-      // Overlay hide failed — ignore silently
     }
   };
 
@@ -285,8 +263,6 @@ export function Overlay() {
 
   // 生产端保证 transcription-result 先于 done 到达；若乱序先收到 done 且
   // 结果未到，继续显示 processing 视图，避免渲染出没有内容的空 island（闪烁）。
-  // Production guarantees transcription-result precedes done; if done lands first without a
-    // result, keep showing the processing view rather than rendering an empty island (flicker).
   const effectivePhase = phase === "done" && !result ? "processing" : phase;
 
   if (phase === "done" && result) {
