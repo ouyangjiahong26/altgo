@@ -43,7 +43,7 @@ After recording ends, the background runs these steps in order:
 2. **Polish** (unless the level is `none`) — optimize the text via LLM
 3. **Output** — **write to the system clipboard** and pop up the **overlay window**
 
-If no clipboard tool is available, you can still click Copy inside the **overlay window**; the **History page** also keeps text records (text only, no audio stored).
+If no clipboard tool is available, you can still click Copy inside the **overlay window**; the **history list on the home page** also keeps text records (text only, no audio stored).
 
 ## Polishing Levels
 
@@ -58,7 +58,7 @@ If no clipboard tool is available, you can still click Copy inside the **overlay
 
 - **Clipboard**: written by default on success; paste with the usual shortcut (`Ctrl+V`) in any app that supports pasting.
 - **Overlay window**: shows the current result; you can copy again or close it.
-- **Main window**: home status, **History** (view/delete/re-polish a single entry), **Settings**.
+- **Main window**: home (status, latest transcription, and the history list: view/delete/re-polish a single entry) and **Settings**; a step-by-step wizard (trigger key → engine → polishing) runs on first launch.
 - **System tray**: show/hide the main window, quit.
 
 History data lives at `~/.config/altgo/history.json` by default.

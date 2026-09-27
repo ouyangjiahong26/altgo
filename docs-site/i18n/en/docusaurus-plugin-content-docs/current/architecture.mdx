@@ -13,7 +13,7 @@ altgo uses a linear pipeline architecture driven by keyboard events:
 key listener → state machine → recording → ASR transcription → LLM polishing → clipboard + overlay + local transcription history (plain-text JSON)
 ```
 
-**Transcription history**: only text is saved (the raw transcription `rawText` and the currently displayed `text`); recordings are never saved. The data file is `~/.config/altgo/history.json`. After a successful transcription (when `raw_text` is non-empty), a record is written and a `history-updated` event is broadcast so the main window's history page can refresh.
+**Transcription history**: only text is saved (the raw transcription `rawText` and the currently displayed `text`); recordings are never saved. The data file is `~/.config/altgo/history.json`. After a successful transcription (when `raw_text` is non-empty), a record is written and a `history-updated` event is broadcast so the history list on the main window's home page can refresh.
 
 The key listener feeds key events into the main loop through an unbounded channel; the state machine returns commands synchronously, which are executed in place by `tokio::select!` branches, with a single-transcription mutex (see [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md) for details).
 
@@ -88,11 +88,11 @@ The only production implementation today is `SherpaTranscriber`: local SenseVoic
 - Supports both the OpenAI-compatible chat API and the Anthropic Messages API
 - Exponential backoff retries (up to 3 times)
 
-From the history page, a single entry can be re-polished under the current polishing configuration based on its **`rawText`** (`polish_history_entry`).
+From the history list on the home page, a single entry can be re-polished under the current polishing configuration based on its **`rawText`** (`polish_history_entry`).
 
 ## Frontend Routes (Main Window)
 
-- React Router Hash mode: `/` home, `/history` history, `/settings` settings.
+- React Router Hash mode: `/` home (status, latest transcription and the history list) and `/settings`.
 
 ## Testing Strategy
 

@@ -60,7 +60,7 @@ describe("ui-size", () => {
     await applyWindowSize("large");
 
     expect(windowApi.setSize).toHaveBeenCalledWith(
-      expect.objectContaining({ width: 760, height: 720 }),
+      expect.objectContaining({ width: 480, height: 760 }),
     );
   });
 

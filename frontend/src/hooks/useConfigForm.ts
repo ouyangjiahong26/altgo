@@ -87,7 +87,6 @@ export interface UseConfigFormResult {
   setMessage: (msg: string) => void;
   update: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => void;
   save: () => Promise<void>;
-  saveWith: (next: AppConfig) => Promise<void>;
   keyCapturing: boolean;
   captureActivationKey: () => Promise<void>;
 }
@@ -179,7 +178,6 @@ export function useConfigForm({
     setMessage,
     update,
     save,
-    saveWith,
     keyCapturing,
     captureActivationKey,
   };

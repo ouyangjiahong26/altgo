@@ -181,7 +181,7 @@ Component and form behavior on the React side.
 1. 按住激活键 → 录音 → SenseVoice 本地转写 → 文本进剪贴板 → 浮窗各阶段切换
 2. 首次使用：设置页下载 SenseVoice 模型 → SHA-256 校验 → 转写可用
 3. 修改设置 → 保存 → 重启应用后生效（真实 IPC、真实配置文件）
-4. 历史页浏览、删除、对旧条目重新润色（真实 LLM API）
+4. 主页历史列表浏览、删除、对旧条目重新润色（真实 LLM API）
 5. deb / rpm 在 x86_64 与 aarch64 真机安装后启动并完成一次转写
 6. NSIS 安装包在 Windows 10+ 真机安装后启动并完成一次转写（按键钩子、WASAPI 录音、SendInput 注入均需真实会话）
 

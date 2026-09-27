@@ -21,14 +21,14 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 - 整条管道跑在独立 OS 线程的 current_thread tokio runtime 上（`lib.rs::spawn_pipeline_thread`）；一切阻塞工作（推理、剪贴板、历史 I/O、join 线程）走 `spawn_blocking`。
 - 状态管理：Tauri managed state 四件——`ConfigStore`（持锁更新，校验/落盘失败回滚内存）、`HistoryStore`（模块级 I/O 锁，Unix 落盘 0o600）、`PipelineController`（生命周期 + `PipelineStatus` 五态）、`Arc<dyn Output>`。
 - IPC：`cmd.rs` 17 个 `#[tauri::command]`；事件 `pipeline-status`/`transcription-result`/`polish-failed`/`history-updated`/`overlay-state` 等，emit 点在 `tauri_sink.rs` 与 `cmd.rs`，前端 `hooks/useTauri.ts` 统一 listen。
-- 前端两个窗口：主窗（`index.html`，HashRouter 三个页面）+ 悬浮窗（`overlay.html`，独立样式链，动画只动 transform 防 Linux WM 黑晕）。主题/字体/窗口尺寸存 localStorage，**不进** Tauri 配置。
+- 前端两个窗口：主窗（`index.html`，HashRouter 两个页面：主页含历史列表、设置；首次启动先显示引导向导）+ 悬浮窗（`overlay.html`，独立样式链，动画只动 transform 防 Linux WM 黑晕）。主题/字体/窗口尺寸存 localStorage，**不进** Tauri 配置。
 
 ## Key Directories
 
 | 路径 | 用途 |
 |---|---|
 | `src-tauri/src/` | Rust 核心（crate `altgo-tauri`）：`voice_pipeline/` 业务主循环、`key_listener/`、`key_capture/`、`recorder/`、`output/`、`overlay/`（seam/manager/tauri/activity 分层）、`polisher/`，根文件见 “Important Files” |
-| `frontend/src/` | React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）+ `overlay.tsx` 悬浮窗；`styles/` 分层：design-tokens → design-system → global → layout/components/pages |
+|`frontend/src/`|React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）+ `overlay.tsx` 悬浮窗；`styles/` 分层：design-tokens → design-system → global → layout/components/pages|
 | `configs/` | 用户 TOML 模板；应用实际读 `~/.config/altgo/altgo.toml` |
 | `resources/prompts/` | 润色 prompt：`base.txt` + `light/medium/heavy-suffix.txt`（`none` 档不润色） |
 | `docs/` | 维护者文档：`architecture.md`、`testing.md`、`adr/`（ADR-0003~0006）、`agents/`（agent 工作约定） |
@@ -119,7 +119,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 ## Testing & QA
 
 - **五层模型**（`docs/testing.md`）：纯逻辑 → 语音流水线 → Tauri 适配（含 Linux 平台接缝）→ 前端交互 → 端到端（当前 0 个，缺口清单 6 条）。一个模块的测试属于且仅属于一层。
-- **组织**：每个源文件末尾 `#[cfg(test)] mod tests`（`use super::*`）；无集成测试目录；前端测试与源码同目录（vitest + jsdom + Testing Library，共 9 个 `*.test.ts(x)`）。
+- **组织**：每个源文件末尾 `#[cfg(test)] mod tests`（`use super::*`）；无集成测试目录；前端测试与源码同目录（vitest + jsdom + Testing Library，`*.test.ts(x)`）。
 - **替身四类**：tempfile（文件 I/O）、mockito（HTTP 假服务器）、共享 `src-tauri/src/voice_pipeline/test_doubles.rs`（流水线层唯一替身来源，不自造第二套）、闭包注入（emit/download/spawn）。`tauri_sink.rs`、`overlay/manager.rs`、`updater.rs` 各有模块私有 mock。
 - **环境容忍**：依赖系统工具的测试对两种环境都断言（有 `xinput` 断 Ok、无则断 Err），保证无显示服务器的 CI 与开发机一致；**禁止用 `#[ignore]` 藏测试**。
 - **回归基线**：`cargo test --manifest-path=src-tauri/Cargo.toml --lib` 全绿 + `cd frontend && npm test`，无静默跳过；只有端到端层能覆盖的风险，在 PR 里写明手动验证方式。测试数量/分布**现查不进文档**（`cargo test … --lib -- --list`）；覆盖率未统计；在线转写（MiMo）已回归，测试在 `mimo_asr.rs`。

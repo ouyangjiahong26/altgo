@@ -7,11 +7,8 @@
 .home {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: var(--space-8);
-  padding: var(--space-8);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-8);
   position: relative;
 }
 
@@ -19,24 +16,31 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-3);
   text-align: center;
+  padding: var(--space-2) 0 var(--space-1);
   animation: home-panel-in var(--duration-slow) var(--ease-out) both;
 }
 
-.home-hint {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  max-width: 300px;
-  line-height: var(--leading-relaxed);
+/* 状态行：状态指示 + 单行操作提示（提示过长时省略，不再折行撑高页面） */
+/* Status row: indicator plus a single-line hint (truncated rather than wrapping) */
+.home-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
 }
 
-.home-hint-clipboard {
-  font-size: var(--text-xs);
+.home-hint {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  max-width: 300px;
   line-height: var(--leading-relaxed);
-  text-align: center;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .home-copy-done {
@@ -46,8 +50,14 @@
 .home-key-backend {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
-  max-width: 300px;
   line-height: var(--leading-relaxed);
+}
+
+/* 历史面板嵌在主页内，去掉其页面级留白 */
+/* The history panel is embedded in the home page; drop its page-level padding */
+.home .history-page {
+  max-width: none;
+  padding: 0;
 }
 
 .home-tx-progress-wrap {
@@ -94,7 +104,6 @@
 
 .home-result {
   width: 100%;
-  max-width: 400px;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

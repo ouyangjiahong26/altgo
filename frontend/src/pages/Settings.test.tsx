@@ -41,8 +41,6 @@ vi.mock("@tauri-apps/api/core", () => ({
         return Promise.resolve(configResponse);
       case "list_models":
         return Promise.resolve([]);
-      case "resolve_model":
-        return Promise.resolve(null);
       default:
         return Promise.resolve(null);
     }

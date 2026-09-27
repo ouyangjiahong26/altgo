@@ -114,10 +114,6 @@
      细 border 表达。 */
   --overlay-shadow: none;
 
-  --readiness-warn-border: rgba(251, 191, 36, 0.4);
-  --readiness-warn-bg: rgba(251, 191, 36, 0.09);
-  --readiness-warn-icon: #fbbf24;
-
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 
   --status-ring-track: rgba(255, 255, 255, 0.08);
@@ -185,10 +181,6 @@
   --overlay-processing-track: rgba(24, 24, 27, 0.12);
   /* 不用 box-shadow：原因见 dark 主题同名变量的注释。 */
   --overlay-shadow: none;
-
-  --readiness-warn-border: rgba(217, 119, 6, 0.35);
-  --readiness-warn-bg: rgba(217, 119, 6, 0.08);
-  --readiness-warn-icon: #d97706;
 
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2352525b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 

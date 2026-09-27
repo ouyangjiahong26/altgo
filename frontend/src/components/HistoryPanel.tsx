@@ -1,3 +1,5 @@
+/** 转写历史面板：从独立页面迁为主页内面板。
+ * Transcription history panel: migrated from a standalone page into the home page. */
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -36,7 +38,7 @@ function formatTime(ms: number, locale: string): string {
   });
 }
 
-export default function HistoryPage() {
+export default function HistoryPanel() {
   const { t, lang } = useTranslation();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,10 +204,7 @@ export default function HistoryPage() {
   return (
     <div className="history-page">
       <div className="history-page-header">
-        <div>
-          <h1 className="history-page-title">{t("history.title")}</h1>
-          <p className="history-page-lead">{t("history.lead")}</p>
-        </div>
+        <h1 className="history-page-title">{t("history.title")}</h1>
         <div className="history-toolbar">
           <label className="history-select-all">
             <input

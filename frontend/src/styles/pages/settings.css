@@ -5,9 +5,7 @@
 /* ── Settings Page ──────────────────────────── */
 
 .settings-page {
-  padding: var(--space-8);
-  max-width: 580px;
-  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-6);
 }
 
 .settings-form {
@@ -49,14 +47,13 @@
   opacity: 0.8;
 }
 
-/* Field rows */
+/* Field rows: fixed-width label column, control pinned right */
 .settings-field {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) 0;
+  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--color-border-subtle);
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .settings-field:last-child {
@@ -72,9 +69,11 @@
 }
 
 .settings-field-label-text {
+  flex: none;
+  width: 76px;
   font-size: var(--text-sm);
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--color-text-secondary);
 }
 
 .settings-field-label-hint {
@@ -85,7 +84,7 @@
 
 .settings-field-control {
   flex: 1;
-  max-width: 280px;
+  min-width: 0;
   display: flex;
   justify-content: flex-end;
 }
@@ -258,16 +257,20 @@
   font-size: var(--text-xs);
 }
 
-/* Save area */
+/* Save area: sticky so the button stays reachable while the form scrolls */
 .settings-save-row {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-3);
-  padding-top: var(--space-5);
+  padding: var(--space-3) 0 var(--space-2);
   margin-top: var(--space-2);
   border-top: 1px solid var(--color-border-subtle);
+  background: linear-gradient(transparent, var(--color-bg) 30%);
 }
 
 .settings-save-msg {
@@ -368,84 +371,6 @@
 
 /* ── Settings v2 (model-first layout) ───────────────── */
 
-.settings-page--v2 {
-  max-width: 640px;
-}
-
-.settings-readiness {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  margin-bottom: var(--space-4);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-1);
-}
-
-.settings-readiness--ok {
-  border-color: color-mix(in srgb, var(--color-green) 38%, transparent);
-  background: var(--color-green-bg);
-}
-
-.settings-readiness--warn {
-  border-color: var(--readiness-warn-border);
-  background: var(--readiness-warn-bg);
-}
-
-.settings-readiness--neutral {
-  border-color: var(--color-border-subtle);
-}
-
-.settings-readiness-icon {
-  flex-shrink: 0;
-  color: var(--color-accent);
-}
-
-.settings-readiness--ok .settings-readiness-icon {
-  color: var(--color-green);
-}
-
-.settings-readiness--warn .settings-readiness-icon {
-  color: var(--readiness-warn-icon);
-}
-
-.settings-readiness-text {
-  min-width: 0;
-  flex: 1;
-}
-
-.settings-readiness-title {
-  display: block;
-  font-size: var(--text-sm);
-  margin-bottom: var(--space-1);
-}
-
-.settings-readiness-desc {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: var(--leading-relaxed);
-  margin: 0;
-}
-
-.settings-readiness-path {
-  display: block;
-  margin-top: var(--space-2);
-  font-size: var(--text-xs);
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-2);
-  color: var(--color-text-secondary);
-  word-break: break-all;
-}
-
-.settings-section-lead {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: var(--leading-relaxed);
-  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
-}
-
 .settings-section--primary {
   border-color: var(--color-accent-tint-border);
   box-shadow: 0 0 0 1px var(--color-accent-tint-shadow);
@@ -486,7 +411,7 @@
 
 .settings-model-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--space-3);
   margin-bottom: var(--space-3);
 }
@@ -549,6 +474,7 @@
 .settings-model-card-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
@@ -568,10 +494,6 @@
 
 .settings-advanced-toggle:hover {
   color: var(--color-text-secondary);
-}
-
-.settings-field--nested .settings-field-control {
-  max-width: 100%;
 }
 
 .settings-hint {
@@ -647,18 +569,6 @@
   line-height: var(--leading-relaxed);
   flex: 1;
   min-width: 0;
-}
-
-.settings-save-hint {
-  flex: 1 1 100%;
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: var(--leading-relaxed);
-}
-
-.settings-section--primary .settings-field .settings-field-control {
-  max-width: 280px;
 }
 
 /* ── Provider Preset Selector ──────────────────────────── */
@@ -1069,23 +979,5 @@
     width: 100%;
     max-height: calc(100vh - 1rem);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  }
-}
-
-@media (max-width: 600px) {
-  .settings-page {
-    padding: var(--space-4);
-  }
-
-  .settings-field {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  .settings-field-control,
-  .settings-section--primary .settings-field .settings-field-control {
-    max-width: none;
-    width: 100%;
   }
 }
