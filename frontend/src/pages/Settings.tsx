@@ -12,8 +12,6 @@ import {
   Check,
   Download,
   Trash2,
-  AlertCircle,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Palette,
@@ -31,27 +29,8 @@ import {
 import { ProviderPresetSelector } from "../components/ProviderPresetSelector";
 import { loadCatalog } from "../config/catalog";
 import { type ProviderPreset, type ModelCatalogEntry } from "../config/modelPresets";
-
-const KEY_PRESETS: { value: string; labelKey: string }[] = [
-  { value: "Alt_R", labelKey: "settings.key_preset_right_alt" },
-];
-
-function isPresetKeyName(keyName: string): boolean {
-  if (KEY_PRESETS.some((p) => p.value === keyName)) return true;
-  return keyName === "ISO_Level3_Shift" || keyName === "AltGr";
-}
-
-function presetSelectValue(keyName: string): string {
-  if (KEY_PRESETS.some((p) => p.value === keyName)) return keyName;
-  if (keyName === "ISO_Level3_Shift" || keyName === "AltGr") return "Alt_R";
-  return "__custom__";
-}
-
-function formatSize(bytes: number): string {
-  const mb = bytes / (1024 * 1024);
-  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
-  return `${Math.round(mb)} MB`;
-}
+import { KEY_PRESETS, isPresetKeyName, presetSelectValue } from "../config/keyPresets";
+import { formatSize } from "../utils/format";
 
 function SettingsSectionOrder({ children }: { children: ReactNode }) {
   const sections = Children.toArray(children).sort((a, b) => {
@@ -72,6 +51,8 @@ export default function Settings() {
   const [windowSize, setWindowSize] = useState<WindowSizePref>(() => getWindowSizePref());
   const [polishOpen, setPolishOpen] = useState(true);
   const [advancedPath, setAdvancedPath] = useState(false);
+  const [asrAdvancedOpen, setAsrAdvancedOpen] = useState(false);
+  const [polishAdvancedOpen, setPolishAdvancedOpen] = useState(false);
   const [appVersion, setAppVersion] = useState<string>("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
@@ -115,7 +96,7 @@ export default function Settings() {
     keyCapturing,
     captureActivationKey,
   } = form;
-  const { models, downloading, resolvedPath, refreshResolved } = modelMgr;
+  const { models, downloading, refreshResolved } = modelMgr;
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
@@ -259,70 +240,37 @@ export default function Settings() {
     return <div className="loading-container">{t("settings.loading")}</div>;
   }
 
-  const localReady = resolvedPath != null && resolvedPath !== "";
-  const localBlocked = config.model.trim() !== "" && resolvedPath === null;
-  // online 后端就绪与否只看密钥是否已配置，与本地模型无关。
-  // Online readiness depends only on the key being configured, never on the local model.
+  // 在线后端只需配置密钥即可用；本地面板由模型卡与错误事件自行表达就绪状态。
+  // The online backend only needs a key; the local panel conveys its own readiness
+  // through the model cards and error events.
   const onlineActive = config.transcriberBackend === "online";
-  const onlineReady = config.hasAsrApiKey;
-  const readinessOk = onlineActive ? onlineReady : localReady;
 
   return (
-    <div className="settings-page settings-page--v2">
-      <div
-        className={`settings-readiness ${
-          readinessOk ? "settings-readiness--ok" : "settings-readiness--warn"
-        }`}
-      >
-        <div className="settings-readiness-icon">
-          {readinessOk ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-        </div>
-        <div className="settings-readiness-text">
-          <strong className="settings-readiness-title">
-            {onlineActive
-              ? onlineReady
-                ? t("settings.readiness_online_ok")
-                : t("settings.readiness_online_need")
-              : localReady
-                ? t("settings.readiness_local_ok")
-                : t("settings.readiness_local_need")}
-          </strong>
-          <p className="settings-readiness-desc">
-            {onlineActive
-              ? t("settings.transcriber_online_hint")
-              : localBlocked
-                ? t("settings.readiness_path_missing")
-                : t("settings.readiness_local_desc")}
-          </p>
-          {!onlineActive && resolvedPath && (
-            <code className="settings-readiness-path">{resolvedPath}</code>
-          )}
-        </div>
-      </div>
-
+    <div className="settings-page">
       <div className="settings-form">
         <SettingsSectionOrder>
         <section
-          data-settings-order={3}
+          data-settings-order={2}
           className="settings-section settings-section--primary settings-section--transcription"
         >
           <h3 className="settings-section-title">
             <Sparkles size={14} />
             {t("settings.transcription")}
           </h3>
-          <p className="settings-section-lead">{t("settings.transcription_lead")}</p>
 
           <>
               <div className="settings-field">
                 <span className="settings-field-label-text">{t("settings.language")}</span>
                 <div className="settings-field-control settings-field-control--narrow">
-                  <input
-                    type="text"
-                    className="settings-input"
+                  <select
+                    className="settings-select"
                     value={config.language}
                     onChange={(e) => update("language", e.target.value)}
-                    placeholder="zh"
-                  />
+                  >
+                    <option value="zh">{t("settings.language_zh")}</option>
+                    <option value="en">{t("settings.language_en")}</option>
+                    <option value="">{t("settings.language_auto")}</option>
+                  </select>
                 </div>
               </div>
 
@@ -344,30 +292,6 @@ export default function Settings() {
 
               {onlineActive ? (
                 <>
-                  <div className="settings-field">
-                    <span className="settings-field-label-text">{t("settings.model")}</span>
-                    <div className="settings-field-control">
-                      <input
-                        type="text"
-                        className="settings-input"
-                        value={config.asrModel}
-                        onChange={(e) => update("asrModel", e.target.value)}
-                        placeholder="mimo-v2.5-asr"
-                      />
-                    </div>
-                  </div>
-                  <div className="settings-field">
-                    <span className="settings-field-label-text">{t("settings.api_url")}</span>
-                    <div className="settings-field-control">
-                      <input
-                        type="text"
-                        className="settings-input"
-                        value={config.asrApiBaseUrl}
-                        onChange={(e) => update("asrApiBaseUrl", e.target.value)}
-                        placeholder="https://token-plan-cn.xiaomimimo.com/v1"
-                      />
-                    </div>
-                  </div>
                   <div className="settings-field">
                     <span className="settings-field-label-text">{t("settings.api_key")}</span>
                     <div className="settings-field-control">
@@ -394,6 +318,42 @@ export default function Settings() {
                         {t("settings.clear_api_key")}
                       </button>
                     </div>
+                  )}
+                  <button
+                    type="button"
+                    className="settings-advanced-toggle"
+                    onClick={() => setAsrAdvancedOpen(!asrAdvancedOpen)}
+                  >
+                    {asrAdvancedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    {t("settings.advanced_asr")}
+                  </button>
+                  {asrAdvancedOpen && (
+                    <>
+                      <div className="settings-field">
+                        <span className="settings-field-label-text">{t("settings.model")}</span>
+                        <div className="settings-field-control">
+                          <input
+                            type="text"
+                            className="settings-input"
+                            value={config.asrModel}
+                            onChange={(e) => update("asrModel", e.target.value)}
+                            placeholder="mimo-v2.5-asr"
+                          />
+                        </div>
+                      </div>
+                      <div className="settings-field">
+                        <span className="settings-field-label-text">{t("settings.api_url")}</span>
+                        <div className="settings-field-control">
+                          <input
+                            type="text"
+                            className="settings-input"
+                            value={config.asrApiBaseUrl}
+                            onChange={(e) => update("asrApiBaseUrl", e.target.value)}
+                            placeholder="https://token-plan-cn.xiaomimimo.com/v1"
+                          />
+                        </div>
+                      </div>
+                    </>
                   )}
                 </>
               ) : (
@@ -484,7 +444,6 @@ export default function Settings() {
                         placeholder={t("settings.custom_path_placeholder")}
                       />
                     </div>
-                    <p className="settings-hint">{t("settings.custom_path_hint")}</p>
                   </div>
                 )}
                 </>
@@ -501,7 +460,6 @@ export default function Settings() {
                   </label>
                 </div>
               </div>
-              <p className="settings-hint">{t("settings.inject_text_hint")}</p>
             </>
         </section>
 
@@ -510,7 +468,6 @@ export default function Settings() {
             <Mic size={14} />
             {t("settings.recording")}
           </h3>
-          <p className="settings-section-lead">{t("settings.recording_lead")}</p>
           <div className="settings-field">
             <span className="settings-field-label-text">{t("settings.key_name")}</span>
             <div className="settings-field-control settings-field-control--trigger-key">
@@ -582,11 +539,10 @@ export default function Settings() {
               </button>
             </div>
           </div>
-          <p className="settings-hint">{t("settings.capture_activation_lead")}</p>
         </section>
 
         <section
-          data-settings-order={2}
+          data-settings-order={3}
           className="settings-section settings-section--polishing settings-section--primary"
         >
           <button
@@ -646,65 +602,11 @@ export default function Settings() {
                   </select>
                 </div>
               </div>
-              <p className="settings-hint settings-hint--polish">{t("settings.polish_level_hint")}</p>
               {(config.hasPolisherApiKey || config.polisherApiKey) && config.polishLevel === "none" && (
                 <p className="settings-hint settings-hint--polish">
                   {t("settings.polish_disabled_hint")}
                 </p>
               )}
-              <div className="settings-field">
-                <span className="settings-field-label-text">{t("settings.thinking_level")}</span>
-                <div className="settings-field-control">
-                  <select
-                    className="settings-select"
-                    value={config.polishThinkingLevel}
-                    onChange={(e) => update("polishThinkingLevel", e.target.value)}
-                  >
-                    <option value="off">{t("settings.thinking_off")}</option>
-                    <option value="low">{t("settings.thinking_low")}</option>
-                    <option value="medium">{t("settings.thinking_medium")}</option>
-                    <option value="high">{t("settings.thinking_high")}</option>
-                  </select>
-                </div>
-              </div>
-              <p className="settings-hint settings-hint--polish">{t("settings.thinking_level_hint")}</p>
-              <div className="settings-field">
-                <span className="settings-field-label-text">{t("settings.api_protocol")}</span>
-                <div className="settings-field-control">
-                  <select
-                    className="settings-select"
-                    value={config.polishProtocol === "anthropic" ? "anthropic" : "openai"}
-                    onChange={(e) => update("polishProtocol", e.target.value)}
-                  >
-                    <option value="openai">{t("settings.api_protocol_openai")}</option>
-                    <option value="anthropic">{t("settings.api_protocol_anthropic")}</option>
-                  </select>
-                </div>
-              </div>
-              <div className="settings-field">
-                <span className="settings-field-label-text">{t("settings.api_url")}</span>
-                <div className="settings-field-control">
-                  <input
-                    type="text"
-                    className="settings-input"
-                    value={config.polishApiBaseUrl}
-                    onChange={(e) => update("polishApiBaseUrl", e.target.value)}
-                    placeholder="https://api.openai.com"
-                  />
-                </div>
-              </div>
-              <div className="settings-field">
-                <span className="settings-field-label-text">{t("settings.model")}</span>
-                <div className="settings-field-control">
-                  <input
-                    type="text"
-                    className="settings-input"
-                    value={config.polishModel}
-                    onChange={(e) => update("polishModel", e.target.value)}
-                    placeholder="gpt-4o-mini"
-                  />
-                </div>
-              </div>
               <div className="settings-field">
                 <span className="settings-field-label-text">{t("settings.api_key")}</span>
                 <div className="settings-field-control">
@@ -744,6 +646,70 @@ export default function Settings() {
                     : testResult.error}
                 </p>
               )}
+              <button
+                type="button"
+                className="settings-advanced-toggle"
+                onClick={() => setPolishAdvancedOpen(!polishAdvancedOpen)}
+              >
+                {polishAdvancedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                {t("settings.advanced_polish")}
+              </button>
+              {polishAdvancedOpen && (
+                <>
+                  <div className="settings-field">
+                    <span className="settings-field-label-text">{t("settings.api_protocol")}</span>
+                    <div className="settings-field-control">
+                      <select
+                        className="settings-select"
+                        value={config.polishProtocol === "anthropic" ? "anthropic" : "openai"}
+                        onChange={(e) => update("polishProtocol", e.target.value)}
+                      >
+                        <option value="openai">{t("settings.api_protocol_openai")}</option>
+                        <option value="anthropic">{t("settings.api_protocol_anthropic")}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="settings-field">
+                    <span className="settings-field-label-text">{t("settings.model")}</span>
+                    <div className="settings-field-control">
+                      <input
+                        type="text"
+                        className="settings-input"
+                        value={config.polishModel}
+                        onChange={(e) => update("polishModel", e.target.value)}
+                        placeholder="gpt-4o-mini"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-field">
+                    <span className="settings-field-label-text">{t("settings.api_url")}</span>
+                    <div className="settings-field-control">
+                      <input
+                        type="text"
+                        className="settings-input"
+                        value={config.polishApiBaseUrl}
+                        onChange={(e) => update("polishApiBaseUrl", e.target.value)}
+                        placeholder="https://api.openai.com"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-field">
+                    <span className="settings-field-label-text">{t("settings.thinking_level")}</span>
+                    <div className="settings-field-control">
+                      <select
+                        className="settings-select"
+                        value={config.polishThinkingLevel}
+                        onChange={(e) => update("polishThinkingLevel", e.target.value)}
+                      >
+                        <option value="off">{t("settings.thinking_off")}</option>
+                        <option value="low">{t("settings.thinking_low")}</option>
+                        <option value="medium">{t("settings.thinking_medium")}</option>
+                        <option value="high">{t("settings.thinking_high")}</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </section>
@@ -755,7 +721,6 @@ export default function Settings() {
             <Palette size={14} />
             {t("settings.appearance")}
           </h3>
-          <p className="settings-section-lead">{t("settings.appearance_lead")}</p>
           <div className="settings-field">
             <span className="settings-field-label-text">{t("settings.theme")}</span>
             <div className="settings-field-control">
@@ -929,7 +894,6 @@ export default function Settings() {
         </section>
 
         <div className="settings-save-row">
-          <p className="settings-save-hint">{t("settings.restart_hint")}</p>
           {message === "saved" && (
             <span className="settings-save-msg settings-save-msg--ok">
               <Check size={12} /> {t("settings.saved")}

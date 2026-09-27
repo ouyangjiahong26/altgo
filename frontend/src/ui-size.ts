@@ -15,9 +15,9 @@ const FONT_SIZE_PX: Record<FontSizePref, string> = {
 };
 
 const WINDOW_SIZE: Record<WindowSizePref, { width: number; height: number }> = {
-  compact: { width: 560, height: 520 },
-  standard: { width: 640, height: 600 },
-  large: { width: 760, height: 720 },
+  compact: { width: 400, height: 600 },
+  standard: { width: 440, height: 680 },
+  large: { width: 480, height: 760 },
 };
 
 export function getFontSizePref(): FontSizePref {

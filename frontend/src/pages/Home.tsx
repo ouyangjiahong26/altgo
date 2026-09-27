@@ -7,6 +7,7 @@ import {
 } from "../hooks/useTauri";
 import { useTranslation } from "../i18n";
 import { StatusIndicator } from "../components/StatusIndicator";
+import HistoryPanel from "../components/HistoryPanel";
 import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { copyToClipboard } from "../utils/clipboard";
@@ -77,7 +78,6 @@ export default function Home() {
             </div>
           )}
           <p className="home-hint">{t("main.hint")}</p>
-          <p className="home-hint-clipboard">{t("main.hint_clipboard")}</p>
           {keyBackend && (
             <p className="home-key-backend">{t(`main.key_backend_${keyBackend}`)}</p>
           )}
@@ -106,6 +106,7 @@ export default function Home() {
           </button>
         </div>
       )}
+      <HistoryPanel />
     </div>
   );
 }

@@ -15,7 +15,7 @@ altgo 采用线性流水线架构，由键盘事件驱动：
 按键监听 → 状态机 → 录音 → ASR 转写 → LLM 润色 → 剪贴板 + 悬浮窗 + 本地转写历史（纯文本 JSON）
 ```
 
-**转写历史**：仅保存文本（原始转写 `rawText` 与当前展示 `text`），不保存录音；数据文件为 `~/.config/altgo/history.json`。转写成功后（以 `raw_text` 非空为准）写入一条记录并广播 `history-updated` 事件，供主窗口历史页刷新。
+**转写历史**：仅保存文本（原始转写 `rawText` 与当前展示 `text`），不保存录音；数据文件为 `~/.config/altgo/history.json`。转写成功后（以 `raw_text` 非空为准）写入一条记录并广播 `history-updated` 事件，供主窗口主页的历史列表刷新。
 
 按键监听器经无界通道把按键事件送入主循环；状态机同步返回命令，由 `tokio::select!` 分支就地执行，单次转写互斥（详见 [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md)）。
 
@@ -27,7 +27,7 @@ altgo uses a linear pipeline architecture driven by keyboard events:
 按键监听 → 状态机 → 录音 → ASR 转写 → LLM 润色 → 剪贴板 + 悬浮窗 + 本地转写历史（纯文本 JSON）
 ```
 
-**Transcription history**: only text is saved (the raw transcription `rawText` and the currently displayed `text`); recordings are never saved. The data file is `~/.config/altgo/history.json`. After a successful transcription (when `raw_text` is non-empty), a record is written and a `history-updated` event is broadcast so the main window's history page can refresh.
+**Transcription history**: only text is saved (the raw transcription `rawText` and the currently displayed `text`); recordings are never saved. The data file is `~/.config/altgo/history.json`. After a successful transcription (when `raw_text` is non-empty), a record is written and a `history-updated` event is broadcast so the history list on the main window's home page can refresh.
 
 The key listener feeds key events into the main loop through an unbounded channel; the state machine returns commands synchronously, which are executed in place by `tokio::select!` branches, with a single-transcription mutex (see [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md) for details).
 
@@ -167,7 +167,7 @@ The only production implementation today is `SherpaTranscriber`: local SenseVoic
 - 支持 OpenAI 兼容 chat API 与 Anthropic Messages API
 - 指数退避重试（最多 3 次）
 
-历史页可对单条记录基于 **`rawText`** 再次调用当前润色配置（`polish_history_entry`）。
+主页的历史列表可对单条记录基于 **`rawText`** 再次调用当前润色配置（`polish_history_entry`）。
 
 ## Polishing Engine
 
@@ -175,15 +175,15 @@ The only production implementation today is `SherpaTranscriber`: local SenseVoic
 - Supports both the OpenAI-compatible chat API and the Anthropic Messages API
 - Exponential backoff retries (up to 3 times)
 
-From the history page, a single entry can be re-polished under the current polishing configuration based on its **`rawText`** (`polish_history_entry`).
+From the history list on the home page, a single entry can be re-polished under the current polishing configuration based on its **`rawText`** (`polish_history_entry`).
 
 ## 前端路由（主窗口）
 
-- React Router Hash 模式：`/` 首页、`/history` 历史、`/settings` 设置。
+- React Router Hash 模式：`/` 主页（首页状态 + 最近转写 + 历史列表）、`/settings` 设置。
 
 ## Frontend Routes (Main Window)
 
-- React Router Hash mode: `/` home, `/history` history, `/settings` settings.
+- React Router Hash mode: `/` home (status, latest transcription and the history list) and `/settings`.
 
 ## 测试策略
 

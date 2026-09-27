@@ -13,6 +13,7 @@ import "./styles/components/status-indicator.css";
 import "./styles/pages/home.css";
 import "./styles/pages/settings.css";
 import "./styles/pages/history.css";
+import "./styles/pages/onboarding.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

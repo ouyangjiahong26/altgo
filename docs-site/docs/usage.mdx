@@ -73,7 +73,7 @@ In continuous mode you do not have to keep holding the key — pause to think as
 2. **润色**（若级别不是 `none`）— 通过 LLM 优化文本
 3. **输出** — **写入系统剪贴板**、弹出**悬浮窗**
 
-若剪贴板工具不可用，仍可在**悬浮窗**内点击复制；**历史页**也会保留文本记录（仅文本，不存音频）。
+若剪贴板工具不可用，仍可在**悬浮窗**内点击复制；**主页的历史列表**也会保留文本记录（仅文本，不存音频）。
 
 ## Processing Pipeline
 
@@ -83,7 +83,7 @@ After recording ends, the background runs these steps in order:
 2. **Polish** (unless the level is `none`) — optimize the text via LLM
 3. **Output** — **write to the system clipboard** and pop up the **overlay window**
 
-If no clipboard tool is available, you can still click Copy inside the **overlay window**; the **History page** also keeps text records (text only, no audio stored).
+If no clipboard tool is available, you can still click Copy inside the **overlay window**; the **history list on the home page** also keeps text records (text only, no audio stored).
 
 ## 润色级别
 
@@ -106,8 +106,8 @@ If no clipboard tool is available, you can still click Copy inside the **overlay
 ## 输出与界面
 
 - **剪贴板**：成功后默认写入，可在任意支持粘贴的应用中使用快捷键粘贴（`Ctrl+V`）。
-- **悬浮窗**：单行展示当前结果，悬停胶囊淡入关闭按钮；结果已自动写入剪贴板，全文在**历史**。
-- **主窗口**：首页状态、**历史**（查看/删除/单条再润色）、**设置**。
+- **悬浮窗**：单行展示当前结果，悬停胶囊淡入关闭按钮；结果已自动写入剪贴板，全文在**主页的历史列表**。
+- **主窗口**：主页（状态、最近转写、历史列表：查看/删除/单条再润色）、**设置**；首次安装会先走一遍分步引导（触发键 → 转写引擎 → 润色）。
 - **系统托盘**：显示/隐藏主窗口、退出。
 
 历史数据默认位于 `~/.config/altgo/history.json`。
@@ -116,7 +116,7 @@ If no clipboard tool is available, you can still click Copy inside the **overlay
 
 - **Clipboard**: written by default on success; paste with the usual shortcut (`Ctrl+V`) in any app that supports pasting.
 - **Overlay window**: shows the current result; you can copy again or close it.
-- **Main window**: home status, **History** (view/delete/re-polish a single entry), **Settings**.
+- **Main window**: home (status, latest transcription, and the history list: view/delete/re-polish a single entry) and **Settings**; a step-by-step wizard (trigger key → engine → polishing) runs on first launch.
 - **System tray**: show/hide the main window, quit.
 
 History data lives at `~/.config/altgo/history.json` by default.

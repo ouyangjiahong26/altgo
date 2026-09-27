@@ -119,7 +119,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 ## Testing & QA
 
 - **五层模型**（`docs/testing.md`）：纯逻辑 → 语音流水线 → Tauri 适配（含 Linux 平台接缝）→ 前端交互 → 端到端（当前 0 个，缺口清单 6 条）。一个模块的测试属于且仅属于一层。
-- **组织**：每个源文件末尾 `#[cfg(test)] mod tests`（`use super::*`）；无集成测试目录；前端测试与源码同目录（vitest + jsdom + Testing Library，共 9 个 `*.test.ts(x)`）。
+- **组织**：每个源文件末尾 `#[cfg(test)] mod tests`（`use super::*`）；无集成测试目录；前端测试与源码同目录（vitest + jsdom + Testing Library，`*.test.ts(x)`）。
 - **替身四类**：tempfile（文件 I/O）、mockito（HTTP 假服务器）、共享 `src-tauri/src/voice_pipeline/test_doubles.rs`（流水线层唯一替身来源，不自造第二套）、闭包注入（emit/download/spawn）。`tauri_sink.rs`、`overlay/manager.rs`、`updater.rs` 各有模块私有 mock。
 - **环境容忍**：依赖系统工具的测试对两种环境都断言（有 `xinput` 断 Ok、无则断 Err），保证无显示服务器的 CI 与开发机一致；**禁止用 `#[ignore]` 藏测试**。
 - **回归基线**：`cargo test --manifest-path=src-tauri/Cargo.toml --lib` 全绿 + `cd frontend && npm test`，无静默跳过；只有端到端层能覆盖的风险，在 PR 里写明手动验证方式。测试数量/分布**现查不进文档**（`cargo test … --lib -- --list`）；覆盖率未统计；在线转写（MiMo）已回归，测试在 `mimo_asr.rs`。

@@ -1,6 +1,6 @@
 import { useTranslation } from "../i18n";
 import { NavLink } from "react-router-dom";
-import { Mic, Settings, History, Minus, Maximize2, Minimize2, X } from "lucide-react";
+import { Mic, Settings, Minus, Maximize2, Minimize2, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useEffect } from "react";
@@ -135,15 +135,6 @@ export default function Layout({ children }: LayoutProps) {
             >
               <Mic size={16} />
               {t("nav.home")}
-            </NavLink>
-            <NavLink
-              to="/history"
-              className={({ isActive }) =>
-                `layout-nav-link ${isActive ? "active" : ""}`
-              }
-            >
-              <History size={16} />
-              {t("nav.history")}
             </NavLink>
             <NavLink
               to="/settings"
