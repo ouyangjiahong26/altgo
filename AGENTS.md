@@ -29,6 +29,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 |---|---|
 | `src-tauri/src/` | Rust 核心（crate `altgo-tauri`）：`voice_pipeline/` 业务主循环、`key_listener/`、`key_capture/`、`recorder/`、`output/`、`overlay/`（seam/manager/tauri/activity 分层）、`polisher/`，根文件见 “Important Files” |
 |`frontend/src/`|React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）+ `overlay.tsx` 悬浮窗；`styles/` 分层：design-tokens → design-system → global → layout/components/pages|
+|`frontend/style-review.html`|样式审查页（单文件）：按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*` 与 `src/overlay.css`，逐项列出全部 token 与组件/页面片段，可切暗亮主题与根字号；不在 vite 构建入口内|
 | `configs/` | 用户 TOML 模板；应用实际读 `~/.config/altgo/altgo.toml` |
 | `resources/prompts/` | 润色 prompt：`base.txt` + `light/medium/heavy-suffix.txt`（`none` 档不润色） |
 | `docs/` | 维护者文档：`architecture.md`、`testing.md`、`adr/`（ADR-0003~0006）、`agents/`（agent 工作约定） |
@@ -61,6 +62,7 @@ make run      # 前台运行
 
 # 前端
 cd frontend && npm install && npm test        # vitest run；test:watch 可用
+cd frontend && npm run dev                    # 样式审查页：http://127.0.0.1:1420/style-review.html
 cd frontend && npm run build                  # tsc -b && vite build → frontend/dist
 
 # 文档站
@@ -82,7 +84,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - **配置补丁**：`ConfigPatch` 三态语义——缺省 = 不改、`null` = 清除、值 = 设置（`config.rs`）。
 - **注释**：双语成对（中文在前、英文在后），解释“为什么”而非“是什么”；公开 API 加文档注释；函数 < 50 行、文件 < 1000 行（`CONTRIBUTING.md`）。
 - **日志/可见性**：`tracing` 结构化字段（如 `tracing::info!(backend, "key listener active")`）；内部实现收紧 `pub(crate)`。
-- **前端**：i18n 自研字典（`frontend/src/i18n/`，key 形如 `settings.save`）；状态色/间距等一律走 `styles/design-tokens.css` 的 CSS 变量，不写死颜色。
+- **前端**：i18n 自研字典（`frontend/src/i18n/`，key 形如 `settings.save`）；状态色/间距等一律走 `styles/design-tokens.css` 的 CSS 变量，不写死颜色；改动 token、基础层或组件样式时同步更新样式审查页 `frontend/style-review.html`。
 
 ## Important Files
 
@@ -103,6 +105,8 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - Loop 三件套不在 `.claude/`：builder/checker 实为 `docs/agents/builder.md`、`docs/agents/checker.md`，`loop-go` 规则见下节。
 - Node 下界三处不一（CONTRIBUTING 18+ / `docs-site` engines ≥20 / CI 22）；Rust MSRV 未在 `Cargo.toml` 强制（CI 用 stable）。
 - 文档统一写仓库全名 `ouyangjiahong26/altgo`（原 `cislunarspace/altgo` 已改名，旧名 GitHub 自动重定向；`gh` 默认仓库已设 `ouyangjiahong26/altgo`，`git remote -v` 现查）。
+- `frontend/src/styles/components/ui-primitives.css` 的 `.input-wrapper`/`.input-label`/`.input-field`/`.select-field`/`.input-error` 在 TSX 中已无引用（设置页统一用 `settings.css` 的 `.settings-input`/`.settings-select`），仅 `.loading-container` 仍被 `Settings.tsx` 使用。
+- `frontend/src/styles/pages/history.css` 现服务于 `frontend/src/components/HistoryPanel.tsx`（#170 把历史页并入主页后的遗留命名），`pages/` 下已无 History 页面。
 
 ## Runtime/Tooling Preferences
 
