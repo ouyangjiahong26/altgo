@@ -108,10 +108,7 @@
   --overlay-text: rgba(244, 244, 245, 0.94);
   --overlay-result-text: #e4e4e7;
   --overlay-muted: rgba(255, 255, 255, 0.55);
-  --overlay-btn-close-bg: rgba(255, 255, 255, 0.07);
-  --overlay-btn-close-hover: rgba(255, 255, 255, 0.12);
   --overlay-processing-track: rgba(255, 255, 255, 0.14);
-  --overlay-copied-fg: #6ee7b7;
   /* 不用 box-shadow：半透明阴影叠在透明窗口上，部分 Linux 合成器会把它
      预乘成黑影（2026-07 在 mutter/X11 实测复现）。层次靠实色 surface +
      细 border 表达。 */
@@ -185,10 +182,7 @@
   --overlay-text: rgba(24, 24, 27, 0.92);
   --overlay-result-text: #27272a;
   --overlay-muted: rgba(24, 24, 27, 0.55);
-  --overlay-btn-close-bg: rgba(24, 24, 27, 0.06);
-  --overlay-btn-close-hover: rgba(24, 24, 27, 0.1);
   --overlay-processing-track: rgba(24, 24, 27, 0.12);
-  --overlay-copied-fg: #059669;
   /* 不用 box-shadow：原因见 dark 主题同名变量的注释。 */
   --overlay-shadow: none;
 

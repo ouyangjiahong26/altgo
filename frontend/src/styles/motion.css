@@ -9,46 +9,12 @@
   }
 }
 
-@keyframes overlay-pulse-recording {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-red) 45%, transparent);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 12px 4px color-mix(in srgb, var(--color-red) 32%, transparent);
-  }
-}
-
-@keyframes overlay-pulse-ring {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.6;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(2);
-    opacity: 0;
-  }
-}
-
 @keyframes overlay-spin {
   from {
     transform: rotate(0deg);
   }
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes overlay-fade-slide {
-  from {
-    opacity: 0;
-    transform: translateX(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
   }
 }
 
