@@ -15,7 +15,7 @@ key listener → state machine → recording → ASR transcription → LLM polis
 
 **Transcription history**: only text is saved (the raw transcription `rawText` and the currently displayed `text`); recordings are never saved. The data file is `~/.config/altgo/history.json`. After a successful transcription (when `raw_text` is non-empty), a record is written and a `history-updated` event is broadcast so the main window's history page can refresh.
 
-The key listener feeds key events into the main loop through an unbounded channel; the state machine returns commands synchronously, which are executed in place by `tokio::select!` branches, with a single-transcription mutex (see [ADR-0003](https://github.com/cislunarspace/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md) for details).
+The key listener feeds key events into the main loop through an unbounded channel; the state machine returns commands synchronously, which are executed in place by `tokio::select!` branches, with a single-transcription mutex (see [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md) for details).
 
 ## Module Layout
 

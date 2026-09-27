@@ -252,7 +252,7 @@ export default function Settings() {
   };
 
   const handleOpenReleasePage = () => {
-    window.open("https://github.com/cislunarspace/altgo/releases/latest", "_blank");
+    window.open("https://github.com/ouyangjiahong26/altgo/releases/latest", "_blank");
   };
 
   if (!config) {

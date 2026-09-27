@@ -11,7 +11,7 @@
 **用户向说明**请优先阅读：
 
 - 仓库根目录 [`README.md`](../README.md)（安装、系统要求、快速上手）
-- [`docs-site/`](../docs-site/) 下的 [Docusaurus](https://docusaurus.io/) 站点（[在线版](https://cislunarspace.github.io/altgo/)）：快速开始、配置、使用、架构、FAQ
+- [`docs-site/`](../docs-site/) 下的 [Docusaurus](https://docusaurus.io/) 站点（[在线版](https://ouyangjiahong26.github.io/altgo/)）：快速开始、配置、使用、架构、FAQ
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md)（开发流程、CI、Release、文档站部署）
 
 # About the Docs in This Repository
@@ -27,5 +27,5 @@ This directory holds **design and planning** documents, written for maintainers 
 For **user-facing documentation**, read these first:
 
 - [`README.md`](../README.md) at the repository root (installation, system requirements, quick start)
-- The [Docusaurus](https://docusaurus.io/) site under [`docs-site/`](../docs-site/) ([online version](https://cislunarspace.github.io/altgo/)): quick start, configuration, usage, architecture, FAQ
+- The [Docusaurus](https://docusaurus.io/) site under [`docs-site/`](../docs-site/) ([online version](https://ouyangjiahong26.github.io/altgo/)): quick start, configuration, usage, architecture, FAQ
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) (development workflow, CI, Release, docs site deployment)

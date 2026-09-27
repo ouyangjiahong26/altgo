@@ -17,7 +17,7 @@ altgo 采用线性流水线架构，由键盘事件驱动：
 
 **转写历史**：仅保存文本（原始转写 `rawText` 与当前展示 `text`），不保存录音；数据文件为 `~/.config/altgo/history.json`。转写成功后（以 `raw_text` 非空为准）写入一条记录并广播 `history-updated` 事件，供主窗口历史页刷新。
 
-按键监听器经无界通道把按键事件送入主循环；状态机同步返回命令，由 `tokio::select!` 分支就地执行，单次转写互斥（详见 [ADR-0003](https://github.com/cislunarspace/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md)）。
+按键监听器经无界通道把按键事件送入主循环；状态机同步返回命令，由 `tokio::select!` 分支就地执行，单次转写互斥（详见 [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md)）。
 
 ## Overall Pipeline
 
@@ -29,7 +29,7 @@ altgo uses a linear pipeline architecture driven by keyboard events:
 
 **Transcription history**: only text is saved (the raw transcription `rawText` and the currently displayed `text`); recordings are never saved. The data file is `~/.config/altgo/history.json`. After a successful transcription (when `raw_text` is non-empty), a record is written and a `history-updated` event is broadcast so the main window's history page can refresh.
 
-The key listener feeds key events into the main loop through an unbounded channel; the state machine returns commands synchronously, which are executed in place by `tokio::select!` branches, with a single-transcription mutex (see [ADR-0003](https://github.com/cislunarspace/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md) for details).
+The key listener feeds key events into the main loop through an unbounded channel; the state machine returns commands synchronously, which are executed in place by `tokio::select!` branches, with a single-transcription mutex (see [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md) for details).
 
 ## 模块结构
 

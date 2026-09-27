@@ -10,15 +10,15 @@
 2. 本地校验：
 
    ```powershell
-   winget validate --manifest packaging\winget\manifests\c\cislunarspace\altgo\<版本>\
+   winget validate --manifest packaging\winget\manifests\o\ouyangjiahong26\altgo\<版本>\
    ```
 
 3. fork `microsoft/winget-pkgs`，把清单放到
-   `manifests/c/cislunarspace/altgo/<版本>/`，提 PR。也可用
+   `manifests/o/ouyangjiahong26/altgo/<版本>/`，提 PR。也可用
    [wingetcreate](https://github.com/microsoft/winget-create) 生成并直接发起 PR：
 
    ```powershell
-   wingetcreate new https://github.com/cislunarspace/altgo/releases/download/v<版本>/altgo_<版本>_x64-setup.exe
+   wingetcreate new https://github.com/ouyangjiahong26/altgo/releases/download/v<版本>/altgo_<版本>_x64-setup.exe
    ```
 
 ## 注意
@@ -41,15 +41,15 @@ based on the MSI / NSIS installers already published on GitHub Release.
 2. Validate locally:
 
    ```powershell
-   winget validate --manifest packaging\\winget\\manifests\\c\\cislunarspace\\altgo\\<version>\\
+   winget validate --manifest packaging\\winget\\manifests\\o\\ouyangjiahong26\\altgo\\<version>\\
    ```
 
 3. Fork `microsoft/winget-pkgs`, put the manifests under
-   `manifests/c/cislunarspace/altgo/<version>/`, and open a PR. Alternatively use
+   `manifests/o/ouyangjiahong26/altgo/<version>/`, and open a PR. Alternatively use
    [wingetcreate](https://github.com/microsoft/winget-create) to generate them and open the PR directly:
 
    ```powershell
-   wingetcreate new https://github.com/cislunarspace/altgo/releases/download/v<version>/altgo_<version>_x64-setup.exe
+   wingetcreate new https://github.com/ouyangjiahong26/altgo/releases/download/v<version>/altgo_<version>_x64-setup.exe
    ```
 
 ## Notes
