@@ -37,7 +37,9 @@ export default function UpdateNotesView({
   return (
     <div className="update-notes-window">
       <header className="update-notes-header" data-tauri-drag-region>
-        <span className="update-notes-title">{t("update_notes.title")}</span>
+        <span className="update-notes-title" data-tauri-drag-region>
+          {t("update_notes.title")}
+        </span>
         <button
           type="button"
           className="update-notes-close"
