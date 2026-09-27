@@ -70,6 +70,30 @@ function UpdateNotes() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // 系统关闭（Alt+F4、窗口管理器的关闭）同样只隐藏：Tauri 仅在窗口存在
+  // close-requested 监听器时才阻止关闭，否则 webview 会被销毁，此后“检查更新”
+  // 与“查看更新说明”都会静默失效。
+  // The system close path (Alt+F4, window-manager close) hides as well: Tauri only
+  // prevents the close when a close-requested listener exists, and a destroyed
+  // webview would silently break the popup for the rest of the run.
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    getCurrentWindow()
+      .onCloseRequested((event) => {
+        event.preventDefault();
+        void hideWindow();
+      })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => {
+        // 非 Tauri 环境（浏览器直开页面）下没有窗口事件通道。
+      });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
   const handleInstall = async () => {
     setInstalling(true);
     setInstallError(null);
