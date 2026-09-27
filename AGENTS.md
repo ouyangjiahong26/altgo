@@ -145,7 +145,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - 按逻辑组织，区分相近概念；不用空泛、夸大的修饰语。
 - 面向实际读者，从已知事实推到陌生结论；用分析说服，不装腔或堆砌。
 - 全仓库文档不得使用直角引号「」，引号用弯引号（“”）。
-- 文档只写中文，不维护英文镜像：`README.md`、`CONTEXT.md`、`CONTRIBUTING.md`、`docs/`、`docs-site/`、`packaging/*/README.md` 均单语中文（原英文半区已移除；`docs-site` 不再有 `i18n/` 英文站，`docusaurus.config.ts` 的 `locales` 只有 `zh-Hans`）。代码注释的双语约定见上一节，不受此条影响。
+- 文档只写中文，不维护英文镜像：`README.md`、`CONTEXT.md`、`CONTRIBUTING.md`、`docs/`、`docs-site/`、`packaging/*/README.md` 均单语中文（原英文半区已移除；`docs-site` 不再有 `i18n/` 英文站，`docusaurus.config.ts` 的 `locales` 只有 `zh-Hans`）。代码注释同样只写中文，见“Code Conventions & Common Patterns”一节的注释约定。
 
 ## 编码准则
 
