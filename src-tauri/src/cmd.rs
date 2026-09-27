@@ -52,6 +52,10 @@ pub struct ConfigResponse {
     pub windows_vk_code: Option<u16>,
     pub language: String,
     pub model: String,
+    pub transcriber_backend: String,
+    pub asr_model: String,
+    pub asr_api_base_url: String,
+    pub has_asr_api_key: bool,
     pub polish_level: String,
     pub polish_model: String,
     pub polish_protocol: String,
@@ -71,6 +75,12 @@ fn build_config_response(cfg: &crate::config::Config) -> ConfigResponse {
         windows_vk_code: cfg.key_listener.windows_vk_code,
         language: cfg.transcriber.language.clone(),
         model: cfg.transcriber.model.clone(),
+        transcriber_backend: cfg.transcriber.backend.clone(),
+        asr_model: cfg.transcriber.online.model.clone(),
+        asr_api_base_url: cfg.transcriber.online.api_base_url.clone(),
+        // 明文 key 不回读，只回“是否已配置”。
+        // The raw key never round-trips; only its configured-ness does.
+        has_asr_api_key: !cfg.transcriber.online.api_key.trim().is_empty(),
         polish_level: cfg.polisher.level.clone(),
         polish_model: cfg.polisher.model.clone(),
         polish_protocol: cfg.polisher.protocol.clone(),

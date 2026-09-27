@@ -195,6 +195,13 @@ const ZH_LJG_GUIDANCE: &str = r#"
 白话（ljg-plain 红线精神，按短文本尽量满足）：口语检验——像跟聪明朋友当面说吗；短词优先；一句一事，长句拆开；名词能具体则具体，动词有力，能删的形容词就删；开头少空泛铺陈与“自古以来”式引子；删开场白、拐杖词、宣传腔与夸大象征（标志着、见证了、充满活力等）；信任读者，不凑字数式手把手；专业词非必要不出现，必须出现时先大白话落地再点术语。
 磨与中文：弱化学术/ AI 腔与“谁写都一样”的模板句；从句拆开、嵌套展平，发挥汉语意合；同一意思选最顺口的地道说法。"#;
 
+/// 输出禁项硬规则（与 `resources/prompts/base.txt` 的 "Forbidden output" 小节同步维护，
+/// 双链路口径一致：仓库根运行加载 base.txt，打包安装走本兜底）。
+/// Hard output-forbidden rules (kept in sync with the "Forbidden output" section of
+/// `resources/prompts/base.txt`; both prompt chains must agree—repo-root runs load base.txt,
+/// bundled installs fall back to this constant).
+const OUTPUT_FORBIDDEN_RULES: &str = " Hard rules at every level: never output emoji, kaomoji, or decorative symbols; never output Markdown formatting (bold, italics, headings, lists, tables, code fences) — plain prose only; never output AI-style clichés, meta commentary, or summarizing formulas such as “总的来说”“综上所述”“值得一提的是”“不难发现”“我们可以看到”“希望能帮到你”, \"in summary\", \"hope this helps\" — if the source contains one, rephrase the point without the formula; remove spoken fillers (嗯、呃、啊、哈哈、对吧) unconditionally, even when they seem to carry tone. ";
+
 fn get_system_prompt(level: PolishLevel, language: &str) -> String {
     let lang_name = match language {
         "zh" => "Simplified Chinese (简体中文, Mainland standard)",
@@ -219,6 +226,7 @@ fn get_system_prompt(level: PolishLevel, language: &str) -> String {
     // 写作与表达要求：全文融入用户提供的规范；轻量润色时强调不改结构、仅作最小必要调整。
     // Writing/expressiveness requirements: fold the user-provided rubric throughout the text;
     // at light polish, stress keeping structure intact with only minimal necessary edits.
+    let forbidden = OUTPUT_FORBIDDEN_RULES;
     let zh_combined: String = if language == "zh" && !matches!(level, PolishLevel::None) {
         let intro = match level {
             PolishLevel::None => "",
@@ -237,13 +245,13 @@ fn get_system_prompt(level: PolishLevel, language: &str) -> String {
     match level {
         PolishLevel::None => String::new(),
         PolishLevel::Light => format!(
-            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Fix punctuation and obvious typos without changing the original meaning or word choices. Output only the corrected text with no explanation.{zh_script_rule}{zh_combined}"
+            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Fix punctuation and obvious typos without changing the original meaning or word choices. Output only the corrected text with no explanation.{forbidden}{zh_script_rule}{zh_combined}"
         ),
         PolishLevel::Medium => format!(
-            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Fix punctuation, typos, and grammar issues to make the text more fluent and natural, without changing the original meaning. Output only the corrected text with no explanation.{zh_script_rule}{zh_combined}"
+            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Fix punctuation, typos, and grammar issues to make the text more fluent and natural, without changing the original meaning. Output only the corrected text with no explanation.{forbidden}{zh_script_rule}{zh_combined}"
         ),
         PolishLevel::Heavy => format!(
-            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Rewrite it into well-structured, clearly expressed text. You may adjust word order and phrasing, but preserve the core meaning. Output only the rewritten text with no explanation.{zh_script_rule}{zh_combined}"
+            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Rewrite it into well-structured, clearly expressed text. You may adjust word order and phrasing, but preserve the core meaning. Output only the rewritten text with no explanation.{forbidden}{zh_script_rule}{zh_combined}"
         ),
     }
 }

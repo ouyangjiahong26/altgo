@@ -60,6 +60,7 @@ version = "2.6.16"
 dependencies = [
  "anyhow",
  "arboard",
+ "base64 0.22.1",
  "cpal",
  "dirs 5.0.1",
  "futures-util",

@@ -1,4 +1,4 @@
-Light polish: make only small, local corrections. Fix punctuation, spacing, obvious typos, duplicated fragments, and clear speech-recognition artifacts. Remove unmistakable fillers only when they do not affect meaning.
+Light polish: make only small, local corrections. Fix punctuation, spacing, obvious typos, duplicated fragments, and clear speech-recognition artifacts. Remove fillers as required by the forbidden-output rules.
 
 Do not restructure sentences, change word choice for style, alter the tone, or rewrite content. Do not silently change names, numbers, technical terms, or uncertain wording. Output only the corrected text.
 

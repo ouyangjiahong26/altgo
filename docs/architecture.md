@@ -10,7 +10,7 @@ This document is an architecture overview of altgo, written for maintainers and 
 
 altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条语音流水线，React 前端负责设置页、历史页与悬浮窗。两个收敛后的设计前提：
 
-- **转写只有一条路径**：本地 SenseVoice（内嵌 sherpa-onnx），模型常驻内存。whisper.cpp、Whisper API、MiMo ASR 已随 #121 删除。
+- **转写双后端**：`[transcriber] backend` 选择——默认 `"local"` 走本地 SenseVoice（内嵌 sherpa-onnx，模型常驻内存），`"online"` 走小米 MiMo 在线识别（chat/completions + `input_audio`，失败直接报错不回退），分发接缝在 `voice_pipeline/builder.rs` 的 `build_transcriber`。whisper.cpp 与 Whisper API 已随 #121 删除。
 - **平台为 Linux（Ubuntu 22.04+，x86_64/aarch64）与 Windows 10+（x86_64/arm64）**。旧的 PowerShell 式 Windows 适配曾随 #121 删除，现行实现（`windows.rs`）为原生 API 重写：WH_KEYBOARD_LL 钩子监听按键、cpal/WASAPI 录音、arboard 剪贴板 + SendInput 文本注入（由 `[output] inject_text` 配置控制，默认关闭，ADR 0005）。
 
 核心设计只有一句话：**业务核心与框架彻底解耦，平台能力一律收进 trait seam**。`voice_pipeline` 模块完全不 import Tauri，只通过 `PipelineSink`、`TranscriptionDispatch`、`OverlaySink` 等 trait seam 与外界交互；按键监听、录音、剪贴板等系统能力也都被收进各自 trait 后面，各平台实现命名为 `linux.rs` / `windows.rs`。
@@ -61,7 +61,7 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 
 altgo is a Tauri-based desktop speech-to-text tool: the Rust backend carries the entire voice pipeline, while the React frontend handles the settings page, history page, and floating overlay window. Two settled design premises:
 
-- **Transcription has exactly one path**: local SenseVoice (with embedded sherpa-onnx), model resident in memory. whisper.cpp, Whisper API, and MiMo ASR were removed along with #121.
+- **Two transcription backends**: selected via `[transcriber] backend`—the default `"local"` uses local SenseVoice (with embedded sherpa-onnx, model resident in memory), while `"online"` uses Xiaomi MiMo online recognition (chat/completions + `input_audio`; errors out directly with no local fallback). The dispatch seam lives in `build_transcriber` of `voice_pipeline/builder.rs`. whisper.cpp and the Whisper API were removed along with #121.
 - **Platforms are Linux (Ubuntu 22.04+, x86_64/aarch64) and Windows 10+ (x86_64/arm64)**. An earlier PowerShell-style Windows adaptation had been removed along with #121; the current implementation (`windows.rs`) was rewritten against native APIs: a WH_KEYBOARD_LL hook for key listening, cpal/WASAPI recording, arboard clipboard plus SendInput text injection (controlled by the `[output] inject_text` setting, off by default, ADR 0005).
 
 The core design fits in one sentence: **the business core is fully decoupled from frameworks, and every platform capability sits behind a trait seam**. The `voice_pipeline` module never imports Tauri and interacts with the outside world only through trait seams such as `PipelineSink`, `TranscriptionDispatch`, and `OverlaySink`; system capabilities like key listening, recording, and clipboard access are likewise tucked behind their own traits, with per-platform implementations named `linux.rs` / `windows.rs`.
@@ -117,7 +117,7 @@ The whole pipeline runs on a dedicated OS thread hosting its own `current_thread
 | 界面（设置 / 历史 / 悬浮窗内容） | `frontend/`（React） | 只经 IPC 与后端交互，只见 camelCase |
 | 按键状态机 | `state_machine.rs` | 纯同步叶子；只返回命令，不执行副作用 |
 | 录音 | `recorder`（`Recorder` trait） | Linux 实现为 `parecord` 子进程 |
-| 转写 | `transcriber`（`Transcriber` trait） | 唯一实现：`sherpa.rs` 的本地 SenseVoice |
+| 转写 | `transcriber`（`Transcriber` trait） | 本地实现 `sherpa.rs`（SenseVoice）；在线实现 `mimo_asr.rs`（小米 MiMo） |
 | 润色 | `polisher`（`LLMFormatter`） | 可选；失败降级为原文 |
 | 悬浮窗 | `overlay`（`OverlaySink` seam） | 生产实现是 Tauri 窗口 |
 | 剪贴板 + 历史 | `dispatcher`（`TranscriptionDispatch` seam）→ `output` + `history` | 失败只 warn，不中断结果返回 |
@@ -133,7 +133,7 @@ With “from pressing the trigger key to showing the result” as the main story
 | UI (settings / history / overlay content) | `frontend/` (React) | Talks to the backend only via IPC; sees camelCase only |
 | Key state machine | `state_machine.rs` | Pure synchronous leaf; returns commands only, performs no side effects |
 | Recording | `recorder` (`Recorder` trait) | Linux implementation spawns a `parecord` subprocess |
-| Transcription | `transcriber` (`Transcriber` trait) | Sole implementation: local SenseVoice in `sherpa.rs` |
+| Transcription | `transcriber` (`Transcriber` trait) | Local: SenseVoice in `sherpa.rs`; online: Xiaomi MiMo in `mimo_asr.rs` |
 | Polishing | `polisher` (`LLMFormatter`) | Optional; degrades to raw text on failure |
 | Overlay window | `overlay` (`OverlaySink` seam) | Production implementation is a Tauri window |
 | Clipboard + history | `dispatcher` (`TranscriptionDispatch` seam) → `output` + `history` | Failures only warn and never interrupt returning the result |
@@ -149,7 +149,7 @@ With “from pressing the trigger key to showing the result” as the main story
 - `state_machine` 是 crate 根部的纯同步叶子，由 `voice_pipeline::context` 驱动。
 - `handlers` 调用 `transcriber` / `polisher` / `recorder`。
 - `dispatcher` 调用 `output`（剪贴板）与 `history`（历史记录）。
-- `transcriber` 调用 `resource`；`sherpa`（内嵌 sherpa-onnx 的 SenseVoice）是当前唯一的引擎实现。
+- `transcriber` 调用 `resource`；本地实现 `sherpa`（内嵌 sherpa-onnx 的 SenseVoice），在线实现 `mimo_asr`（小米 MiMo 网关），由 `builder.rs` 按 `[transcriber] backend` 分发。
 - `polisher` 调用 `prompt_store`。
 - `model` / `config` / `error` / `resource` / `audio` 是底层叶子（`audio` 提供 PCM 缓冲与 WAV 编解码）。
 
@@ -181,7 +181,7 @@ lib.rs
 
 1. **框架**：`PipelineSink`（状态/错误/结果回调）、`PipelineEventEmitter`（事件发射）、`TranscriptionDispatch`（剪贴板 + 历史分发）、`OverlaySink`（悬浮窗）。
 2. **平台**：`Recorder`（录音）、`KeyListener`（按键）、`Output`（剪贴板），当前实现见第五节。
-3. **引擎**：`Transcriber`（转写后端），当前唯一实现是 `sherpa.rs` 的本地 SenseVoice。
+3. **引擎**：`Transcriber`（转写后端），本地实现为 `sherpa.rs` 的本地 SenseVoice，在线实现为 `mimo_asr.rs` 的小米 MiMo。
 
 同 crate 内向下的模块依赖允许直接 import——`handlers` 调 `polisher` 的具体类型、各模块依赖 `config` / `error` 等底层叶子，都不需要 seam。seam 是测试注入 fake 的位置，也是未来加平台或后端时的扩展点。
 
@@ -200,7 +200,7 @@ Dependencies are overall one-way and clear:
 - `state_machine` is a pure synchronous leaf at the crate root, driven by `voice_pipeline::context`.
 - `handlers` calls `transcriber` / `polisher` / `recorder`.
 - `dispatcher` calls `output` (clipboard) and `history` (transcription history).
-- `transcriber` calls `resource`; `sherpa` (SenseVoice with embedded sherpa-onnx) is currently the sole engine implementation.
+- `transcriber` calls `resource`; the local engine is `sherpa` (SenseVoice with embedded sherpa-onnx) and the online engine is `mimo_asr` (Xiaomi MiMo gateway), dispatched by `builder.rs` from `[transcriber] backend`.
 - `polisher` calls `prompt_store`.
 - `model` / `config` / `error` / `resource` / `audio` are low-level leaves (`audio` provides the PCM buffer and WAV encoding/decoding).
 
@@ -232,7 +232,7 @@ lib.rs
 
 1. **Frameworks**: `PipelineSink` (state/error/result callbacks), `PipelineEventEmitter` (event emission), `TranscriptionDispatch` (clipboard + history dispatch), `OverlaySink` (overlay window).
 2. **Platforms**: `Recorder` (recording), `KeyListener` (keys), `Output` (clipboard); current implementations are listed in Section 5.
-3. **Engines**: `Transcriber` (transcription backend); its sole implementation today is local SenseVoice in `sherpa.rs`.
+3. **Engines**: `Transcriber` (transcription backend); the local implementation is local SenseVoice in `sherpa.rs`, the online one is Xiaomi MiMo in `mimo_asr.rs`.
 
 Downward module dependencies within the same crate may import directly—`handlers` calling concrete types of `polisher`, or modules depending on low-level leaves like `config` / `error`, all need no seam. Seams are where tests inject fakes, and where future platforms or backends plug in.
 
@@ -336,6 +336,14 @@ Key points:
 
 `SherpaTranscriber` (`sherpa.rs`) embeds sherpa-onnx to run the local SenseVoice int8 model. sherpa-onnx is compiled into the main program; the model loads once at pipeline start and stays resident in memory, after which every utterance is inferred directly (`accept_waveform` → `decode`) with no process startup or cold-load cost. Inference is a CPU-intensive synchronous operation, dispatched to the blocking thread pool via `spawn_blocking`. Missing model files or load failure error out at construction time (`TranscriberError::ModelLoadFailed`).
 
+### 在线引擎：MiMo 网关
+
+`MimoAsr`（`mimo_asr.rs`）走小米 MiMo 网关的 `chat/completions`：WAV 以 base64 放进单个 `input_audio` 内容块，`asr_options.language` 传 `[transcriber] language`（空串发 `"auto"`），文本取自 `choices[0].message.content`。纯网络调用，不做重试；失败直接经 `on_error` 报错，不回退本地。端点由 `polisher::build_endpoint` 推导，密钥可经 `ALTGO_TRANSCRIBER_API_KEY` 覆盖。
+
+### Online Engine: MiMo Gateway
+
+`MimoAsr` (`mimo_asr.rs`) talks to the Xiaomi MiMo gateway's `chat/completions`: the WAV goes in as base64 inside a single `input_audio` content block, `asr_options.language` carries `[transcriber] language` (an empty string sends `"auto"`), and the text comes from `choices[0].message.content`. Pure network calls with no retries; failures error out through `on_error` and never fall back to the local engine. The endpoint is derived by `polisher::build_endpoint`, and the key can be overridden via `ALTGO_TRANSCRIBER_API_KEY`.
+
 ### 润色 prompt 三级回退
 
 `polisher.rs` 构造 `LLMFormatter` 时，`from_config_with_sources` 统一驱动三级回退（`build_prompt_source_chain`）：
@@ -375,7 +383,7 @@ Templates load once at startup; changing the files requires an app restart to ta
 
 模块边界一律返回自定义 thiserror 枚举：`TranscriberError` / `PolisherError` / `RecorderError` / `OutputError` / `KeyListenerError` / `ModelError` / `ConfigError` / `HistoryError`。`recorder` 模块有专门测试防止 trait 边界回退到 `anyhow`。
 
-一个小不一致：运行时 handler 里的错误实际走 `to_string()` + `sink.on_error`，结构化 `PipelineError` 主要用于构建期——两套机制并行存在。
+一个小不一致：运行时 handler 里的错误不经结构化 `PipelineError`，而是取该错误的用户文案（如 `TranscriberError::message()`）交 `sink.on_error`；`PipelineError` 主要用于构建期——两套机制并行存在。
 
 ## 4. Error Model
 
@@ -388,7 +396,7 @@ Templates load once at startup; changing the files requires an app restart to ta
 
 Module boundaries always return their own thiserror enums: `TranscriberError` / `PolisherError` / `RecorderError` / `OutputError` / `KeyListenerError` / `ModelError` / `ConfigError` / `HistoryError`. The `recorder` module has dedicated tests that keep the trait boundary from slipping back to `anyhow`.
 
-One small inconsistency: errors in runtime handlers actually flow through `to_string()` + `sink.on_error`, while structured `PipelineError` serves mainly at build time—the two mechanisms coexist.
+One small inconsistency: errors in runtime handlers bypass structured `PipelineError`—they take the error's user-facing text (e.g. `TranscriberError::message()`) into `sink.on_error`, while structured `PipelineError` serves mainly at build time—the two mechanisms coexist.
 
 ## 五、平台抽象
 
