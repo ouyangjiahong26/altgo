@@ -1,0 +1,223 @@
+/* ============================================
+   更新说明窗口（label `update-notes`）
+   Release-notes window
+   ============================================ */
+
+/* 窗口不透明：把 design-system 的透明底色换成本主题底色，
+   否则无边框窗口的空白处会露出 WebView 默认白底。 */
+html,
+body {
+  background: var(--color-bg);
+}
+
+.update-notes-window {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+/* ── 自绘标题栏 ───────────────────────────────── */
+
+.update-notes-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.update-notes-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.update-notes-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.update-notes-close:hover {
+  background: var(--color-hover-surface);
+  color: var(--color-text);
+}
+
+/* ── 版本摘要 ─────────────────────────────────── */
+
+.update-notes-summary {
+  flex: none;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.update-notes-headline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.update-notes-versions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.update-notes-version--latest {
+  color: var(--color-text-secondary);
+  /* 版本对之间用一条竖线分隔，不用箭头等特殊字形。 */
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--color-border);
+}
+
+.update-notes-date {
+  margin-left: auto;
+}
+
+/* ── 说明正文（滚动区） ────────────────────────── */
+
+.update-notes-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  /* 正文用 --text-sm：16px 根字号下 13px，跟随应用字体大小档位缩放。 */
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.update-notes-empty {
+  padding: var(--space-6) 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* ── 更新说明（受限 Markdown 渲染结果） ─────────── */
+
+.release-notes-heading {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+
+.release-notes > .release-notes-heading:first-child {
+  margin-top: 0;
+}
+
+:lang(zh) .release-notes-heading {
+  letter-spacing: normal;
+}
+
+.release-notes-list {
+  margin: 0;
+  padding-left: var(--space-4);
+  list-style: disc;
+}
+
+.release-notes-item {
+  margin-bottom: var(--space-2);
+}
+
+.release-notes-item:last-child {
+  margin-bottom: 0;
+}
+
+.release-notes-sublist {
+  margin-top: var(--space-1);
+  padding-left: var(--space-4);
+  list-style: circle;
+  color: var(--color-text-muted);
+}
+
+.release-notes-paragraph {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  word-break: break-word;
+}
+
+.release-notes strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.release-notes code {
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+/* ── 操作区 ───────────────────────────────────── */
+
+.update-notes-actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-1);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.update-notes-error {
+  font-size: var(--text-xs);
+  color: var(--color-red);
+}
+
+.update-notes-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition:
+    background var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.update-notes-btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-primary);
+}
+
+.update-notes-btn--primary:hover {
+  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow-accent);
+}
+
+.update-notes-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <script>
+      (function () {
+        try {
+          var k = "altgo-theme-pref";
+          var p = localStorage.getItem(k) || "system";
+          var dark =
+            p === "dark" ? true : p === "light" ? false : window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.dataset.theme = dark ? "dark" : "light";
+          var fs = localStorage.getItem("altgo-font-size");
+          document.documentElement.style.fontSize =
+            fs === "small" ? "15px" : fs === "large" ? "19px" : "17px";
+        } catch (e) {}
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>altgo — 更新说明</title>
+    <link rel="icon" href="/altgo-logo.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/update-notes.tsx"></script>
+  </body>
+</html>

@@ -27,6 +27,7 @@ import {
   type WindowSizePref,
 } from "../ui-size";
 import { ProviderPresetSelector } from "../components/ProviderPresetSelector";
+import { openUpdateNotes, type UpdateInfo } from "../updateNotes";
 import { loadCatalog } from "../config/catalog";
 import { type ProviderPreset, type ModelCatalogEntry } from "../config/modelPresets";
 import { KEY_PRESETS, isPresetKeyName, presetSelectValue } from "../config/keyPresets";
@@ -65,15 +66,7 @@ export default function Settings() {
 
 
   const [checkingUpdate, setCheckingUpdate] = useState(false);
-  const [installingUpdate, setInstallingUpdate] = useState(false);
-  const [updateInfo, setUpdateInfo] = useState<{
-    hasUpdate: boolean;
-    currentVersion: string;
-    latestVersion: string;
-    body?: string;
-    date?: string;
-    supportTier: "in_place" | "external";
-  } | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   const modelMgr = useModelManager({ t });
@@ -203,39 +196,22 @@ export default function Settings() {
     setUpdateError(null);
     setUpdateInfo(null);
     try {
-      const res = await invoke<{
-        hasUpdate: boolean;
-        currentVersion: string;
-        latestVersion: string;
-        body?: string;
-        date?: string;
-        supportTier: "in_place" | "external";
-      }>("check_update", { mode: "manual" });
+      const res = await invoke<UpdateInfo>("check_update", { mode: "manual" });
       setUpdateInfo(res);
-    } catch (err: any) {
-      if (err && typeof err === "object" && err.message) {
-        setUpdateError(err.message);
-      } else {
-        setUpdateError(String(err));
-      }
+      // 手动检查发现新版本即弹更新说明窗口；无更新或失败保持页内提示，不弹窗。
+      // Pop the release-notes window only when a manual check finds a new version.
+      if (res.hasUpdate) await openUpdateNotes(res);
+    } catch (err) {
+      // Tauri 命令错误：字符串或带 message 的对象。
+      // Tauri command errors are either a string or an object with `message`.
+      setUpdateError(
+        err && typeof err === "object" && "message" in err && typeof err.message === "string"
+          ? err.message
+          : String(err)
+      );
     } finally {
       setCheckingUpdate(false);
     }
-  };
-
-  const handleInstallUpdate = async () => {
-    setInstallingUpdate(true);
-    setUpdateError(null);
-    try {
-      await invoke("install_update");
-    } catch (err: any) {
-      setUpdateError(String(err));
-      setInstallingUpdate(false);
-    }
-  };
-
-  const handleOpenReleasePage = () => {
-    window.open("https://github.com/ouyangjiahong26/altgo/releases/latest", "_blank");
   };
 
   if (!config) {
@@ -833,7 +809,7 @@ export default function Settings() {
                 type="button"
                 className="settings-btn settings-btn-secondary"
                 onClick={handleCheckUpdate}
-                disabled={checkingUpdate || installingUpdate}
+                disabled={checkingUpdate}
                 style={{ padding: "3px 8px", fontSize: "12px" }}
               >
                 {checkingUpdate ? t("settings.checking_update") : t("settings.check_update")}
@@ -867,38 +843,27 @@ export default function Settings() {
           )}
 
           {updateInfo && updateInfo.hasUpdate && (
-            <div style={{ marginTop: "12px", padding: "10px", background: "var(--bg-secondary, rgba(0,0,0,0.05))", borderRadius: "6px" }}>
-              <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "6px", color: "var(--accent-color, #2563eb)" }}>
+            <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "var(--text-sm)",
+                  fontWeight: 600,
+                  color: "var(--color-accent)",
+                }}
+              >
                 <Sparkles size={14} />
-                {t("settings.update_available")}: v{updateInfo.latestVersion}
-              </div>
-              {updateInfo.body && (
-                <div style={{ marginTop: "6px", fontSize: "12px", whiteSpace: "pre-wrap", opacity: 0.85 }}>
-                  <div style={{ fontWeight: 500 }}>{t("settings.update_notes")}</div>
-                  {updateInfo.body}
-                </div>
-              )}
-              <div style={{ marginTop: "10px", display: "flex", gap: "8px" }}>
-                {updateInfo.supportTier === "in_place" ? (
-                  <button
-                    type="button"
-                    className="settings-btn settings-btn-primary"
-                    onClick={handleInstallUpdate}
-                    disabled={installingUpdate}
-                  >
-                    <Download size={13} />
-                    {installingUpdate ? t("settings.update_installing") : t("settings.update_install")}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="settings-btn settings-btn-primary"
-                    onClick={handleOpenReleasePage}
-                  >
-                    {t("settings.update_open_release")}
-                  </button>
-                )}
-              </div>
+                {t("settings.update_available")} v{updateInfo.latestVersion}
+              </span>
+              <button
+                type="button"
+                className="settings-btn settings-btn-secondary settings-btn-sm"
+                onClick={() => openUpdateNotes(updateInfo)}
+              >
+                {t("settings.view_update_notes")}
+              </button>
             </div>
           )}
         </section>

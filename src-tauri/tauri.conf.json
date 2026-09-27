@@ -37,6 +37,18 @@
         "resizable": false,
         "focusable": false,
         "shadow": false
+      },
+      {
+        "label": "update-notes",
+        "title": "altgo — 更新说明",
+        "url": "update-notes.html",
+        "width": 340,
+        "height": 400,
+        "minWidth": 300,
+        "minHeight": 260,
+        "resizable": true,
+        "decorations": false,
+        "visible": false
       }
     ],
     "security": {

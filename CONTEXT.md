@@ -108,6 +108,9 @@ _Avoid_: capture mode、key capture mode。
 - `InPlace`（就地更新）：Windows（NSIS）与 Linux（AppImage），支持由更新器自动下载差量/全量包并就地替换重启。
 - `External`（外部引导）：Linux 传统包管理分发（deb、rpm、AUR），因需要系统提权或由系统包管理器托管，更新器提示新版本变更并提供一键打开下载页或包管理器更新命令。
 
+**更新说明（Release Notes）**
+手动检查发现新版本时弹出的独立窗口（label `update-notes`），展示该版本的分类变更条目，并就地提供更新操作（就地更新或打开下载页）。内容取自 CHANGELOG.md 当前版本小节，经 latest.json 的 `notes` 字段随检查结果到达前端；`## vX.Y.Z` 版本行与末尾的对比样板行不渲染，版本信息由窗口头部展示。_Avoid_: 更新内容弹窗、changelog 窗口。
+
 # Domain Glossary
 
 This file defines the terms used across the altgo codebase. Use them verbatim in code, docs, and architecture discussions.
@@ -217,3 +220,6 @@ Trigger pattern of an update check: `Silent` (at startup; failures never disturb
 How update capability is tiered across platforms and packaging/distribution formats:
 - `InPlace`: Windows (NSIS) and Linux (AppImage); the updater downloads delta/full packages and replaces + restarts in place.
 - `External`: traditional Linux package-manager distributions (deb, rpm, AUR), which require root privileges or are owned by the system package manager; the updater announces new versions and offers one-click access to the download page or the package-manager update command.
+
+**Release Notes**
+The standalone window (label `update-notes`) that pops up when a manual check finds a new version. It renders that version's categorized change entries and offers the update action in place (in-place update or the download page). The content is the current CHANGELOG.md section, delivered with the check result through the `notes` field of latest.json; the `## vX.Y.Z` heading and the trailing compare-link boilerplate are not rendered, and the window header shows the version pair instead. _Avoid_: changelog window, update-notes popup.
