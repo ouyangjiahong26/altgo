@@ -200,7 +200,7 @@ const ZH_LJG_GUIDANCE: &str = r#"
 /// Hard output-forbidden rules (kept in sync with the "Forbidden output" section of
 /// `resources/prompts/base.txt`; both prompt chains must agree—repo-root runs load base.txt,
 /// bundled installs fall back to this constant).
-const OUTPUT_FORBIDDEN_RULES: &str = " Hard rules at every level: never output emoji, kaomoji, or decorative symbols; never output Markdown formatting (bold, italics, headings, lists, tables, code fences) — plain prose only; never output AI-style clichés or summarizing formulas such as “总的来说”“综上所述”“值得一提的是”“不难发现”“我们可以看到”“希望能帮到你” — if the source contains one, rephrase the point without the formula; remove spoken fillers (嗯、呃、啊、哈哈、对吧) unconditionally, even when they seem to carry tone. ";
+const OUTPUT_FORBIDDEN_RULES: &str = " Hard rules at every level: never output emoji, kaomoji, or decorative symbols; never output Markdown formatting (bold, italics, headings, lists, tables, code fences) — plain prose only; never output AI-style clichés, meta commentary, or summarizing formulas such as “总的来说”“综上所述”“值得一提的是”“不难发现”“我们可以看到”“希望能帮到你”, \"in summary\", \"hope this helps\" — if the source contains one, rephrase the point without the formula; remove spoken fillers (嗯、呃、啊、哈哈、对吧) unconditionally, even when they seem to carry tone. ";
 
 fn get_system_prompt(level: PolishLevel, language: &str) -> String {
     let lang_name = match language {

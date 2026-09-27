@@ -72,7 +72,12 @@ pub async fn handle_stop_record(
         Ok(r) => r,
         Err(e) => {
             tracing::error!(error = %e, "transcription failed");
-            sink.on_error(&format!("transcription: {}", e));
+            // 用 message() 而非 Display：转写错误的中文用户文案在 message() 里，
+            // Display 只有英文，悬浮窗会显示英文（在线后端失败尤其明显）。
+            // Use message(), not Display: the Chinese user-facing text lives in message();
+            // Display is English-only, which surfaces English in the overlay (notably for
+            // online-backend failures).
+            sink.on_error(&e.message());
             sink.on_status_change(PipelineStatus::Idle);
             return;
         }
@@ -580,11 +585,13 @@ mod tests {
     async fn handle_stop_record_transcription_failure_emits_error_and_idle() {
         let wav = make_test_wav();
         let mut recorder = super::super::test_doubles::FakeRecorder::new(wav);
-        let transcriber = super::super::test_doubles::FakeTranscriber::new(Err(
-            TranscriberError::ModelLoadFailed {
-                reason: "server error".to_string(),
-            },
-        ));
+        let err = TranscriberError::ModelLoadFailed {
+            reason: "server error".to_string(),
+        };
+        // 上报文本必须等于该错误的 message()（中文用户文案），而不是 Display 的英文前缀。
+        // The reported text must equal the error's message() (Chinese user text), not Display's English prefix.
+        let expected_message = err.message();
+        let transcriber = super::super::test_doubles::FakeTranscriber::new(Err(err));
         let formatter = failing_formatter();
         let sink = super::super::test_doubles::MockSink::new();
         let sink_arc: Arc<dyn PipelineSink> = Arc::new(sink.clone());
@@ -607,7 +614,7 @@ mod tests {
             vec![PipelineStatus::Processing, PipelineStatus::Idle]
         );
         assert!(!sink.errors().is_empty());
-        assert!(sink.errors()[0].contains("transcription"));
+        assert_eq!(sink.errors()[0], expected_message);
         assert!(sink.results().is_empty());
     }
 

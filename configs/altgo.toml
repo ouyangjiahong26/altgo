@@ -21,7 +21,7 @@ language = "zh"                        # 语言，如 "zh"（中文）、"en"（
                                         # （SenseVoice 支持中/英/日/韩/粤自动检测；在线识别空串时按 "auto" 发送）
 threads = 0                            # 本地引擎线程数；0 = 自动取满 CPU 核数
 backend = "local"                      # 转写后端："local"（本地 SenseVoice，默认）或 "online"（小米 MiMo 在线识别）
-# 本地转写始终使用内嵌 sherpa-onnx 的 SenseVoice 模型：
+# backend = "local" 时使用内嵌 sherpa-onnx 的 SenseVoice 模型：
 # 模型在管道启动时载入一次内存，之后每句话直接推理，无进程启动与冷载开销。
 
 [transcriber.online]

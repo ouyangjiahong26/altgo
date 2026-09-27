@@ -117,7 +117,7 @@ The whole pipeline runs on a dedicated OS thread hosting its own `current_thread
 | 界面（设置 / 历史 / 悬浮窗内容） | `frontend/`（React） | 只经 IPC 与后端交互，只见 camelCase |
 | 按键状态机 | `state_machine.rs` | 纯同步叶子；只返回命令，不执行副作用 |
 | 录音 | `recorder`（`Recorder` trait） | Linux 实现为 `parecord` 子进程 |
-| 转写 | `transcriber`（`Transcriber` trait） | 唯一实现：`sherpa.rs` 的本地 SenseVoice |
+| 转写 | `transcriber`（`Transcriber` trait） | 本地实现 `sherpa.rs`（SenseVoice）；在线实现 `mimo_asr.rs`（小米 MiMo） |
 | 润色 | `polisher`（`LLMFormatter`） | 可选；失败降级为原文 |
 | 悬浮窗 | `overlay`（`OverlaySink` seam） | 生产实现是 Tauri 窗口 |
 | 剪贴板 + 历史 | `dispatcher`（`TranscriptionDispatch` seam）→ `output` + `history` | 失败只 warn，不中断结果返回 |
@@ -133,7 +133,7 @@ With “from pressing the trigger key to showing the result” as the main story
 | UI (settings / history / overlay content) | `frontend/` (React) | Talks to the backend only via IPC; sees camelCase only |
 | Key state machine | `state_machine.rs` | Pure synchronous leaf; returns commands only, performs no side effects |
 | Recording | `recorder` (`Recorder` trait) | Linux implementation spawns a `parecord` subprocess |
-| Transcription | `transcriber` (`Transcriber` trait) | Sole implementation: local SenseVoice in `sherpa.rs` |
+| Transcription | `transcriber` (`Transcriber` trait) | Local: SenseVoice in `sherpa.rs`; online: Xiaomi MiMo in `mimo_asr.rs` |
 | Polishing | `polisher` (`LLMFormatter`) | Optional; degrades to raw text on failure |
 | Overlay window | `overlay` (`OverlaySink` seam) | Production implementation is a Tauri window |
 | Clipboard + history | `dispatcher` (`TranscriptionDispatch` seam) → `output` + `history` | Failures only warn and never interrupt returning the result |
@@ -149,7 +149,7 @@ With “from pressing the trigger key to showing the result” as the main story
 - `state_machine` 是 crate 根部的纯同步叶子，由 `voice_pipeline::context` 驱动。
 - `handlers` 调用 `transcriber` / `polisher` / `recorder`。
 - `dispatcher` 调用 `output`（剪贴板）与 `history`（历史记录）。
-- `transcriber` 调用 `resource`；`sherpa`（内嵌 sherpa-onnx 的 SenseVoice）是当前唯一的引擎实现。
+- `transcriber` 调用 `resource`；本地实现 `sherpa`（内嵌 sherpa-onnx 的 SenseVoice），在线实现 `mimo_asr`（小米 MiMo 网关），由 `builder.rs` 按 `[transcriber] backend` 分发。
 - `polisher` 调用 `prompt_store`。
 - `model` / `config` / `error` / `resource` / `audio` 是底层叶子（`audio` 提供 PCM 缓冲与 WAV 编解码）。
 
@@ -181,7 +181,7 @@ lib.rs
 
 1. **框架**：`PipelineSink`（状态/错误/结果回调）、`PipelineEventEmitter`（事件发射）、`TranscriptionDispatch`（剪贴板 + 历史分发）、`OverlaySink`（悬浮窗）。
 2. **平台**：`Recorder`（录音）、`KeyListener`（按键）、`Output`（剪贴板），当前实现见第五节。
-3. **引擎**：`Transcriber`（转写后端），当前唯一实现是 `sherpa.rs` 的本地 SenseVoice。
+3. **引擎**：`Transcriber`（转写后端），本地实现为 `sherpa.rs` 的本地 SenseVoice，在线实现为 `mimo_asr.rs` 的小米 MiMo。
 
 同 crate 内向下的模块依赖允许直接 import——`handlers` 调 `polisher` 的具体类型、各模块依赖 `config` / `error` 等底层叶子，都不需要 seam。seam 是测试注入 fake 的位置，也是未来加平台或后端时的扩展点。
 
@@ -200,7 +200,7 @@ Dependencies are overall one-way and clear:
 - `state_machine` is a pure synchronous leaf at the crate root, driven by `voice_pipeline::context`.
 - `handlers` calls `transcriber` / `polisher` / `recorder`.
 - `dispatcher` calls `output` (clipboard) and `history` (transcription history).
-- `transcriber` calls `resource`; `sherpa` (SenseVoice with embedded sherpa-onnx) is currently the sole engine implementation.
+- `transcriber` calls `resource`; the local engine is `sherpa` (SenseVoice with embedded sherpa-onnx) and the online engine is `mimo_asr` (Xiaomi MiMo gateway), dispatched by `builder.rs` from `[transcriber] backend`.
 - `polisher` calls `prompt_store`.
 - `model` / `config` / `error` / `resource` / `audio` are low-level leaves (`audio` provides the PCM buffer and WAV encoding/decoding).
 
@@ -232,7 +232,7 @@ lib.rs
 
 1. **Frameworks**: `PipelineSink` (state/error/result callbacks), `PipelineEventEmitter` (event emission), `TranscriptionDispatch` (clipboard + history dispatch), `OverlaySink` (overlay window).
 2. **Platforms**: `Recorder` (recording), `KeyListener` (keys), `Output` (clipboard); current implementations are listed in Section 5.
-3. **Engines**: `Transcriber` (transcription backend); its sole implementation today is local SenseVoice in `sherpa.rs`.
+3. **Engines**: `Transcriber` (transcription backend); the local implementation is local SenseVoice in `sherpa.rs`, the online one is Xiaomi MiMo in `mimo_asr.rs`.
 
 Downward module dependencies within the same crate may import directly—`handlers` calling concrete types of `polisher`, or modules depending on low-level leaves like `config` / `error`, all need no seam. Seams are where tests inject fakes, and where future platforms or backends plug in.
 
@@ -335,6 +335,14 @@ Key points:
 ### Local Engine: Embedded and Resident
 
 `SherpaTranscriber` (`sherpa.rs`) embeds sherpa-onnx to run the local SenseVoice int8 model. sherpa-onnx is compiled into the main program; the model loads once at pipeline start and stays resident in memory, after which every utterance is inferred directly (`accept_waveform` → `decode`) with no process startup or cold-load cost. Inference is a CPU-intensive synchronous operation, dispatched to the blocking thread pool via `spawn_blocking`. Missing model files or load failure error out at construction time (`TranscriberError::ModelLoadFailed`).
+
+### 在线引擎：MiMo 网关
+
+`MimoAsr`（`mimo_asr.rs`）走小米 MiMo 网关的 `chat/completions`：WAV 以 base64 放进单个 `input_audio` 内容块，`asr_options.language` 传 `[transcriber] language`（空串发 `"auto"`），文本取自 `choices[0].message.content`。纯网络调用，不做重试；失败直接经 `on_error` 报错，不回退本地。端点由 `polisher::build_endpoint` 推导，密钥可经 `ALTGO_TRANSCRIBER_API_KEY` 覆盖。
+
+### Online Engine: MiMo Gateway
+
+`MimoAsr` (`mimo_asr.rs`) talks to the Xiaomi MiMo gateway's `chat/completions`: the WAV goes in as base64 inside a single `input_audio` content block, `asr_options.language` carries `[transcriber] language` (an empty string sends `"auto"`), and the text comes from `choices[0].message.content`. Pure network calls with no retries; failures error out through `on_error` and never fall back to the local engine. The endpoint is derived by `polisher::build_endpoint`, and the key can be overridden via `ALTGO_TRANSCRIBER_API_KEY`.
 
 ### 润色 prompt 三级回退
 

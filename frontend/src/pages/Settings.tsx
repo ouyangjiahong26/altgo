@@ -341,9 +341,6 @@ export default function Settings() {
                   </select>
                 </div>
               </div>
-              {onlineActive && (
-                <p className="settings-hint">{t("settings.transcriber_online_hint")}</p>
-              )}
 
               {onlineActive ? (
                 <>
@@ -401,95 +398,95 @@ export default function Settings() {
                 </>
               ) : (
                 <>
-              <div className="settings-model-grid">
-                {models.map((m) => {
-                  const isActive = config.model === m.name;
-                  const { percent, connecting } = modelMgr.getDownloadProgress(m.name);
-                  return (
-                    <div
-                      key={m.name}
-                      className={`settings-model-card ${isActive ? "is-active" : ""}`}
-                    >
-                      <div className="settings-model-card-head">
-                        <span className="settings-model-card-name">{m.name}</span>
-                        {isActive && (
-                          <span className="settings-model-card-badge">{t("settings.in_use")}</span>
-                        )}
-                      </div>
-                      <p className="settings-model-card-desc">{m.description}</p>
-                      <p className="settings-model-card-meta">
-                        {formatSize(m.sizeBytes)} · {m.filename}
-                      </p>
-                      <div className="settings-model-card-actions">
-                        {m.downloaded ? (
-                          <>
-                            <button
-                              type="button"
-                              className="settings-btn settings-btn-sm settings-btn-secondary"
-                              onClick={() => applyLocalModel(m.name)}
-                              disabled={isActive || saving}
-                            >
-                              {isActive ? t("settings.current") : t("settings.use_model")}
-                            </button>
-                            <button
-                              type="button"
-                              className="settings-btn settings-btn-sm settings-btn-danger"
-                              onClick={() => handleDelete(m.name)}
-                            >
-                              <Trash2 size={11} />
-                              {t("settings.delete_model")}
-                            </button>
-                          </>
-                        ) : downloading === m.name ? (
-                          <div className="model-progress" style={{ width: "100%" }}>
-                            <div className="progress-bar">
-                              <div className="progress-fill" style={{ width: `${percent}%` }} />
+                <div className="settings-model-grid">
+                  {models.map((m) => {
+                    const isActive = config.model === m.name;
+                    const { percent, connecting } = modelMgr.getDownloadProgress(m.name);
+                    return (
+                      <div
+                        key={m.name}
+                        className={`settings-model-card ${isActive ? "is-active" : ""}`}
+                      >
+                        <div className="settings-model-card-head">
+                          <span className="settings-model-card-name">{m.name}</span>
+                          {isActive && (
+                            <span className="settings-model-card-badge">{t("settings.in_use")}</span>
+                          )}
+                        </div>
+                        <p className="settings-model-card-desc">{m.description}</p>
+                        <p className="settings-model-card-meta">
+                          {formatSize(m.sizeBytes)} · {m.filename}
+                        </p>
+                        <div className="settings-model-card-actions">
+                          {m.downloaded ? (
+                            <>
+                              <button
+                                type="button"
+                                className="settings-btn settings-btn-sm settings-btn-secondary"
+                                onClick={() => applyLocalModel(m.name)}
+                                disabled={isActive || saving}
+                              >
+                                {isActive ? t("settings.current") : t("settings.use_model")}
+                              </button>
+                              <button
+                                type="button"
+                                className="settings-btn settings-btn-sm settings-btn-danger"
+                                onClick={() => handleDelete(m.name)}
+                              >
+                                <Trash2 size={11} />
+                                {t("settings.delete_model")}
+                              </button>
+                            </>
+                          ) : downloading === m.name ? (
+                            <div className="model-progress" style={{ width: "100%" }}>
+                              <div className="progress-bar">
+                                <div className="progress-fill" style={{ width: `${percent}%` }} />
+                              </div>
+                              <span className="progress-text">
+                                {connecting
+                                  ? t("settings.model_download_connecting")
+                                  : `${percent}%`}
+                              </span>
                             </div>
-                            <span className="progress-text">
-                              {connecting
-                                ? t("settings.model_download_connecting")
-                                : `${percent}%`}
-                            </span>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            className="settings-btn settings-btn-sm settings-btn-primary"
-                            onClick={() => downloadAndUse(m.name)}
-                            disabled={downloading !== null}
-                          >
-                            <Download size={11} />
-                            {t("settings.download_and_use")}
-                          </button>
-                        )}
+                          ) : (
+                            <button
+                              type="button"
+                              className="settings-btn settings-btn-sm settings-btn-primary"
+                              onClick={() => downloadAndUse(m.name)}
+                              disabled={downloading !== null}
+                            >
+                              <Download size={11} />
+                              {t("settings.download_and_use")}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                className="settings-advanced-toggle"
-                onClick={() => setAdvancedPath(!advancedPath)}
-              >
-                {advancedPath ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                {t("settings.advanced_model_path")}
-              </button>
-              {advancedPath && (
-                <div className="settings-field settings-field--nested">
-                  <span className="settings-field-label-text">{t("settings.custom_path")}</span>
-                  <div className="settings-field-control">
-                    <input
-                      type="text"
-                      className="settings-input"
-                      value={config.model}
-                      onChange={(e) => update("model", e.target.value)}
-                      placeholder={t("settings.custom_path_placeholder")}
-                    />
-                  </div>
-                  <p className="settings-hint">{t("settings.custom_path_hint")}</p>
+                    );
+                  })}
                 </div>
-              )}
+                <button
+                  type="button"
+                  className="settings-advanced-toggle"
+                  onClick={() => setAdvancedPath(!advancedPath)}
+                >
+                  {advancedPath ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  {t("settings.advanced_model_path")}
+                </button>
+                {advancedPath && (
+                  <div className="settings-field settings-field--nested">
+                    <span className="settings-field-label-text">{t("settings.custom_path")}</span>
+                    <div className="settings-field-control">
+                      <input
+                        type="text"
+                        className="settings-input"
+                        value={config.model}
+                        onChange={(e) => update("model", e.target.value)}
+                        placeholder={t("settings.custom_path_placeholder")}
+                      />
+                    </div>
+                    <p className="settings-hint">{t("settings.custom_path_hint")}</p>
+                  </div>
+                )}
                 </>
               )}
               <div className="settings-field">
