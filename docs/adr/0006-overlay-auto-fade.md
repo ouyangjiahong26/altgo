@@ -4,7 +4,7 @@ done 浮窗此前无限期挂住，只能手动关闭或等下一次录音，用
 
 平台实现差异是有意为之：Windows 用 `GetLastInputInfo` 实现完整语义；Linux 因 Wayland 无统一的全局空闲查询 API（X11 屏保扩展仅覆盖部分会话），降级为固定 8 秒超时淡出，不做 X11/Wayland 双套检测。
 
-## Consequences
+## 后果
 
 - 两平台 done 浮窗行为不同：Linux 无人操作也会在 8 秒后消失。待 Wayland 出现干净的空闲 API 再统一，届时更新本 ADR。
 - 检测活动包含纯鼠标移动——可接受的粗糙：alt+tab、点击、打字均被覆盖，简化实现且不会漏判"用户已继续干活"。

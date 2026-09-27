@@ -5,8 +5,6 @@ title: 架构设计
 
 # 架构设计
 
-# Architecture
-
 ## 整体流水线
 
 altgo 采用线性流水线架构，由键盘事件驱动：
@@ -19,53 +17,9 @@ altgo 采用线性流水线架构，由键盘事件驱动：
 
 按键监听器经无界通道把按键事件送入主循环；状态机同步返回命令，由 `tokio::select!` 分支就地执行，单次转写互斥（详见 [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md)）。
 
-## Overall Pipeline
-
-altgo uses a linear pipeline architecture driven by keyboard events:
-
-```
-按键监听 → 状态机 → 录音 → ASR 转写 → LLM 润色 → 剪贴板 + 悬浮窗 + 本地转写历史（纯文本 JSON）
-```
-
-**Transcription history**: only text is saved (the raw transcription `rawText` and the currently displayed `text`); recordings are never saved. The data file is `~/.config/altgo/history.json`. After a successful transcription (when `raw_text` is non-empty), a record is written and a `history-updated` event is broadcast so the history list on the main window's home page can refresh.
-
-The key listener feeds key events into the main loop through an unbounded channel; the state machine returns commands synchronously, which are executed in place by `tokio::select!` branches, with a single-transcription mutex (see [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md) for details).
-
 ## 模块结构
 
 以下为 Tauri 核心目录 `src-tauri/src/`（节选）：
-
-```
-src-tauri/src/
-├── main.rs            # 薄入口，调用 `lib::run()`
-├── lib.rs             # Tauri 装配层；managed state + 流水线线程
-├── cmd.rs             # IPC 命令：配置、更新、管道、模型、历史等
-├── config.rs          # TOML 配置加载（serde）
-├── history.rs         # 转写历史 persistence（history.json）
-├── state_machine.rs   # 按键状态机
-├── audio.rs           # WAV 编解码，线程安全 Buffer
-├── transcriber.rs     # Transcriber trait
-├── sherpa.rs          # 本地 SenseVoice（内嵌 sherpa-onnx）
-├── polisher.rs        # LLM 文本润色
-├── voice_pipeline/    # 核心流水线（录音 → 转写 → 润色 → 分发）
-├── updater.rs         # 应用自动更新与手动检查
-├── key_listener/      # 按键监听
-│   ├── mod.rs         # 公共 trait + PlatformListener
-│   ├── linux.rs       # xinput test-xi2，失败回退 evtest；Wayland 会话优先 evtest
-│   └── windows.rs     # WH_KEYBOARD_LL 低级键盘钩子
-├── recorder/          # 音频录制
-│   ├── mod.rs         # 公共 trait + PlatformRecorder
-│   ├── linux.rs       # parecord（PulseAudio）
-│   └── windows.rs     # cpal/WASAPI
-└── output/            # 结果输出（剪贴板写入与文本注入，无系统通知）
-    ├── mod.rs         # 公共 trait + PlatformOutput
-    ├── linux.rs       # xclip / xsel / wl-copy
-    └── windows.rs     # arboard + SendInput
-```
-
-## Module Layout
-
-Below is the Tauri core directory `src-tauri/src/` (excerpt):
 
 ```
 src-tauri/src/
@@ -116,27 +70,6 @@ src-tauri/src/
 - **双击**（< 300ms 间隔）→ 进入 `ContinuousRecording`，单击停止
 - 使用 `tokio::select!` 同时等待按键事件和超时
 
-## Key State Machine
-
-The state machine manages transitions between 5 states:
-
-```
-         按下
-  Idle ──────→ PotentialPress
-   ↑               │
-   │          长按超时         双击超时
-   │               ↓               ↓
-   │          Recording      WaitSecondClick
-   │               │               │
-   │          松开            再次按下
-   │               ↓               ↓
-   └──────── ContinuousRecording ←─┘
-```
-
-- **Long press** (> 200ms) → enters `Recording`; release stops it
-- **Double-click** (< 300ms interval) → enters `ContinuousRecording`; a single click stops it
-- Uses `tokio::select!` to wait on key events and timeouts simultaneously
-
 ## 平台策略
 
 **Linux**：通过子进程调用 CLI 工具（`xinput`/`evtest`、`parecord`、`xclip`），简化构建和依赖管理。
@@ -145,21 +78,9 @@ The state machine manages transitions between 5 states:
 
 平台模块暴露统一 trait（`KeyListener`、`Recorder`、`Output`），各平台实现在各自模块的 `linux.rs` / `windows.rs` 中，管道消费 `Box<dyn Trait>` 实现与平台解耦。
 
-## Platform Strategy
-
-**Linux**: CLI tools (`xinput`/`evtest`, `parecord`, `xclip`) are invoked as subprocesses, simplifying builds and dependency management.
-
-**Windows**: native APIs are used — WH_KEYBOARD_LL keyboard hooks, cpal/WASAPI recording, and arboard clipboard plus SendInput text injection.
-
-Platform modules expose unified traits (`KeyListener`, `Recorder`, `Output`), with per-platform implementations in each module's `linux.rs` / `windows.rs`; the pipeline consumes `Box<dyn Trait>` to stay decoupled from the platform.
-
 ## 转写引擎
 
 当前唯一生产实现是 `SherpaTranscriber`：内嵌 sherpa-onnx 的本地 SenseVoice，模型常驻内存。
-
-## Transcription Engine
-
-The only production implementation today is `SherpaTranscriber`: local SenseVoice with embedded sherpa-onnx, with the model kept resident in memory.
 
 ## 润色引擎
 
@@ -169,21 +90,9 @@ The only production implementation today is `SherpaTranscriber`: local SenseVoic
 
 主页的历史列表可对单条记录基于 **`rawText`** 再次调用当前润色配置（`polish_history_entry`）。
 
-## Polishing Engine
-
-- Supports 4 levels: `none` / `light` / `medium` / `heavy`
-- Supports both the OpenAI-compatible chat API and the Anthropic Messages API
-- Exponential backoff retries (up to 3 times)
-
-From the history list on the home page, a single entry can be re-polished under the current polishing configuration based on its **`rawText`** (`polish_history_entry`).
-
 ## 前端路由（主窗口）
 
 - React Router Hash 模式：`/` 主页（首页状态 + 最近转写 + 历史列表）、`/settings` 设置。
-
-## Frontend Routes (Main Window)
-
-- React Router Hash mode: `/` home (status, latest transcription and the history list) and `/settings`.
 
 ## 测试策略
 
@@ -192,11 +101,3 @@ From the history list on the home page, a single entry can be re-polished under 
 - `polisher.rs` — 使用 `mockito` 模拟 OpenAI/Anthropic 润色 API
 - 平台模块 — 仅构造/冒烟测试
 - CI 共三个 job：Linux `amd64` 与 `arm64` 都跑 `cargo test --lib`；Windows job 在 x64 上跑测试并构建 NSIS 安装包，arm64 仅交叉编译检查
-
-## Testing Strategy
-
-- `config.rs` / `audio.rs` / `history.rs` — comprehensive unit tests
-- `sherpa.rs` — SenseVoice model presence and load-failure paths
-- `polisher.rs` — mocks the OpenAI/Anthropic polishing APIs with `mockito`
-- Platform modules — construction/smoke tests only
-- Three CI jobs in total: Linux `amd64` and `arm64` both run `cargo test --lib`; the Windows job runs tests and builds the NSIS installer on x64, while arm64 only gets a cross-compilation check

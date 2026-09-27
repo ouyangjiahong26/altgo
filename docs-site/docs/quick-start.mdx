@@ -9,12 +9,6 @@ title: 快速开始
 
 转写引擎内嵌 sherpa-onnx（SenseVoice），无需单独安装任何二进制。
 
-# Quick Start
-
-This app supports **Linux** (Ubuntu 22.04+) on **x86_64** and **aarch64**, as well as **Windows 10+** (x86_64 and arm64). Linux builds and releases are verified on **Ubuntu 22.04**; other distributions may work but are not guaranteed. macOS is not supported at this time.
-
-The transcription engine embeds sherpa-onnx (SenseVoice), so no extra binaries need to be installed.
-
 ## Linux：安装前必做（input 组）
 
 **必须**将当前用户加入 `input` 组，否则无法读取 `/dev/input/event*`，按键监听会失败。执行后**须重新登录**：
@@ -24,16 +18,6 @@ sudo usermod -aG input "$USER"
 ```
 
 其余与桌面、音频相关的系统库，**`.deb` 会通过依赖声明自动拉取**；若安装器提示缺包，按提示补装即可，不必自行对照长清单。
-
-## Linux: Required Before Install (input group)
-
-You **must** add the current user to the `input` group; otherwise `/dev/input/event*` cannot be read and key listening will fail. **Log out and back in** after running:
-
-```bash
-sudo usermod -aG input "$USER"
-```
-
-The remaining desktop- and audio-related system libraries are **pulled in automatically by the `.deb` via its dependency declarations**; if the installer reports missing packages, just install them as prompted — no need to work through a long checklist yourself.
 
 ## 最终用户：装好后在“设置”里完成一切
 
@@ -53,29 +37,7 @@ The remaining desktop- and audio-related system libraries are **pulled in automa
 2. 双击安装，在开始菜单启动 altgo。
 3. 打开 **设置**，完成模型下载、润色、触发键等配置后点击 **保存**。
 
-
 **不要**把“先复制 `configs/altgo.toml` 再手改”当作默认路径——那是高级用法。日常用户只使用界面即可。
-
-## End Users: Finish Setup in "Settings" After Installing
-
-### Linux
-
-1. Download the package for your distribution from [Releases](https://github.com/ouyangjiahong26/altgo/releases): **`.deb`** (Ubuntu/Debian) or **`.rpm`** (Fedora/RHEL).
-2. Complete the **input group** step above.
-3. Launch the app and open **Settings**:
-   - Under **Transcription**, download and enable the local model, or fill in advanced paths;
-   - Configure **Polishing**, **Appearance**, and the **Trigger Key** as needed (use "Press to set");
-   - Click **Save**.
-4. Recognition results are **written to the clipboard** and shown in the **overlay window**; you can copy again from the overlay if needed.
-
-### Windows
-
-1. Download the **`*-setup.exe`** (NSIS installer) or **`*.msi`** matching your device architecture (x64 or arm64) from [Releases](https://github.com/ouyangjiahong26/altgo/releases).
-2. Double-click to install, then launch altgo from the Start menu.
-3. Open **Settings**, complete model download, polishing, trigger key, and other configuration, then click **Save**.
-
-
-**Do not** treat "copy `configs/altgo.toml` first and edit it by hand" as the default path — that is advanced usage. Everyday users only need the UI.
 
 ## 开发者：从源码构建
 
@@ -90,33 +52,10 @@ make build
 
 若需快速改前端 UI，可临时使用 `cargo tauri dev`；完整链路仍以 `make build` 为准。
 
-
-## Developers: Build from Source
-
-As with the main repository, use **`make build`** to package. **For day-to-day verification we also recommend relying primarily on `make build`.**
-
-```bash
-git clone https://github.com/ouyangjiahong26/altgo.git
-cd altgo
-cd frontend && npm install && cd ..
-make build
-```
-
-To iterate quickly on the frontend UI you can temporarily use `cargo tauri dev`; the full release pipeline is still governed by `make build`.
-
-
 ## 高级：仅当你要手改配置文件时
 
 配置文件路径：`~/.config/altgo/altgo.toml`。字段说明见主仓库 [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml)。
 
-## Advanced: Only If You Edit the Config File by Hand
-
-Config file location: `~/.config/altgo/altgo.toml`. Field descriptions are in the main repository's [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml).
-
 ## 启动
 
 运行 `altgo` 或安装目录下的可执行文件。按住 **右 Alt** 说话，松开后在**悬浮窗**查看结果；触发键在 **设置** 中修改。
-
-## Launching
-
-Run `altgo` or the executable in the installation directory. Hold **right Alt** to speak; after releasing, check the result in the **overlay window**. The trigger key can be changed in **Settings**.
