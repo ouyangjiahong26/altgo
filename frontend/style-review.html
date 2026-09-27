@@ -14,6 +14,8 @@
     <link rel="stylesheet" href="src/styles/pages/history.css" />
     <link rel="stylesheet" href="src/styles/pages/onboarding.css" />
     <link rel="stylesheet" href="src/overlay.css" />
+    <!-- 更新说明窗口入口的样式（不在 main.tsx 的加载链上）。 -->
+    <link rel="stylesheet" href="src/styles/pages/update-notes.css" />
     <style>
       /* ============================================================
          审查页自身的框架样式，sr- 前缀，避免与产品样式冲突。
@@ -266,6 +268,19 @@
       .sr-frame--ov .island-exit .island {
         opacity: 0.5;
       }
+      /* 更新说明窗口是 340×400 的不透明无边框窗，预览框按同尺寸裁切。 */
+      .sr-frame--notes {
+        width: 340px;
+        height: 400px;
+        padding: 0;
+        overflow: hidden;
+        border-radius: var(--radius-2xl);
+      }
+      /* 产品里窗口内层是 height:100vh（等于窗口高度）；预览框里收回 400px，
+         否则底部操作区会被裁掉。 */
+      .sr-frame--notes .update-notes-window {
+        height: 400px;
+      }
       .sr-caption {
         margin-top: var(--space-2);
         font-family: var(--font-mono);
@@ -332,7 +347,8 @@
         <div class="sr-title">altgo 样式审查</div>
         <div class="sr-sub">
           直接加载 <code>src/styles/*</code> 的真实样式表：主窗侧与 <code>main.tsx</code> 同序（8 张），浮窗侧只取
-          <code>overlay.css</code>（<code>styles/overlay-base.css</code> 的 <code>body</code> 规则会破坏本页，故省略）。
+          <code>overlay.css</code>（<code>styles/overlay-base.css</code> 的 <code>body</code> 规则会破坏本页，故省略），
+          更新说明窗口另加载 <code>pages/update-notes.css</code>。
         </div>
       </div>
       <div class="sr-ctl" role="group" aria-label="主题">
@@ -359,6 +375,7 @@
         <a href="#history">历史条目</a>
         <a href="#onboarding">首次引导</a>
         <a href="#overlay">悬浮窗</a>
+        <a href="#update-notes">更新说明窗口</a>
         <a href="#pages">页面整体</a>
       </nav>
 
@@ -854,6 +871,45 @@
                 </div>
               </div>
               <div class="sr-caption">.island-exit：退出态（下移 8px + 仅内层淡出），实际隐藏延迟约 220ms</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="sr-sec" id="update-notes">
+          <h2>更新说明窗口</h2>
+          <p class="sr-desc">
+            手动检查发现新版本时弹出的独立窗口（label <code>update-notes</code>，340×400，无边框、不透明，随应用启动隐藏加载、关闭走
+            hide）。内容取自 latest.json 的 <code>notes</code>（CHANGELOG.md 当前版本小节），经受限 Markdown 渲染：
+            <code>###</code> 分类、<code>-</code> 条目（两个空格缩进为子条目）、行内粗体与代码；条目只显示冒号之前的小标题，
+            <code>## vX.Y.Z</code> 版本行与末尾的对比样板行不渲染（版本与日期在头部展示）。
+          </p>
+          <p class="sr-note sr-note--info">
+            窗口样式见 <code>src/styles/pages/update-notes.css</code>；下列预览与产品一致地跟随本页主题切换（产品里跟随主窗，经 storage 事件跨窗口同步）。
+          </p>
+          <div class="sr-col">
+            <div>
+              <div class="sr-frame sr-frame--notes">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-summary"><div class="update-notes-headline">发现新版本 v2.6.18</div><div class="update-notes-versions"><span class="update-notes-version">当前 2.6.17</span><span class="update-notes-version update-notes-version--latest">最新 2.6.18</span><span class="update-notes-date">2026-09-27</span></div></div><div class="update-notes-body"><div class="release-notes"><h4 class="release-notes-heading">Changed</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>悬浮窗精简为单行极简胶囊</strong></li><li class="release-notes-item"><strong>设置界面改版</strong><ul class="release-notes-sublist"><li class="release-notes-subitem">子条目</li></ul></li></ul><h4 class="release-notes-heading">Fixes</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>更新与分发渠道指向新仓库名</strong></li></ul></div></div><div class="update-notes-actions"><button type="button" class="update-notes-btn update-notes-btn--primary"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>立即更新并重启</button></div></div>
+              </div>
+              <div class="sr-caption">in_place 档（Windows / AppImage）：底部为“立即更新并重启”</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--notes">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-summary"><div class="update-notes-headline">发现新版本 v2.6.18</div><div class="update-notes-versions"><span class="update-notes-version">当前 2.6.17</span><span class="update-notes-version update-notes-version--latest">最新 2.6.18</span><span class="update-notes-date">2026-09-27</span></div></div><div class="update-notes-body"><div class="release-notes"><h4 class="release-notes-heading">Changed</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>悬浮窗精简为单行极简胶囊</strong></li><li class="release-notes-item"><strong>设置界面改版</strong><ul class="release-notes-sublist"><li class="release-notes-subitem">子条目</li></ul></li></ul><h4 class="release-notes-heading">Fixes</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>更新与分发渠道指向新仓库名</strong></li></ul></div></div><div class="update-notes-actions"><button type="button" class="update-notes-btn update-notes-btn--primary">打开下载页面</button></div></div>
+              </div>
+              <div class="sr-caption">external 档（deb / rpm / AUR）：底部为“打开下载页面”</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--notes">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-body"><p class="update-notes-empty">暂无更新信息</p></div><div class="update-notes-actions"><button type="button" class="update-notes-btn update-notes-btn--primary">打开下载页面</button></div></div>
+              </div>
+              <div class="sr-caption">空态：事件未达或浏览器直开该页时显示“暂无更新信息”</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--notes">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-summary"><div class="update-notes-headline">发现新版本 v2.6.18</div><div class="update-notes-versions"><span class="update-notes-version">当前 2.6.17</span><span class="update-notes-version update-notes-version--latest">最新 2.6.18</span><span class="update-notes-date">2026-09-27</span></div></div><div class="update-notes-body"><div class="release-notes"><h4 class="release-notes-heading">Changed</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>悬浮窗精简为单行极简胶囊</strong></li><li class="release-notes-item"><strong>设置界面改版</strong><ul class="release-notes-sublist"><li class="release-notes-subitem">子条目</li></ul></li></ul><h4 class="release-notes-heading">Fixes</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>更新与分发渠道指向新仓库名</strong></li></ul></div></div><div class="update-notes-actions"><div class="update-notes-error">录音进行中，无法安装更新</div><button type="button" class="update-notes-btn update-notes-btn--primary" disabled=""><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>正在下载并安装更新…</button></div></div>
+              </div>
+              <div class="sr-caption">安装中与失败：按钮禁用并显示进度文案，失败原因在按钮上方行内显示</div>
             </div>
           </div>
         </section>

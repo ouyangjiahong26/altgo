@@ -54,7 +54,7 @@ type: 简短描述
 ## 界面与样式
 
 - 颜色、间距、圆角、动效一律用 `frontend/src/styles/design-tokens.css` 的 CSS 变量，不写死具体数值。
-- `frontend/style-review.html` 是样式审查页：与应用运行无关的单文件静态页，按 `main.tsx` / `overlay.tsx` 的顺序直接加载 `src/styles/*` 与 `src/overlay.css`，逐项列出全部 token 及组件、页面片段，可切换暗亮主题与根字号（15 / 17 / 19px）。
+- `frontend/style-review.html` 是样式审查页：与应用运行无关的单文件静态页，按 `main.tsx` / `overlay.tsx` 的顺序直接加载 `src/styles/*`，另加浮窗与更新说明窗口的 `src/overlay.css`、`src/styles/pages/update-notes.css`（这两份不在 `main.tsx` 的链上），逐项列出全部 token 及组件、页面片段，可切换暗亮主题与根字号（15 / 17 / 19px）。
 - 打开方式：`cd frontend && npm run dev`，浏览器访问 `http://127.0.0.1:1420/style-review.html`（端口被占用时加 `-- --port 1430`）；用任意静态服务器指向 `frontend/` 目录也可。
 - **改动设计 token、基础层样式或组件样式时同步更新该页。** 它不在 `vite.config.ts` 的 `rollupOptions.input` 内，不会被打包进应用产物。
 

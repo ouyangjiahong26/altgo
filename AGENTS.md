@@ -29,7 +29,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 |---|---|
 | `src-tauri/src/` | Rust 核心（crate `altgo-tauri`）：`voice_pipeline/` 业务主循环、`key_listener/`、`key_capture/`、`recorder/`、`output/`、`overlay/`（seam/manager/tauri/activity 分层）、`polisher/`，根文件见 “Important Files” |
 |`frontend/src/`|React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）+ `overlay.tsx` 悬浮窗；`styles/` 分层：design-tokens → design-system → global → layout/components/pages|
-|`frontend/style-review.html`|样式审查页（单文件）：按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*` 与 `src/overlay.css`，逐项列出全部 token 与组件/页面片段，可切暗亮主题与根字号；不在 vite 构建入口内|
+|`frontend/style-review.html`|样式审查页（单文件）：按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*`，另加浮窗与更新说明窗口的 `src/overlay.css`、`src/styles/pages/update-notes.css`（这两份不在 `main.tsx` 的链上），逐项列出全部 token 与组件/页面片段，可切暗亮主题与根字号；不在 vite 构建入口内|
 | `configs/` | 用户 TOML 模板；应用实际读 `~/.config/altgo/altgo.toml` |
 | `resources/prompts/` | 润色 prompt：`base.txt` + `light/medium/heavy-suffix.txt`（`none` 档不润色） |
 | `docs/` | 维护者文档：`architecture.md`、`testing.md`、`adr/`（ADR-0003~0006）、`agents/`（agent 工作约定） |
