@@ -30,8 +30,8 @@ impl PipelineStatus {
 
 /// 管理流水线生命周期。持有运行句柄与共享的状态 Arc。
 ///
-/// 调用方在外部 spawn 流水线线程并经 `start_with` / `start_with_blocking` 注入句柄，
-/// 本模块因此不依赖 Tauri 与 sink。
+/// 调用方在外部 spawn 流水线线程并经 `start_with` / `ensure_started_with_blocking`
+/// 注入句柄，本模块因此不依赖 Tauri 与 sink。
 #[derive(Default)]
 pub struct PipelineController {
     handle: Mutex<Option<PipelineHandle>>,
@@ -63,17 +63,18 @@ impl PipelineController {
         Ok(())
     }
 
-    /// 阻塞版本，供同步初始化场景使用。
-    pub fn start_with_blocking<F: FnOnce() -> PipelineHandle>(
-        &self,
-        spawn: F,
-    ) -> Result<(), String> {
+    /// 阻塞地确保流水线在跑：已有实例时保留它并返回 `false`，本次启动则返回 `true`。
+    ///
+    /// 供同步初始化场景使用。窗口加载可能早于 `setup` 钩子，前端极早的 `save_config`
+    /// 会先起流水线；`setup` 不应把它当作致命错误（返回 Err 会让 Tauri 直接 panic），
+    /// 也不该重复启动。检查与启动在同一次持锁内完成，不留竞态窗口。
+    pub fn ensure_started_with_blocking<F: FnOnce() -> PipelineHandle>(&self, spawn: F) -> bool {
         let mut guard = self.handle.blocking_lock();
         if guard.is_some() {
-            return Err("pipeline already running".into());
+            return false;
         }
         *guard = Some(spawn());
-        Ok(())
+        true
     }
 
     pub async fn stop(&self) {
@@ -219,6 +220,29 @@ mod tests {
                 ctrl_clone.stop_blocking();
             }
         ));
+    }
+
+    #[test]
+    fn ensure_started_keeps_existing_instance() {
+        // 已在跑时 ensure 不应重复启动、也不覆盖既有 handle：第二次的 spawn 闭包一旦被调用
+        // 就 panic 让测试失败。
+        let ctrl = PipelineController::new();
+        let (first, first_stopped) = fake_spawn();
+
+        assert!(
+            ctrl.ensure_started_with_blocking(move || first),
+            "空状态下应启动流水线"
+        );
+        assert!(
+            !ctrl.ensure_started_with_blocking(|| panic!("已在跑时不应再 spawn")),
+            "已在跑时应返回 false"
+        );
+
+        ctrl.stop_blocking();
+        assert!(
+            first_stopped.load(std::sync::atomic::Ordering::SeqCst),
+            "既有实例应被停掉（证明 handle 未被第二次调用覆盖）"
+        );
     }
 
     #[tokio::test]
