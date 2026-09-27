@@ -111,6 +111,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - **Linux 运行时外部工具**：`xinput`、`xmodmap`、`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`。Wayland 会话在 GUI 初始化前自动切 XWayland（`display_backend.rs`），否则浮窗定位不生效。
 - **环境变量**：`ALTGO_POLISHER_API_KEY` 覆盖 `[polisher] api_key`；`ALTGO_MODEL_BASE_URL` 覆盖模型下载镜像。
 - **Issue tracker**：issue/PRD 全部是 GitHub issue，一律用 `gh` CLI（命令约定见 `docs/agents/issue-tracker.md`）。
+- **PR 标题**：只写改动内容，不带决策过程痕迹（如“方案 A/B”、“备选已否决”之类）；决策与取舍写进 PR 正文、commit 正文或 ADR。
 - **Triage 标签**（`docs/agents/triage-labels.md`）：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`。
 - **领域文档**：单上下文布局 = 根 `CONTEXT.md` + `docs/adr/`；与 ADR 矛盾的输出必须显式标注，不得静默覆盖（`docs/agents/domain.md`）。
 - **Loop 工程**：`/loop-go <任务>` 循环 builder 与 checker 直到检查全绿。停止规则：最多 5 轮（每轮声明 "Cycle N/5"）；同一失败连续两次 → 停止报告；修复使原本通过的检查失败 → 停止；到上限 → 停止报告现状。

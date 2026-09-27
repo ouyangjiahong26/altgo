@@ -2,9 +2,8 @@ import { createRoot } from "react-dom/client";
 import { useState, useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { Copy, X, Check } from "lucide-react";
+import { X, Check, TriangleAlert } from "lucide-react";
 import { useTranslation } from "./i18n";
-import { copyToClipboard } from "./utils/clipboard";
 import { applyThemeToDocument, getThemePref, installThemeListeners } from "./theme";
 import "./styles/overlay-base.css";
 import "./styles/motion.css";
@@ -19,14 +18,14 @@ export type Phase = "recording" | "processing" | "done" | "hidden" | null;
 
 export const CROSSFADE_DURATION_MS = 180;
 
-/** 电平轨迹：采样间隔与窗口长度（10 秒 × 10 帧/秒 = 100 帧）。 */
+/** 电平轨迹：采样间隔与窗口长度（53 帧 × 100ms ≈ 5.3 秒，恰好填满 158px 视口）。 */
 export const TRACE_SAMPLE_INTERVAL_MS = 100;
-export const TRACE_MAX_FRAMES = 100;
+export const TRACE_MAX_FRAMES = 53;
 
-/** 把 0.0~1.0 的电平映射为轨迹条高度（px）。 */
+/** 把 0.0~1.0 的电平映射为轨迹条高度（px，视口高 14px：2 + 1.0 × 12）。 */
 export function traceBarHeight(level: number): number {
   const clamped = Math.min(1, Math.max(0, level));
-  return 3 + clamped * 17;
+  return 2 + clamped * 12;
 }
 
 export interface PhaseTransitionResult {
@@ -94,7 +93,6 @@ export function Overlay() {
   // 转写结果文本（done 阶段展示）。
   // Transcription result text (shown in done phase).
   const [result, setResult] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   // 润色失败原因（done 阶段在文本下方提示已回退原文）。
   // Polish failure reason (the done phase hints below the text that raw output was kept).
@@ -108,9 +106,9 @@ export function Overlay() {
   } | null>(null);
 
   // 电平轨迹：录音期间按 TRACE_SAMPLE_INTERVAL_MS 采样的电平历史（最多
-  // TRACE_MAX_FRAMES 帧）。松开后冻结（processing 不采样），结果出现即清空。
+  // TRACE_MAX_FRAMES 帧）。松开后不再采样也不再渲染，结果出现即清空。
   // Level trace: level history sampled at TRACE_SAMPLE_INTERVAL_MS during recording (up to
-    // TRACE_MAX_FRAMES frames). Frozen on release (no sampling while processing); cleared once the
+    // TRACE_MAX_FRAMES frames). Sampling and rendering stop on release; cleared once the
     // result arrives.
   const [levelTrace, setLevelTrace] = useState<number[]>([]);
   const lastSampleAtRef = useRef(0);
@@ -165,7 +163,6 @@ export function Overlay() {
           setTxProgress(null);
           if (newPhase !== "done") {
             setResult(null);
-            setCopied(false);
             setPolishError(null);
           }
           if (newPhase === "recording") {
@@ -201,7 +198,6 @@ export function Overlay() {
       if (newPhase !== "hidden" && newPhase !== "done") {
         setTxProgress(null);
         setResult(null);
-        setCopied(false);
         setPolishError(null);
         if (newPhase === "recording") {
           setLevelTrace([]);
@@ -216,8 +212,8 @@ export function Overlay() {
     const unlistenAudioLevel = listen<number>("audio-level", (event) => {
       if (!active) return;
       const level = event.payload ?? 0;
-      // 仅录音相位采样；processing 冻结轨迹，done/hidden 不采。
-      // Sample only during recording; processing freezes the trace, done/hidden don't sample.
+      // 仅录音相位采样；processing/done/hidden 不采。
+      // Sample only during recording; processing/done/hidden don't sample.
       if (prevPhaseRef.current !== "recording") return;
       const now = Date.now();
       if (now - lastSampleAtRef.current < TRACE_SAMPLE_INTERVAL_MS) return;
@@ -233,7 +229,6 @@ export function Overlay() {
     const unlistenResult = listen<string>("transcription-result", (event) => {
       if (!active) return;
       setResult(event.payload);
-      setCopied(false);
     });
 
     const unlistenPolishFailed = listen<string>("polish-failed", (event) => {
@@ -275,16 +270,6 @@ export function Overlay() {
 
   if (phase === null && !isExiting) return null;
 
-  const handleCopy = async () => {
-    if (result) {
-      const ok = await copyToClipboard(result);
-      if (ok) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    }
-  };
-
   const handleClose = async () => {
     try {
       await invoke("hide_overlay");
@@ -307,46 +292,28 @@ export function Overlay() {
   if (phase === "done" && result) {
     return (
       <div className={containerClass} onTransitionEnd={handleTransitionEnd}>
-        <div className="island-result">
-          <div className="done-indicator">
-            <Check size={14} className="done-icon" strokeWidth={2.5} />
+        <div className="island">
+          <div className={`done-indicator ${polishError ? "done-indicator--failed" : ""}`}>
+            <Check size={11} strokeWidth={2.5} aria-hidden />
           </div>
-          <div className="result-content">
-            <span className="result-text">{result}</span>
-            {polishError && (
-              <span className="result-polish-error" title={polishError}>
-                {t("overlay.polish_failed")}
-              </span>
-            )}
-          </div>
-          <div className="result-actions">
-            <button
-              type="button"
-              className={`btn-copy ${copied ? "copied" : ""}`}
-              onClick={handleCopy}
-              aria-label={copied ? t("overlay.copied") : t("overlay.copy")}
+          <span className="result-text">{result}</span>
+          {polishError && (
+            <span
+              className="result-warn"
+              title={`${t("overlay.polish_failed")}：${polishError}`}
             >
-              {copied ? (
-                <>
-                  <Check size={14} strokeWidth={2.5} />
-                  <span>{t("overlay.copied")}</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={14} strokeWidth={2} />
-                  <span>{t("overlay.copy")}</span>
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              className="btn-close"
-              onClick={handleClose}
-              aria-label={t("overlay.close")}
-            >
-              <X size={14} strokeWidth={2.5} aria-hidden />
-            </button>
-          </div>
+              <TriangleAlert size={12} strokeWidth={2} aria-hidden />
+            </span>
+          )}
+          <button
+            type="button"
+            className="btn-close"
+            onClick={handleClose}
+            title={t("overlay.close")}
+            aria-label={t("overlay.close")}
+          >
+            <X size={14} strokeWidth={2.5} aria-hidden />
+          </button>
         </div>
       </div>
     );
@@ -355,35 +322,23 @@ export function Overlay() {
   return (
     <div className={containerClass} onTransitionEnd={handleTransitionEnd}>
       <div className="island">
-        {(effectivePhase === "recording" || effectivePhase === "processing") && (
-          <div
-            className={`level-trace ${effectivePhase === "processing" ? "level-trace--frozen" : ""}`}
-            aria-hidden
-          >
-            {levelTrace.map((level, i) => (
-              <div
-                key={i}
-                className="trace-bar"
-                style={{ height: `${traceBarHeight(level).toFixed(1)}px` }}
-              />
-            ))}
-          </div>
-        )}
         {effectivePhase === "recording" && (
-          <span className="label">{t("overlay.recording")}</span>
+          <>
+            <span className="dot" aria-hidden />
+            <div className="level-trace" aria-hidden>
+              {levelTrace.map((level, i) => (
+                <div
+                  key={i}
+                  className="trace-bar"
+                  style={{ height: `${traceBarHeight(level).toFixed(1)}px` }}
+                />
+              ))}
+            </div>
+          </>
         )}
         {effectivePhase === "processing" && (
-          <div className="island-processing-inner">
-            <div className="island-processing-row">
-              <div className="processing-indicator">
-                <div className="processing-ring" />
-              </div>
-              <span className="label">
-                {txProgress?.phase === "polish"
-                  ? t("overlay.polishing")
-                  : t("overlay.transcribing")}
-              </span>
-            </div>
+          <>
+            <div className="processing-ring" />
             <div className="overlay-tx-progress-track">
               <div
                 className={`overlay-tx-progress-fill ${
@@ -401,7 +356,7 @@ export function Overlay() {
                 }
               />
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

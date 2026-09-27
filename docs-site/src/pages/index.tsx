@@ -67,7 +67,7 @@ export default function Home(): JSX.Element {
       title: translate({id: 'home.feature.clipboard.title', message: '剪贴板 + 悬浮窗'}),
       description: translate({
         id: 'home.feature.clipboard.description',
-        message: '转写成功后写入剪贴板并弹出悬浮窗；可核对文本或再次复制。',
+        message: '转写成功后写入剪贴板并弹出悬浮窗；全文可在主窗历史中查看、复制。',
       }),
     },
   ];
@@ -220,7 +220,7 @@ export default function Home(): JSX.Element {
                 <h3><Translate id="home.steps.paste.title">粘贴使用</Translate></h3>
                 <p>
                   <Translate id="home.steps.paste.description">
-                    转写结果自动写入剪贴板，悬浮窗同步展示，随时可再次复制。
+                    转写结果自动写入剪贴板，悬浮窗单行展示确认，直接粘贴使用。
                   </Translate>
                 </p>
               </div>

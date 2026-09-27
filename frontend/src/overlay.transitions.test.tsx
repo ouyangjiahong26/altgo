@@ -22,7 +22,6 @@ vi.mock("./theme", () => ({
   getThemePref: vi.fn(),
   installThemeListeners: vi.fn(() => () => {}),
 }));
-vi.mock("./utils/clipboard", () => ({ copyToClipboard: vi.fn() }));
 
 import { Overlay } from "./overlay";
 
@@ -38,6 +37,10 @@ function emitAudioLevel(level: number) {
   act(() => handlers.get("audio-level")!({ payload: level }));
 }
 
+function emitPolishFailed(reason: string) {
+  act(() => handlers.get("polish-failed")!({ payload: reason }));
+}
+
 describe("Overlay 相位转换", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -50,7 +53,7 @@ describe("Overlay 相位转换", () => {
   it("done 先于 transcription-result 到达时，不应渲染空 island", () => {
     const { container } = render(<Overlay />);
     emitPhase("processing");
-    expect(container.textContent).toContain("overlay.transcribing");
+    expect(container.querySelector(".processing-ring")).not.toBeNull();
 
     // 生产端契约是 result 先于 done；即使乱序到达，前端也应继续显示
     // processing 视图，而不是渲染没有任何内容的空 pill（闪烁）。
@@ -59,12 +62,15 @@ describe("Overlay 相位转换", () => {
       vi.advanceTimersByTime(250);
     });
 
-    expect(container.textContent).toContain("overlay.transcribing");
+    expect(container.querySelector(".processing-ring")).not.toBeNull();
+    expect(container.querySelector(".result-text")).toBeNull();
   });
 
   it("相位间 crossfade 只做淡出，不带退出位移", () => {
     const { container } = render(<Overlay />);
     emitPhase("recording");
+    expect(container.querySelector(".dot")).not.toBeNull();
+    expect(container.querySelector(".level-trace")).not.toBeNull();
     emitPhase("processing");
 
     // crossfade 期间：用 island-crossfade（只淡出），不用 island-exit（带位移）。
@@ -78,7 +84,8 @@ describe("Overlay 相位转换", () => {
     expect(container.querySelector(".island-container")!.className).toContain(
       "island-enter"
     );
-    expect(container.textContent).toContain("overlay.transcribing");
+    expect(container.querySelector(".processing-ring")).not.toBeNull();
+    expect(container.querySelector(".overlay-tx-progress-track")).not.toBeNull();
   });
 
   it("退出动画期间，子元素冒泡的 transitionend 不应提前清除内容", () => {
@@ -100,7 +107,7 @@ describe("Overlay 相位转换", () => {
     expect(container.querySelector(".island")).toBeNull();
   });
 
-  it("recording 状态下电平轨迹随 audio-level 累积，processing 冻结", () => {
+  it("recording 相位电平轨迹随 audio-level 节流累积，切到 processing 后随 crossfade 移除", () => {
     const { container } = render(<Overlay />);
     emitPhase("recording");
     // 保证“距上次采样”超过采样间隔（fake timers 的起点可能是 0）。
@@ -112,13 +119,13 @@ describe("Overlay 相位转换", () => {
     emitAudioLevel(0.8);
     let bars = container.querySelectorAll(".trace-bar");
     expect(bars.length).toBe(1);
-    expect((bars[0] as HTMLElement).style.height).toBe("16.6px");
+    expect((bars[0] as HTMLElement).style.height).toBe("11.6px");
 
     // 采样间隔内的后续事件被节流丢弃。
     emitAudioLevel(0.5);
     bars = container.querySelectorAll(".trace-bar");
     expect(bars.length).toBe(1);
-    expect((bars[0] as HTMLElement).style.height).toBe("16.6px");
+    expect((bars[0] as HTMLElement).style.height).toBe("11.6px");
 
     // 超过采样间隔后追加新帧。
     act(() => {
@@ -127,23 +134,22 @@ describe("Overlay 相位转换", () => {
     emitAudioLevel(0.2);
     bars = container.querySelectorAll(".trace-bar");
     expect(bars.length).toBe(2);
-    expect((bars[1] as HTMLElement).style.height).toBe("6.4px");
+    expect((bars[1] as HTMLElement).style.height).toBe("4.4px");
 
-    // 切到 processing：轨迹冻结保留（不再采样新帧），并标记 frozen。
+    // 切到 processing：轨迹随 crossfade 移除，换成 spinner + 进度线（无冻结轨迹）。
     act(() => {
       vi.advanceTimersByTime(120);
     });
     emitPhase("processing");
-    emitAudioLevel(0.9);
     act(() => {
       vi.advanceTimersByTime(250);
     });
-    const trace = container.querySelector(".level-trace")!;
-    expect(trace.className).toContain("level-trace--frozen");
-    expect(trace.querySelectorAll(".trace-bar").length).toBe(2);
+    expect(container.querySelector(".level-trace")).toBeNull();
+    expect(container.querySelector(".processing-ring")).not.toBeNull();
+    expect(container.querySelector(".overlay-tx-progress-track")).not.toBeNull();
   });
 
-  it("result 先于 done 到达时正常显示结果", () => {
+  it("result 先于 done 到达时显示单行结果，无复制按钮，关闭按钮在位", () => {
     const { container } = render(<Overlay />);
     emitPhase("processing");
     emitResult("你好，世界");
@@ -152,6 +158,30 @@ describe("Overlay 相位转换", () => {
       vi.advanceTimersByTime(250);
     });
 
-    expect(container.textContent).toContain("你好，世界");
+    expect(container.querySelector(".result-text")!.textContent).toBe("你好，世界");
+    // 复制职能已删——结果自动写入剪贴板。
+    expect(container.querySelector(".btn-copy")).toBeNull();
+    // 关闭按钮常驻 DOM，hover 显隐由 CSS 控制；此处断言元素与语义在位。
+    const close = container.querySelector(".btn-close") as HTMLElement;
+    expect(close).not.toBeNull();
+    expect(close.title).toBe("overlay.close");
+    expect(close.getAttribute("aria-label")).toBe("overlay.close");
+  });
+
+  it("polish-failed 事件后 ✓ 圆盘转失败态并出现 ⚠（title 含错误信息）", () => {
+    const { container } = render(<Overlay />);
+    emitPhase("processing");
+    emitResult("你好，世界");
+    emitPolishFailed("连接超时");
+    emitPhase("done");
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(container.querySelector(".done-indicator--failed")).not.toBeNull();
+    const warn = container.querySelector(".result-warn") as HTMLElement;
+    expect(warn).not.toBeNull();
+    expect(warn.title).toContain("overlay.polish_failed");
+    expect(warn.title).toContain("连接超时");
   });
 });

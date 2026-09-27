@@ -149,7 +149,7 @@ system_prompt = "只修正标点和错别字，不要改变原文的意思和语
 
 1. 安装 `xclip`、`xsel` 或 `wl-copy` 之一，并确保在图形会话内运行 altgo。
 2. 若其他程序锁定了剪贴板，稍后重试即可。
-3. 在**悬浮窗**或**历史**页使用复制按钮（WebView 手势复制有时比后端剪贴板更稳）。
+3. 在**历史**页使用复制按钮（WebView 手势复制有时比后端剪贴板更稳）；悬浮窗只作展示，结果已自动写入剪贴板。
 4. 调试：`RUST_LOG=altgo=debug altgo` 查看是否有 clipboard 相关错误。
 
 ## Clipboard and Overlay Window

@@ -1,7 +1,5 @@
 # altgo
 
-**English** | [简体中文](README.zh-CN.md)
-
 ![altgo](assets/banner.png)
 
 [![CI](https://github.com/cislunarspace/altgo/actions/workflows/ci.yml/badge.svg)](https://github.com/cislunarspace/altgo/actions/workflows/ci.yml)
@@ -9,105 +7,112 @@
 [![Release](https://img.shields.io/github/v/release/cislunarspace/altgo)](https://github.com/cislunarspace/altgo/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**altgo** is a desktop voice-to-text tool. Hold the trigger key, speak, and release — recording, transcription, and optional polishing run automatically. The result is written to the system clipboard and shown in an overlay window.
+**altgo** 是桌面语音转文字工具。按住触发键说话，松开即自动完成录音、转写与可选润色，结果写入系统剪贴板，并在屏幕底部的悬浮窗中单行展示。
 
-It supports **Linux** (Ubuntu 22.04+) on **x86_64** and **aarch64**, as well as **Windows 10+** (x86_64 and arm64). macOS is not supported yet.
+![悬浮窗三相位动画演示](assets/overlay-demo.svg)
 
-- [Online documentation](https://cislunarspace.github.io/altgo/)
-- [Download from Releases](https://github.com/cislunarspace/altgo/releases)
-- [Report an issue](https://github.com/cislunarspace/altgo/issues)
+支持 **Linux**（Ubuntu 22.04+，x86_64 / aarch64）与 **Windows 10+**（x86_64 / arm64），暂不支持 macOS。
 
-## Features
+- [在线文档](https://cislunarspace.github.io/altgo/)
+- [Releases 下载](https://github.com/cislunarspace/altgo/releases)
+- [问题反馈](https://github.com/cislunarspace/altgo/issues)
 
-- Hold the right Alt key to record; transcription runs automatically when you release
-- Double-click the right Alt key for continuous recording; click once more to stop
-- Local SenseVoice transcription (embedded sherpa-onnx): the model loads once for fast response, and models can be downloaded and managed on the Settings page
-- Text polishing through LLMs, supporting both OpenAI-compatible APIs and the Anthropic Messages API
-- Results are written to the clipboard and shown in the overlay window, where they can be copied again
-- Automatic update checks: silently checked at startup with a prompt, plus manual checks on the Settings page (in-place updates or guidance to the download page, depending on the install method)
-- Tray icon to show the main window or quit the app
-- Local transcription history: view, copy, delete, clear, and re-polish entries
-- Only text is saved; audio is never stored
+## 功能
 
-## Installation
+- 按住右 Alt 说话，松开自动转写
+- 双击右 Alt 进入连续录音，再单击一次停止
+- 本地 SenseVoice 转写（内嵌 sherpa-onnx）：模型常驻加载、响应快，可在设置页下载与管理模型
+- LLM 润色，支持 OpenAI 兼容 API 与 Anthropic Messages API
+- 转写结果自动写入剪贴板，并在屏幕底部悬浮窗以单行胶囊扫一眼确认；全文可在主窗历史中查看、复制
+- 自动检查更新：启动时静默检查并在有新版时提示，设置页可手动检查（按安装方式就地更新或跳转下载页）
+- 托盘图标：显示主窗口或退出应用
+- 本地转写历史：查看、复制、删除、清空、重新润色
+- 只保存文本，从不保存音频
+
+## 安装
 
 ### Linux
 
-Add your current user to the `input` group before installing, otherwise the keyboard device cannot be read. Log out and log back in afterwards:
+安装前把当前用户加入 `input` 组，否则无法读取键盘设备；随后注销重新登录：
 
 ```bash
 sudo usermod -aG input "$USER"
 ```
 
-Then:
+然后：
 
-1. Download the matching package from [Releases](https://github.com/cislunarspace/altgo/releases): `.deb`, `.rpm`, or `.AppImage`.
-2. Install the downloaded package, for example:
+1. 从 [Releases](https://github.com/cislunarspace/altgo/releases) 下载对应架构的 `.deb`、`.rpm` 或 `.AppImage`。
+2. 安装下载的包，例如：
 
    ```bash
    sudo apt install ./altgo_*.deb
-   # or
+   # 或
    sudo dnf install ./altgo-*.rpm
    ```
 
-   The `.AppImage` needs no installation — grant execute permission and run it directly:
+   `.AppImage` 免安装，加执行权限直接运行：
 
    ```bash
    chmod +x altgo_*.AppImage && ./altgo_*.AppImage
    ```
 
-   Unlike `.deb`/`.rpm`, the AppImage does not resolve dependencies automatically. If a library is missing, install it yourself following the dependency notes in the next paragraph.
+   与 `.deb`/`.rpm` 不同，AppImage 不自动解析依赖；缺库时参照下方依赖说明自行安装。
 
-3. After logging back in, start altgo and complete transcription setup on the Settings page.
+3. 重新登录后启动 altgo，在设置页完成转写配置。
 
-The `.deb` and `.rpm` packages declare dependencies covering desktop integration, audio, clipboard, and `evtest`. On Wayland, make sure `evtest` is installed and your user can read `/dev/input/event*`.
+<details>
+<summary>依赖说明</summary>
+
+`.deb` 与 `.rpm` 已声明覆盖桌面集成、音频、剪贴板与 `evtest` 的依赖。Wayland 会话需确保已安装 `evtest`，且当前用户可读 `/dev/input/event*`。
+
+</details>
 
 ### Windows
 
-Download an installer from [Releases](https://github.com/cislunarspace/altgo/releases):
+从 [Releases](https://github.com/cislunarspace/altgo/releases) 下载安装包：
 
-- `*-setup.exe` (NSIS installer): double-click to install; suitable for most users.
-- `*.msi`: for enterprise environments that require MSI deployment.
+- `*-setup.exe`（NSIS 安装器）：双击安装，适合多数用户。
+- `*.msi`：面向需要 MSI 部署的企业环境。
 
-Pick the package matching your device architecture for x64 and arm64. After installation, start altgo from the Start menu and complete transcription setup on the Settings page.
+x64 与 arm64 按设备架构选择对应包。安装后从开始菜单启动 altgo，在设置页完成转写配置。
 
-## Quick Start
+## 快速开始
 
-After launching the app, complete the following on the **Settings** page:
+启动应用后，在 **设置** 页完成：
 
-1. Download and select a local SenseVoice model.
-2. Set the polish level and the polishing provider as needed.
-3. Confirm the trigger key — the right Alt key by default.
-4. Click Save.
+1. 下载并选择本地 SenseVoice 模型。
+2. 按需设置润色档位与润色服务。
+3. 确认触发键（默认右 Alt）。
+4. 点击保存。
 
-Long-press mode is the default:
-
-```text
-Press right Alt → start recording → release right Alt → transcribe → polish (optional) → clipboard + overlay
-```
-
-For longer speech, double-click the right Alt key to enter continuous recording, then click once to stop:
+长按模式（默认）：
 
 ```text
-Double-click right Alt → continuous recording → single click right Alt → transcribe → polish (optional) → clipboard + overlay
+按下右 Alt → 开始录音 → 松开右 Alt → 转写 → 润色（可选）→ 剪贴板 + 悬浮窗
 ```
 
-Transcription history is saved by default at:
+较长内容可双击右 Alt 进入连续录音，单击一次停止：
+
+```text
+双击右 Alt → 连续录音 → 单击右 Alt → 转写 → 润色（可选）→ 剪贴板 + 悬浮窗
+```
+
+转写历史默认保存在：
 
 ```text
 ~/.config/altgo/history.json
 ```
 
-## Documentation
+## 文档
 
-- [Online documentation](https://cislunarspace.github.io/altgo/): quick start, usage, and architecture
-- [Configuration guide](https://cislunarspace.github.io/altgo/docs/configuration): config file fields, environment variables, and log levels
-- [FAQ](https://cislunarspace.github.io/altgo/docs/faq): troubleshooting for keys, recording, transcription, polishing, and the clipboard
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): development environment, build, tests, CI, releases, and documentation site deployment
-- [`docs/architecture.md`](docs/architecture.md) and [`AGENTS.md`](AGENTS.md): system architecture and core module reference
-- [`docs/README.md`](docs/README.md): index of design and planning documents
-- [`CHANGELOG.md`](CHANGELOG.md): version history
+- [在线文档](https://cislunarspace.github.io/altgo/)：快速上手、使用与架构
+- [配置指南](https://cislunarspace.github.io/altgo/docs/configuration)：配置文件字段、环境变量与日志级别
+- [FAQ](https://cislunarspace.github.io/altgo/docs/faq)：按键、录音、转写、润色与剪贴板问题排查
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)：开发环境、构建、测试、CI 与发版
+- [`docs/architecture.md`](docs/architecture.md) 与 [`AGENTS.md`](AGENTS.md)：系统架构与核心模块
+- [`docs/README.md`](docs/README.md)：设计与规划文档索引
+- [`CHANGELOG.md`](CHANGELOG.md)：版本历史
 
-## License
+## 许可证
 
 [MIT License](LICENSE)

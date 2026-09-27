@@ -8,7 +8,9 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 80px;
+  /* 窗口 280×64：胶囊 40px + 底部 12px + 顶部 12px 余量。 */
+  /* Window 280×64: 40px pill + 12px bottom gap + 12px top margin. */
+  padding-bottom: 12px;
   /* Animate transform only on the transparent top-level container. Fading the
      whole transparent window caused black-halo compositing on some Linux WMs;
      opacity now lives on the inner solid island instead. */
@@ -30,40 +32,39 @@
   pointer-events: none;
 }
 
-.island-enter .island,
-.island-enter .island-result {
+.island-enter .island {
   opacity: 1;
   /* 新挂载的内容淡入；持续存在的元素重放此动画与 opacity transition 同向，无冲突。 */
   animation: fade-in var(--duration-normal) var(--ease-out);
 }
 
 .island-exit .island,
-.island-exit .island-result,
-.island-crossfade .island,
-.island-crossfade .island-result {
+.island-crossfade .island {
   opacity: 0;
 }
 
 /* ============================================
-   Island (recording / processing)
+   Island — 三个相位共用的单一胶囊
    ============================================ */
 
-/* 三个相位（录音 / 处理 / 完成）共用同一可见卡片几何：宽度、高度、圆角
-   完全一致，相位切换只剩内容 crossfade，避免尺寸变化牵扯注意力。
-   高度 92px 由完成相位定：3 行结果文本（13px × 1.6 × 3 ≈ 62px）+ 内边距。 */
+/* 全相位同一胶囊几何（248×40、全圆角），相位切换只剩内容 crossfade。
+   40px = 单行文本 + 呼吸空间；248px = 窗口 280px 两侧各留 16px。 */
+/* One pill geometry shared by all phases (248×40, fully rounded); phase switches
+   are pure content crossfades. 40px = one text line plus breathing room;
+   248px = window 280px minus 16px on each side. */
 
 .island {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 400px;
-  height: 92px;
-  padding: 12px 20px;
+  gap: 10px;
+  width: 248px;
+  height: 40px;
+  padding: 0 14px;
   /* Replaced backdrop-filter with solid translucent background for GPU composite performance */
   background: var(--overlay-surface-solid);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-full);
   border: 1px solid var(--overlay-border);
   color: var(--overlay-text);
   font-size: var(--text-sm);
@@ -78,42 +79,64 @@
   will-change: opacity;
 }
 
-.island-result {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 400px;
-  height: 92px;
-  padding: 14px 18px;
-  background: var(--overlay-surface-solid);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--overlay-border);
-  box-shadow: var(--overlay-shadow);
-  color: var(--overlay-text);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  letter-spacing: 0.2px;
+/* ============================================
+   Recording Dot — 录音红点脉冲
+   ============================================ */
+
+/* 8px 实心红点 + 向外扩散的环（只动 transform/opacity，合成层友好）。 */
+/* 8px solid red dot with an expanding ring (transform/opacity only —
+   compositor-friendly). */
+.dot {
   position: relative;
-  isolation: isolate;
-  contain: paint;
-  transition: opacity var(--duration-normal) var(--ease-out);
-  will-change: opacity;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-red);
+  flex: none;
+}
+
+.dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-red);
+  opacity: 0;
+  animation: overlay-dot-pulse-ring 1.6s ease-out infinite;
+}
+
+@keyframes overlay-dot-pulse-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* ============================================
-   Level Trace — 滚动电平轨迹（录音）与冻结轨迹（处理）
+   Level Trace — 录音相位的滚动电平轨迹
    ============================================ */
 
-/* 最新一帧在右侧；视口宽度固定（100 帧 × 3px = 300px），从零帧起布局
-   即稳定，旧帧随新帧进入从左侧裁出，卡片宽度不再随录音时长增长。 */
+/* 最新一帧在右侧；视口宽度固定（53 条 ×2px + 52px 间隙 = 158px），从零帧起
+   布局即稳定，旧帧随新帧进入从左侧裁出，胶囊内容不随录音时长增长。 */
+/* Newest frame on the right; fixed viewport width (53 bars ×2px + 52px of gaps
+   = 158px) keeps layout stable from frame zero—old bars are clipped out on the
+   left as new ones enter, so pill content never grows with recording length. */
 .level-trace {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 1px;
-  height: 22px;
-  width: 300px;
+  height: 14px;
+  width: 158px;
   overflow: hidden;
+  flex: none;
 }
 
 .trace-bar {
@@ -124,56 +147,9 @@
   background: var(--color-red);
 }
 
-/* 处理阶段：轨迹冻结（不再有新帧），换成琥珀色与转圈/进度条一致，
-   表明“这段声音正在被处理”而非“还在录音”。 */
-.level-trace--frozen .trace-bar {
-  background: var(--color-amber);
-}
-
-.recording-indicator {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  will-change: transform;
-}
-
-.recording-core {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--color-red);
-  animation: overlay-pulse-recording 0.8s var(--ease-in-out) infinite;
-  will-change: transform, box-shadow;
-}
-
-.recording-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid var(--color-red);
-  transform: translate(-50%, -50%);
-  animation: overlay-pulse-ring 0.8s var(--ease-out) infinite;
-  will-change: transform, opacity;
-}
-
 /* ============================================
    Processing Indicator
    ============================================ */
-
-.processing-indicator {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
 .processing-ring {
   width: 14px;
@@ -183,29 +159,18 @@
   border-radius: 50%;
   animation: overlay-spin 0.9s linear infinite;
   will-change: transform;
+  flex: none;
 }
 
 /* Transcription progress — uses scaleX (composite layer only) */
-.island-processing-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  /* 与上方冻结轨迹同宽，构成对齐的竖列。 */
-  width: 300px;
-}
-
-.island-processing-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .overlay-tx-progress-track {
-  height: 5px;
+  width: 158px;
+  height: 3px;
   border-radius: var(--radius-full);
   background: var(--overlay-processing-track);
   overflow: hidden;
   position: relative;
+  flex: none;
 }
 
 .overlay-tx-progress-fill {
@@ -280,144 +245,90 @@
    ============================================ */
 
 .done-indicator {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--color-green-bg);
+  color: var(--color-green);
   border-radius: 50%;
-  flex-shrink: 0;
-  animation: overlay-fade-slide 0.3s var(--ease-out);
+  flex: none;
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--color-green) 20%, transparent),
     0 0 6px var(--color-green-glow);
 }
 
-.done-icon {
-  color: var(--color-green);
-}
-
-/* ============================================
-   Labels
-   ============================================ */
-
-.label {
-  white-space: nowrap;
-  user-select: none;
-  color: var(--overlay-text);
+/* 润色失败：✓ 圆盘转琥珀，与文本后的 ⚠ 一起提示已回退原文（悬停 ⚠ 看原因）。 */
+/* Polish failed: the ✓ disc turns amber and, together with the ⚠ after the
+   text, hints that raw output was kept (hover the ⚠ for the reason). */
+.done-indicator--failed {
+  background: var(--color-amber-bg);
+  color: var(--color-amber);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-amber) 20%, transparent),
+    0 0 6px var(--color-amber-glow);
 }
 
 /* ============================================
    Result Display
    ============================================ */
 
-.result-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
+/* 单行省略：悬浮窗只承担“扫一眼确认”，全文在剪贴板与主窗历史。 */
+/* Single line with ellipsis: the overlay is only a glance-confirmation; the
+   full text lives in the clipboard and the main-window history. */
+.result-text {
   flex: 1;
   min-width: 0;
-}
-
-.result-text {
   color: var(--overlay-result-text);
   font-size: var(--text-sm);
-  line-height: 1.6;
+  line-height: 1.4;
   font-weight: 400;
   letter-spacing: 0.01em;
+  white-space: nowrap;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  word-break: break-word;
-  animation: overlay-fade-slide 0.35s var(--ease-out) 0.1s both;
+  text-overflow: ellipsis;
 }
 
-.result-polish-error {
-  flex-shrink: 0;
-  align-self: center;
-  font-size: var(--text-xs);
-  color: var(--color-red, #e5484d);
-  opacity: 0.9;
+.result-warn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  color: var(--color-amber);
   cursor: help;
-  white-space: nowrap;
 }
 
 /* ============================================
-   Action Buttons
+   Close Button — 悬停胶囊时淡入
    ============================================ */
 
-.result-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-  animation: overlay-fade-slide 0.35s var(--ease-out) 0.18s both;
-}
-
-.btn-copy,
+/* 默认透明但保留占位（淡入时不引起文本重排）。悬浮窗 focusable=false，
+   无键盘焦点路径，透明态可点击无碍。 */
+/* Invisible by default but keeps its slot (no text reflow on fade-in). The
+   overlay window is focusable=false—no keyboard path—so the transparent
+   click target is harmless. */
 .btn-close {
+  width: 16px;
+  height: 16px;
+  padding: 0;
   border: none;
+  background: transparent;
+  color: var(--overlay-muted);
   cursor: pointer;
-  font-family: inherit;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  flex: none;
+  opacity: 0;
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-.btn-copy {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  padding: 6px 12px;
-  gap: 5px;
-  background: var(--color-green-bg);
-  color: var(--color-green);
-  border: 1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.btn-copy:hover {
-  background: color-mix(in srgb, var(--color-green) 18%, transparent);
-  border-color: color-mix(in srgb, var(--color-green) 50%, transparent);
-  box-shadow: 0 0 8px var(--color-green-glow);
-  transform: translateY(-1px);
-}
-
-.btn-copy:active {
-  transform: scale(0.96) translateY(0);
-}
-
-.btn-copy.copied {
-  background: color-mix(in srgb, var(--color-green) 15%, transparent);
-  color: var(--overlay-copied-fg);
-  border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
-  box-shadow: 0 0 6px var(--color-green-glow);
-}
-
-.btn-close {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--overlay-btn-close-bg);
-  color: var(--overlay-muted);
-  border: 1px solid var(--overlay-border);
-  padding: 0;
+.island:hover .btn-close {
+  opacity: 1;
 }
 
 .btn-close:hover {
-  background: var(--overlay-btn-close-hover);
   color: var(--overlay-text);
-  transform: rotate(90deg);
-}
-
-.btn-close:active {
-  transform: scale(0.92);
 }

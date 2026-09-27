@@ -33,17 +33,18 @@ pub use crate::overlay::seam::{OverlayPhase, OverlayPosition, OverlayState};
 
 /// 悬浮窗的固定逻辑尺寸（CSS pixels）。
 ///
-/// 所有相位共用同一窗口尺寸（取最大相位 done 的内容高度，加上底部锚定间距）。
+/// 所有相位共用同一窗口尺寸（280px 窗口容纳单行 40px 胶囊，底部 12px + 顶部 12px 余量）。
 /// 相位切换只改前端内容，不再触碰窗口几何——透明窗口 resize 时新暴露的区域
 /// 在部分 Linux WM 上会合成出黑边，且窗口变形与前端 crossfade 错位会造成跳变。
 ///
 /// Fixed logical size of the overlay window (CSS pixels).
 ///
-/// All phases share one window size (the tallest phase, done, plus the bottom-anchored gap).
+/// All phases share one window size (a 280px window fits the 40px single-line pill, 12px bottom
+/// gap and 12px top margin).
 /// Phase switches only change frontend content and never touch window geometry—resizing a
 /// transparent window makes newly exposed regions render black edges on some Linux WMs, and
 /// window reshaping fighting the frontend crossfade causes visible jumps.
-const OVERLAY_SIZE: (f64, f64) = (520.0, 180.0);
+const OVERLAY_SIZE: (f64, f64) = (280.0, 64.0);
 
 /// 距屏幕边缘的偏移（CSS pixels），底部居中与顶部居中共用。
 /// Offset from the screen edge (CSS pixels), shared by bottom-center and top-center.
@@ -481,10 +482,10 @@ mod tests {
         assert_eq!(
             window.calls(),
             vec![
-                "size:520x180",
+                "size:280x64",
                 "primary_monitor_geometry",
                 "scale_factor",
-                "position:700,820",
+                "position:820,936",
                 "emit:recording",
                 "prepare_for_show",
                 "show",
@@ -534,7 +535,7 @@ mod tests {
         assert_eq!(
             window.calls(),
             vec![
-                "size:520x180",
+                "size:280x64",
                 "primary_monitor_geometry",
                 "emit:recording",
                 "prepare_for_show",
@@ -601,7 +602,7 @@ mod tests {
 
         manager.set_state(OverlayState::recording());
 
-        assert!(window.calls().contains(&"size:520x180".to_string()));
+        assert!(window.calls().contains(&"size:280x64".to_string()));
         assert!(window.calls().contains(&"show".to_string()));
     }
 
@@ -637,24 +638,24 @@ mod tests {
 
         manager.set_state(OverlayState::recording());
 
-        assert!(window.calls().contains(&"position:700,820".to_string()));
+        assert!(window.calls().contains(&"position:820,936".to_string()));
         assert!(window.calls().contains(&"show".to_string()));
     }
 
     #[test]
     fn test_position_overlay_top_center() {
         let window = RecordingOverlayWindow::new((0, 0, 1920, 1080), 1.0);
-        let position = position_overlay(&window, 520.0, 180.0, OverlayPosition::TopCenter).unwrap();
+        let position = position_overlay(&window, 280.0, 64.0, OverlayPosition::TopCenter).unwrap();
 
         // 顶部居中：x 与底部居中相同，y 为屏幕上沿加同样的偏移。
         // Top center: same x as bottom center; y is the screen top edge plus the same offset.
-        assert_eq!(position, PhysicalPosition::new(700, 80));
+        assert_eq!(position, PhysicalPosition::new(820, 80));
     }
 
     #[test]
     fn test_scale_factor_failure_returns_err() {
         let window = RecordingOverlayWindow::with_scale_error();
-        let result = position_overlay(&window, 520.0, 180.0, OverlayPosition::BottomCenter);
+        let result = position_overlay(&window, 280.0, 64.0, OverlayPosition::BottomCenter);
 
         assert!(result.is_err());
     }
@@ -662,9 +663,9 @@ mod tests {
     #[test]
     fn test_negative_x_coordinate_clamped() {
         // Monitor narrower than the overlay width (scale 1.0).
-        let window = RecordingOverlayWindow::new((0, 0, 500, 1080), 1.0);
+        let window = RecordingOverlayWindow::new((0, 0, 260, 1080), 1.0);
         let position =
-            position_overlay(&window, 520.0, 180.0, OverlayPosition::BottomCenter).unwrap();
+            position_overlay(&window, 280.0, 64.0, OverlayPosition::BottomCenter).unwrap();
 
         // x is negative because physical_width > monitor_width; integer division yields -10.
         assert_eq!(position.x, -10);
@@ -693,13 +694,13 @@ mod tests {
     fn test_position_overlay_non_integer_rounds() {
         let window = RecordingOverlayWindow::new((0, 0, 1920, 1080), 1.5);
         let position =
-            position_overlay(&window, 520.0, 180.0, OverlayPosition::BottomCenter).unwrap();
+            position_overlay(&window, 280.0, 64.0, OverlayPosition::BottomCenter).unwrap();
 
-        let physical_width = (520.0f64 * 1.5).round() as i32; // 780
-        let physical_height = (180.0f64 * 1.5).round() as i32; // 270
+        let physical_width = (280.0f64 * 1.5).round() as i32; // 420
+        let physical_height = (64.0f64 * 1.5).round() as i32; // 96
         let offset = (80.0f64 * 1.5).round() as i32; // 120
-        let expected_x = (1920 - physical_width) / 2; // 570
-        let expected_y = 1080 - physical_height - offset; // 690
+        let expected_x = (1920 - physical_width) / 2; // 750
+        let expected_y = 1080 - physical_height - offset; // 864
         assert_eq!(position, PhysicalPosition::new(expected_x, expected_y));
     }
 
