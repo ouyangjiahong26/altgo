@@ -1,4 +1,4 @@
-import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, isValidElement, useEffect, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "../i18n";
@@ -89,9 +89,9 @@ export default function Settings() {
     setConfig,
     saving,
     message,
+    setMessage,
     update,
     save,
-    saveWith,
     keyCapturing,
     captureActivationKey,
   } = form;
@@ -101,17 +101,17 @@ export default function Settings() {
     getVersion().then(setAppVersion).catch(() => {});
   }, []);
 
-  // 模型下载在 model-download-finished 事件到达后才启用模型：读 ref 里的最新表单状态，
-  // 避免点击时的快照把下载期间用户改的其他字段覆盖回旧值。
-  // The model is enabled only after model-download-finished: read the latest form state from a
-  // ref so the click-time snapshot cannot revert fields the user edited while downloading.
-  const configRef = useRef(config);
-  configRef.current = config;
-
+  // 只写模型字段：下载在 model-download-finished 之后才结束，可能晚于用户离开本页；整份回写
+  // 会把期间（或在别处）保存的配置覆盖回旧值。窄补丁与清除密钥走同一条路径。
+  // Write only the model field: the download finishes after model-download-finished, possibly after
+  // the user left this page; a whole-config write would revert whatever was saved meanwhile.
   const applyLocalModel = async (name: string) => {
-    const latest = configRef.current;
-    if (!latest) return;
-    await saveWith({ ...latest, model: name });
+    update("model", name);
+    try {
+      await invoke("save_config", { patch: { model: name } });
+    } catch (e) {
+      setMessage(String(e));
+    }
   };
 
   const downloadAndUse = async (name: string) => {

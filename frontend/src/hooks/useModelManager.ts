@@ -37,7 +37,7 @@ function reportError(t: (k: string) => string, err: unknown): Promise<void> {
 }
 
 /**
- * Owns model listing, download lifecycle, progress tracking, and resolved path lookup.
+ * Owns model listing and the download lifecycle with progress tracking.
  */
 export function useModelManager({ t }: UseModelManagerOptions): UseModelManagerResult {
   const [models, setModels] = useState<ModelEntry[]>([]);

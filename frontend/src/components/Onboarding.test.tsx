@@ -133,7 +133,7 @@ describe("首次安装引导", () => {
     });
   });
 
-  it("模型下载完成后按最新表单保存，不覆盖向导里填的润色配置", async () => {
+  it("模型下载完成后只写入模型字段，不覆盖向导里填的润色配置", async () => {
     render(<App />);
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("get_config"));
 
@@ -155,21 +155,14 @@ describe("首次安装引导", () => {
     fireEvent.click(screen.getByRole("button", { name: "onboarding.next" }));
     fireEvent.click(screen.getByRole("button", { name: "onboarding.start" }));
     await waitFor(() => expect(localStorage.getItem(ONBOARDING_KEY)).toBe("1"));
+    expect(savedPatches.some((patch) => patch.polishLevel === "medium")).toBe(true);
 
-    // 下载结束：写入的必须是“最新表单 + 新模型”，不能是点击时的旧快照。
-    // The download finishes: the save must carry the latest form plus the new model, never the
-    // click-time snapshot.
+    // 下载结束：只允许写 model 一个字段，其他字段绝不能随旧快照回写。
+    // The download finishes: it may write the model field only; nothing else may be reverted.
     listenerHandlers.get("model-download-finished")?.({
       payload: { name: "sense-voice-small", success: true, path: "/tmp/sense-voice-small" },
     });
 
-    await waitFor(() =>
-      expect(lastSavedPatch()).toMatchObject({
-        model: "sense-voice-small",
-        polishLevel: "medium",
-        polishModel: "deepseek-chat",
-        polishApiBaseUrl: "https://api.deepseek.com/v1",
-      }),
-    );
+    await waitFor(() => expect(lastSavedPatch()).toEqual({ model: "sense-voice-small" }));
   });
 });

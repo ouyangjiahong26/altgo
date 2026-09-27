@@ -3,7 +3,8 @@
  * 复用设置页的表单钩子、模型管理与供应商选择器，不另造一套配置逻辑。
  * Reuses the settings form hook, model manager and provider picker instead of a
  * second configuration path. */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Check, Download, Keyboard, Sparkles } from "lucide-react";
 import { useTranslation } from "../i18n";
@@ -49,9 +50,9 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
     setConfig,
     saving,
     message,
+    setMessage,
     update,
     save,
-    saveWith,
     keyCapturing,
     captureActivationKey,
   } = form;
@@ -82,17 +83,17 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
     setStepIndex(Math.max(0, Math.min(STEPS.length - 1, index)));
   };
 
-  // 模型下载要等 model-download-finished 事件，耗时可超过向导本身；用 ref 读最新表单状态，
-  // 否则点击“下载并启用”时的旧快照会在下载结束后把后续（含向导结束时）写入的配置覆盖掉。
-  // The download resolves only when model-download-finished arrives, which can outlive the whole
-  // wizard; reading the latest form state keeps the click-time snapshot from overwriting later saves.
-  const configRef = useRef(config);
-  configRef.current = config;
-
+  // 只写模型字段：下载在 model-download-finished 之后才结束，可能晚于向导关闭；整份回写会把
+  // 期间（含向导结束后在设置页）保存的配置覆盖回旧值。逐字段窄补丁与清除密钥走同一条路径。
+  // Write only the model field: the download finishes after model-download-finished, possibly after
+  // the wizard closed; a whole-config write would revert whatever was saved meanwhile.
   const applyLocalModel = async (name: string) => {
-    const latest = configRef.current;
-    if (!latest) return;
-    await saveWith({ ...latest, model: name });
+    update("model", name);
+    try {
+      await invoke("save_config", { patch: { model: name } });
+    } catch (e) {
+      setMessage(String(e));
+    }
   };
 
   const downloadAndUse = async (name: string) => {

@@ -52,7 +52,7 @@ export default function Home() {
         <div className="home-idle">
           <div className="home-status-row">
             <StatusIndicator status={mappedStatus} size="lg" />
-            <p className="home-hint">{t("main.hint")}</p>
+            <p className="home-hint" title={t("main.hint")}>{t("main.hint")}</p>
           </div>
           {mappedStatus === "processing" && (
             <div className="home-tx-progress-wrap">
