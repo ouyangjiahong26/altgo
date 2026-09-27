@@ -114,11 +114,19 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - **Node**：一律 **npm**（`frontend/`、`docs-site/` 均 `package-lock.json` v3；不用 pnpm/yarn）；CI 用 Node 22；`tsconfig` strict + `noUnusedLocals`/`noUnusedParameters`。
 - **Linux 运行时外部工具**：`xinput`、`xmodmap`、`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`。Wayland 会话在 GUI 初始化前自动切 XWayland（`display_backend.rs`），否则浮窗定位不生效。
 - **环境变量**：`ALTGO_POLISHER_API_KEY` 覆盖 `[polisher] api_key`；`ALTGO_MODEL_BASE_URL` 覆盖模型下载镜像。
-- **Issue tracker**：issue/PRD 全部是 GitHub issue，一律用 `gh` CLI（命令约定见 `docs/agents/issue-tracker.md`）。
 - **PR 标题**：只写改动内容，不带决策过程痕迹（如“方案 A/B”、“备选已否决”之类）；决策与取舍写进 PR 正文、commit 正文或 ADR。
-- **Triage 标签**（`docs/agents/triage-labels.md`）：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`。
-- **领域文档**：单上下文布局 = 根 `CONTEXT.md` + `docs/adr/`；与 ADR 矛盾的输出必须显式标注，不得静默覆盖（`docs/agents/domain.md`）。
 - **Loop 工程**：`/loop-go <任务>` 循环 builder 与 checker 直到检查全绿。停止规则：最多 5 轮（每轮声明 "Cycle N/5"）；同一失败连续两次 → 停止报告；修复使原本通过的检查失败 → 停止；到上限 → 停止报告现状。
+
+## Agent skills
+
+工程技能的 harness 无关配置集中在 `docs/agents/`，要改配置就改这些文件，不要在别处另起一套：
+
+| 文件 | 内容 | 读它的技能 |
+|---|---|---|
+| `docs/agents/issue-tracker.md` | issue/PR 全走 GitHub（`gh` CLI）；AI 贡献标记约定；外部 PR 是否作分诊渠道（否）；GitHub Project 的 Owner、Project ID、Status 字段与七个选项 ID | `/triage`、`/github-project`、`/open-pr`、`/merge-pr` |
+| `docs/agents/triage-labels.md` | 五个分诊角色到本仓标签字符串的映射（`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`） | `/triage` |
+| `docs/agents/domain.md` | 领域文档布局：单上下文 = 根 `CONTEXT.md` + `docs/adr/`；命名用术语表词汇；与 ADR 矛盾必须显式标注 | `/domain-modeling`、`/grill-with-docs`、`/codebase-design` |
+| `docs/agents/builder.md`、`docs/agents/checker.md` | `/loop-go` 的 builder / checker 职责与产出要求 | `/loop-go` |
 
 ## Testing & QA
 
