@@ -75,6 +75,7 @@
 }
 
 /* 引擎单选卡 */
+/* Engine choice cards */
 .onboarding-choice {
   display: flex;
   align-items: flex-start;
@@ -122,6 +123,7 @@
 }
 
 /* 完成页摘要 */
+/* Done-step summary */
 .onboarding-summary {
   display: flex;
   flex-direction: column;

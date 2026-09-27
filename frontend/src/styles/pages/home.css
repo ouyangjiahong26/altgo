@@ -22,10 +22,25 @@
   animation: home-panel-in var(--duration-slow) var(--ease-out) both;
 }
 
+/* 状态行：状态指示 + 单行操作提示（提示过长时省略，不再折行撑高页面） */
+/* Status row: indicator plus a single-line hint (truncated rather than wrapping) */
+.home-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
 .home-hint {
+  flex: 1;
+  min-width: 0;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   line-height: var(--leading-relaxed);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .home-copy-done {

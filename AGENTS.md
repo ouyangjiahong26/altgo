@@ -21,14 +21,14 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 - 整条管道跑在独立 OS 线程的 current_thread tokio runtime 上（`lib.rs::spawn_pipeline_thread`）；一切阻塞工作（推理、剪贴板、历史 I/O、join 线程）走 `spawn_blocking`。
 - 状态管理：Tauri managed state 四件——`ConfigStore`（持锁更新，校验/落盘失败回滚内存）、`HistoryStore`（模块级 I/O 锁，Unix 落盘 0o600）、`PipelineController`（生命周期 + `PipelineStatus` 五态）、`Arc<dyn Output>`。
 - IPC：`cmd.rs` 17 个 `#[tauri::command]`；事件 `pipeline-status`/`transcription-result`/`polish-failed`/`history-updated`/`overlay-state` 等，emit 点在 `tauri_sink.rs` 与 `cmd.rs`，前端 `hooks/useTauri.ts` 统一 listen。
-- 前端两个窗口：主窗（`index.html`，HashRouter 三个页面）+ 悬浮窗（`overlay.html`，独立样式链，动画只动 transform 防 Linux WM 黑晕）。主题/字体/窗口尺寸存 localStorage，**不进** Tauri 配置。
+- 前端两个窗口：主窗（`index.html`，HashRouter 两个页面：主页含历史列表、设置；首次启动先显示引导向导）+ 悬浮窗（`overlay.html`，独立样式链，动画只动 transform 防 Linux WM 黑晕）。主题/字体/窗口尺寸存 localStorage，**不进** Tauri 配置。
 
 ## Key Directories
 
 | 路径 | 用途 |
 |---|---|
 | `src-tauri/src/` | Rust 核心（crate `altgo-tauri`）：`voice_pipeline/` 业务主循环、`key_listener/`、`key_capture/`、`recorder/`、`output/`、`overlay/`（seam/manager/tauri/activity 分层）、`polisher/`，根文件见 “Important Files” |
-| `frontend/src/` | React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）+ `overlay.tsx` 悬浮窗；`styles/` 分层：design-tokens → design-system → global → layout/components/pages |
+|`frontend/src/`|React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）+ `overlay.tsx` 悬浮窗；`styles/` 分层：design-tokens → design-system → global → layout/components/pages|
 | `configs/` | 用户 TOML 模板；应用实际读 `~/.config/altgo/altgo.toml` |
 | `resources/prompts/` | 润色 prompt：`base.txt` + `light/medium/heavy-suffix.txt`（`none` 档不润色） |
 | `docs/` | 维护者文档：`architecture.md`、`testing.md`、`adr/`（ADR-0003~0006）、`agents/`（agent 工作约定） |

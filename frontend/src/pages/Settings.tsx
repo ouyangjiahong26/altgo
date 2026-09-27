@@ -1,4 +1,4 @@
-import { Children, isValidElement, useEffect, useState, type ReactNode } from "react";
+import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "../i18n";
@@ -80,8 +80,7 @@ export default function Settings() {
   const form = useConfigForm({
     t,
     setLang,
-    onAfterSave: (saved) => {
-      modelMgr.refreshResolved(saved.model);
+    onAfterSave: () => {
       modelMgr.refreshModels();
     },
   });
@@ -96,20 +95,23 @@ export default function Settings() {
     keyCapturing,
     captureActivationKey,
   } = form;
-  const { models, downloading, refreshResolved } = modelMgr;
+  const { models, downloading } = modelMgr;
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!config) return;
-    refreshResolved(config.model);
-  }, [config?.model, refreshResolved]);
+  // 模型下载在 model-download-finished 事件到达后才启用模型：读 ref 里的最新表单状态，
+  // 避免点击时的快照把下载期间用户改的其他字段覆盖回旧值。
+  // The model is enabled only after model-download-finished: read the latest form state from a
+  // ref so the click-time snapshot cannot revert fields the user edited while downloading.
+  const configRef = useRef(config);
+  configRef.current = config;
 
   const applyLocalModel = async (name: string) => {
-    if (!config) return;
-    await saveWith({ ...config, model: name });
+    const latest = configRef.current;
+    if (!latest) return;
+    await saveWith({ ...latest, model: name });
   };
 
   const downloadAndUse = async (name: string) => {
@@ -270,6 +272,14 @@ export default function Settings() {
                     <option value="zh">{t("settings.language_zh")}</option>
                     <option value="en">{t("settings.language_en")}</option>
                     <option value="">{t("settings.language_auto")}</option>
+                    {/* 旧配置或手写 TOML 里的其他取值（如 yue/ja/ko/auto）原样保留，
+                        否则受控下拉会显示成“中文”，与后端实际使用的语言不符。 */}
+                    {/* Other values from older configs or hand-written TOML (yue/ja/ko/auto) are
+                        kept as-is; otherwise the controlled select would show Chinese while the
+                        backend keeps using the original language. */}
+                    {!["zh", "en", ""].includes(config.language) && (
+                      <option value={config.language}>{config.language}</option>
+                    )}
                   </select>
                 </div>
               </div>

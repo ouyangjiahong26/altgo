@@ -142,9 +142,10 @@
   color: var(--color-red);
 }
 
-/* 窄长窗（440 宽档）：收紧标题栏并隐藏副标题，导航与窗口按钮保持单行。 */
-/* Narrow window (440-wide tier): tighten the header and drop the subtitle so the nav and
-   window buttons stay on one line. */
+/* 窄长窗（三档预设宽度 400/440/480 均命中）：收紧标题栏并隐藏副标题，
+   让导航与窗口按钮保持单行。 */
+/* Narrow window (all three presets, 400–480 wide): tighten the header and drop the subtitle so
+   the nav and window buttons stay on one line. */
 @media (max-width: 520px) {
   .layout-header {
     gap: var(--space-2);

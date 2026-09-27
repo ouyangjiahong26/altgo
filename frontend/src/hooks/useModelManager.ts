@@ -20,9 +20,7 @@ export interface UseModelManagerOptions {
 export interface UseModelManagerResult {
   models: ModelEntry[];
   downloading: string | null;
-  resolvedPath: string | null | undefined;
   refreshModels: () => void;
-  refreshResolved: (model: string) => void;
   downloadAndUse: (name: string, onUse: (name: string) => Promise<void>) => Promise<void>;
   deleteModel: (name: string, onDeleted: (name: string) => void) => Promise<void>;
   getDownloadProgress: (name: string) => {
@@ -44,22 +42,11 @@ function reportError(t: (k: string) => string, err: unknown): Promise<void> {
 export function useModelManager({ t }: UseModelManagerOptions): UseModelManagerResult {
   const [models, setModels] = useState<ModelEntry[]>([]);
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [resolvedPath, setResolvedPath] = useState<string | null | undefined>(undefined);
   const progress = useModelDownloadProgress();
 
   const refreshModels = useCallback(() => {
     invoke<ModelEntry[]>("list_models").then(setModels).catch((e) => reportError(t, e));
   }, [t]);
-
-  const refreshResolved = useCallback((model: string) => {
-    if (!model.trim()) {
-      setResolvedPath(null);
-      return;
-    }
-    invoke<string | null>("resolve_model", { model })
-      .then(setResolvedPath)
-      .catch(() => setResolvedPath(null));
-  }, []);
 
   useEffect(() => {
     refreshModels();
@@ -146,9 +133,7 @@ export function useModelManager({ t }: UseModelManagerOptions): UseModelManagerR
   return {
     models,
     downloading,
-    resolvedPath,
     refreshModels,
-    refreshResolved,
     downloadAndUse,
     deleteModel,
     getDownloadProgress,

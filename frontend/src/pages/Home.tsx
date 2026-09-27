@@ -50,7 +50,10 @@ export default function Home() {
       )}
       {!transcription ? (
         <div className="home-idle">
-          <StatusIndicator status={mappedStatus} size="lg" />
+          <div className="home-status-row">
+            <StatusIndicator status={mappedStatus} size="lg" />
+            <p className="home-hint">{t("main.hint")}</p>
+          </div>
           {mappedStatus === "processing" && (
             <div className="home-tx-progress-wrap">
               <span className="home-tx-progress-phase">
@@ -77,7 +80,6 @@ export default function Home() {
               </div>
             </div>
           )}
-          <p className="home-hint">{t("main.hint")}</p>
           {keyBackend && (
             <p className="home-key-backend">{t(`main.key_backend_${keyBackend}`)}</p>
           )}
