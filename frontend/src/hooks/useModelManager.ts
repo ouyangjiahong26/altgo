@@ -13,7 +13,7 @@ export interface ModelEntry {
 }
 
 export interface UseModelManagerOptions {
-  /** Translation function for error dialogs. */
+  /** 错误对话框的翻译函数。 */
   t: (key: string) => string;
 }
 
@@ -37,7 +37,7 @@ function reportError(t: (k: string) => string, err: unknown): Promise<void> {
 }
 
 /**
- * Owns model listing and the download lifecycle with progress tracking.
+ * 持有模型列表与下载生命周期，并追踪下载进度。
  */
 export function useModelManager({ t }: UseModelManagerOptions): UseModelManagerResult {
   const [models, setModels] = useState<ModelEntry[]>([]);

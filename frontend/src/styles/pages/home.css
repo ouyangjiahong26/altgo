@@ -1,8 +1,8 @@
 /* ============================================
-   Home Page Styles
+   主页样式
    ============================================ */
 
-/* ── Home Page ──────────────────────────────── */
+/* ── 主页 ──────────────────────────────── */
 
 .home {
   display: flex;
@@ -23,7 +23,6 @@
 }
 
 /* 状态行：状态指示 + 单行操作提示（提示过长时省略，不再折行撑高页面） */
-/* Status row: indicator plus a single-line hint (truncated rather than wrapping) */
 .home-status-row {
   display: flex;
   align-items: center;
@@ -54,7 +53,6 @@
 }
 
 /* 历史面板嵌在主页内，去掉其页面级留白 */
-/* The history panel is embedded in the home page; drop its page-level padding */
 .home .history-page {
   max-width: none;
   padding: 0;
@@ -181,7 +179,7 @@
   background: var(--color-green-bg);
 }
 
-/* ── Home Error Banner ──────────────────────── */
+/* ── 主页错误横幅 ──────────────────────── */
 
 .home-error {
   position: absolute;

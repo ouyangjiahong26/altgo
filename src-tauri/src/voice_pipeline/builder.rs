@@ -1,6 +1,4 @@
 //! PipelineBuilder — 组件构造。
-//!
-//! PipelineBuilder — component construction.
 
 use std::sync::{Arc, Mutex};
 
@@ -13,7 +11,6 @@ use crate::transcriber::Transcriber;
 use super::context::PipelineContext;
 
 /// 从配置构建流水线各组件。
-/// Builds pipeline components from configuration.
 pub struct PipelineBuilder {
     cfg: Arc<crate::config::Config>,
 }
@@ -24,7 +21,6 @@ impl PipelineBuilder {
     }
 
     /// 从配置构建录音器。
-    /// Build recorder from config.
     pub fn build_recorder(&self) -> Box<dyn Recorder> {
         Box::new(crate::recorder::PlatformRecorder::new(
             self.cfg.recorder.sample_rate,
@@ -35,11 +31,6 @@ impl PipelineBuilder {
     ///
     /// `backend = "online"` 走小米 MiMo 在线识别（纯网络调用，不触碰本地模型解析）；
     /// 其余（默认 `"local"`）走 sherpa-onnx SenseVoice，本地模型缺失或加载失败时返回错误。
-    /// Build the transcription engine from config.
-    ///
-    /// `backend = "online"` uses Xiaomi MiMo online recognition (pure network calls, local model
-    /// resolution untouched); anything else (default `"local"`) uses sherpa-onnx SenseVoice and
-    /// errors if the local model is missing or fails to load.
     pub fn build_transcriber(&self) -> Result<Box<dyn Transcriber>, PipelineError> {
         let cfg = &self.cfg.transcriber;
 
@@ -73,9 +64,9 @@ impl PipelineBuilder {
         Ok(Box::new(transcriber))
     }
 
-    /// Build polisher from config.
+    /// 按配置构建润色器。
     ///
-    /// Returns error if protocol is unknown or HTTP client fails to initialize.
+    /// 协议未知或 HTTP 客户端初始化失败时返回错误。
     /// 通过 `LLMFormatter::from_config_with_sources` 共享工厂构造，确保与
     /// IPC handler（`cmd::polish_history_entry`）走同一条 prompt source chain。
     pub fn build_polisher(&self) -> Result<LLMFormatter, PipelineError> {
@@ -85,9 +76,6 @@ impl PipelineBuilder {
     /// 从配置构建按键监听器。
     ///
     /// 返回 boxed trait object，供流水线跨平台使用。
-    /// Build key listener from config.
-    ///
-    /// Returns a boxed trait object for platform-independent use in the pipeline.
     pub fn build_key_listener(&self) -> Result<Box<dyn KeyListener>, PipelineError> {
         let listener =
             crate::key_listener::PlatformListener::new(&self.cfg.key_listener).map_err(|e| {
@@ -100,13 +88,11 @@ impl PipelineBuilder {
     }
 
     /// 从配置读取润色级别。
-    /// Get polish level from config.
     pub fn polish_level(&self) -> PolishLevel {
         PolishLevel::effective(&self.cfg.polisher.level)
     }
 
     /// 从配置构建完整的流水线上下文。
-    /// Build the full pipeline context from configuration.
     pub fn build_context(&self) -> Result<PipelineContext, PipelineError> {
         let recorder = self.build_recorder();
         let transcriber = self.build_transcriber()?;
@@ -128,7 +114,7 @@ impl PipelineBuilder {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// 测试
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
@@ -170,7 +156,6 @@ mod tests {
     #[test]
     fn test_build_transcriber_online_skips_local_model() {
         // 在线后端不解析本地模型：无模型目录也应构造成功。
-        // The online backend never resolves the local model: building must succeed without one.
         let mut cfg = test_config();
         cfg.transcriber.backend = "online".to_string();
         cfg.transcriber.online.api_key = "k".to_string();
@@ -213,8 +198,6 @@ mod tests {
 
     // 端到端入口测试：`run()` 必须在 build_context 失败时把错误上报到 sink。
     // 故障点属于 builder（构建上下文），因此下沉到本模块。
-    // End-to-end entry test: when build_context fails, `run()` must report the error to the sink.
-    // The fault belongs to the builder (context construction), hence this module.
     #[tokio::test]
     async fn run_reports_error_when_context_build_fails() {
         use crate::voice_pipeline::sink::TranscriptionResult;
@@ -234,7 +217,6 @@ mod tests {
         }
 
         // 用未知的 polisher protocol 强制 build_context 失败。
-        // Force build_context to fail via unknown polisher protocol.
         let mut cfg = test_config();
         cfg.polisher.protocol = "unknown".to_string();
         let errors = Arc::new(Mutex::new(Vec::new()));

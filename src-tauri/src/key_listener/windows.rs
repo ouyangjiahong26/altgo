@@ -3,12 +3,6 @@
 //! 使用 `WH_KEYBOARD_LL` 低级键盘钩子在专属线程上接收全局按键事件，
 //! 无轮询、无子进程。钩子回调只做 VK 匹配与通道发送，保证快速返回
 //! （`LowLevelHooksTimeout` 超时会导致系统摘除钩子）。
-//!
-//! Windows key listener.
-//!
-//! Receives global key events on a dedicated thread through a `WH_KEYBOARD_LL` low-level hook—no
-//! polling, no subprocesses. The hook callback only matches VKs and sends down a channel, keeping
-//! returns fast (a `LowLevelHooksTimeout` overrun makes the system strip the hook).
 
 use super::{KeyEvent, KeyListener};
 use crate::config::KeyListenerConfig;
@@ -25,7 +19,6 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 /// 钩子线程回调：`(vk_code, pressed)`，仅物理按键（过滤注入事件）。
-/// Hook-thread callback type: `(vk_code, pressed)`, physical keys only (injected events filtered).
 pub(crate) type HookCallback = Box<dyn Fn(u16, bool) + Send>;
 
 thread_local! {
@@ -49,7 +42,6 @@ unsafe extern "system" fn ll_keyboard_proc(
         };
         let info = &*(l_param.0 as *const KBDLLHOOKSTRUCT);
         // 忽略 SendInput 等注入的合成事件，避免自动输入文本时自我反馈。
-        // Ignore synthetic events injected via SendInput etc., so auto-typed text doesn't feed back.
         if (info.flags.0 & LLKHF_INJECTED.0) == 0 {
             HOOK_CALLBACK.with(|cb| {
                 if let Some(cb) = cb.borrow().as_ref() {
@@ -62,7 +54,6 @@ unsafe extern "system" fn ll_keyboard_proc(
 }
 
 /// 运行中的低级键盘钩子句柄；drop 时停止钩子线程。
-/// Handle of a running low-level keyboard hook; dropping it stops the hook thread.
 pub(crate) struct HookHandle {
     thread_id: u32,
     thread: Option<JoinHandle<()>>,
@@ -70,7 +61,6 @@ pub(crate) struct HookHandle {
 
 impl HookHandle {
     /// 请求钩子线程退出（post WM_QUIT）并回收线程。
-    /// Asks the hook thread to quit (posts WM_QUIT) and joins it.
     pub fn stop(mut self) {
         self.stop_impl();
     }
@@ -94,9 +84,6 @@ impl Drop for HookHandle {
 /// 在新线程上安装 WH_KEYBOARD_LL 钩子并运行消息循环。
 ///
 /// `on_event` 在钩子线程上被调用，只应做极轻量的转发工作。
-/// Installs the WH_KEYBOARD_LL hook on a new thread and runs its message loop.
-///
-/// `on_event` runs on the hook thread and must stay extremely lightweight forwarding work.
 pub(crate) fn spawn_ll_keyboard_hook<F>(on_event: F) -> Result<HookHandle, String>
 where
     F: Fn(u16, bool) + Send + 'static,
@@ -125,14 +112,12 @@ where
                 };
                 if ready_tx.send(Ok(thread_id)).is_err() {
                     // 调用方已放弃，直接清理。
-                    // Caller gave up; clean up right away.
                     let _ = UnhookWindowsHookEx(hook);
                     return;
                 }
 
                 let mut msg = Default::default();
                 // GetMessageW 返回 0 表示收到 WM_QUIT，-1 表示错误。
-                // GetMessageW returning 0 means WM_QUIT received; -1 means error.
                 while GetMessageW(&mut msg, None, 0, 0).0 > 0 {}
                 let _ = UnhookWindowsHookEx(hook);
             }
@@ -150,7 +135,6 @@ where
 }
 
 /// WH_KEYBOARD_LL 键盘监听器。
-/// The WH_KEYBOARD_LL key listener.
 pub struct WindowsKeyListener {
     vk_code: u16,
     key_name: String,

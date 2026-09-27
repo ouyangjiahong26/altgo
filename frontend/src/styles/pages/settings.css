@@ -1,8 +1,8 @@
 /* ============================================
-   Settings Page Styles
+   设置页样式
    ============================================ */
 
-/* ── Settings Page ──────────────────────────── */
+/* ── 设置页 ──────────────────────────── */
 
 .settings-page {
   padding: var(--space-4) var(--space-4) var(--space-6);
@@ -14,7 +14,7 @@
   gap: var(--space-1);
 }
 
-/* Section cards with clear visual grouping */
+/* 分组卡片，形成清晰的视觉分组 */
 .settings-section {
   background: var(--color-surface-1);
   border: 1px solid var(--color-border-subtle);
@@ -47,7 +47,7 @@
   opacity: 0.8;
 }
 
-/* Field rows: fixed-width label column, control pinned right */
+/* 字段行：标签列定宽，控件右对齐 */
 .settings-field {
   display: flex;
   align-items: center;
@@ -93,7 +93,7 @@
   max-width: 120px;
 }
 
-/* Trigger key: dropdown + current keysym readout */
+/* 触发键：下拉框 + 当前 keysym 读数 */
 .settings-field-control--trigger-key {
   flex-direction: column;
   align-items: stretch;
@@ -120,7 +120,7 @@
   word-break: break-all;
 }
 
-/* Input */
+/* 输入框 */
 .settings-input {
   width: 100%;
   padding: var(--space-2) var(--space-3);
@@ -156,7 +156,7 @@
   cursor: not-allowed;
 }
 
-/* Select */
+/* 下拉选择 */
 .settings-select {
   width: 100%;
   padding: var(--space-2) var(--space-3);
@@ -187,7 +187,7 @@
   border-color: var(--color-border-strong);
 }
 
-/* Buttons */
+/* 按钮 */
 .settings-btn {
   display: inline-flex;
   align-items: center;
@@ -257,7 +257,7 @@
   font-size: var(--text-xs);
 }
 
-/* Save area: sticky so the button stays reachable while the form scrolls */
+/* 保存区：吸底，表单滚动时按钮始终可点 */
 .settings-save-row {
   position: sticky;
   bottom: 0;
@@ -284,7 +284,7 @@
 .settings-save-msg--ok { color: var(--color-green); }
 .settings-save-msg--err { color: var(--color-red); }
 
-/* ── Model Management ─────────────────────────── */
+/* ── 模型管理 ─────────────────────────── */
 
 .model-list {
   display: flex;
@@ -369,7 +369,7 @@
   text-align: right;
 }
 
-/* ── Settings v2 (model-first layout) ───────────────── */
+/* ── 设置页 v2（模型优先布局） ───────────────── */
 
 .settings-section--primary {
   border-color: var(--color-accent-tint-border);
@@ -571,7 +571,7 @@
   min-width: 0;
 }
 
-/* ── Provider Preset Selector ──────────────────────────── */
+/* ── 服务商预设选择器 ──────────────────────────── */
 
 .provider-preset-selector {
   margin-top: var(--space-3);
@@ -783,7 +783,7 @@
   align-self: flex-start;
 }
 
-/* ── Settings order and provider workflow ───────────────── */
+/* ── 设置项顺序与服务商流程 ───────────────── */
 
 .provider-preset-active-label {
   margin-left: auto;
@@ -810,7 +810,7 @@
   gap: var(--space-1);
 }
 
-/* Current provider stays compact; the full provider list opens on demand. */
+/* 当前服务商保持紧凑；完整服务商列表按需展开。 */
 .provider-preset-summary {
   display: flex;
   align-items: center;

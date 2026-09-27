@@ -25,7 +25,7 @@ export function getFontSizePref(): FontSizePref {
     const v = localStorage.getItem(FONT_SIZE_KEY);
     if (v === "small" || v === "medium" || v === "large") return v;
   } catch {
-    /* ignore */
+    /* 忽略 */
   }
   return "medium";
 }
@@ -35,7 +35,7 @@ export function getWindowSizePref(): WindowSizePref {
     const v = localStorage.getItem(WINDOW_SIZE_KEY);
     if (v === "compact" || v === "standard" || v === "large") return v;
   } catch {
-    /* ignore */
+    /* 忽略 */
   }
   return "standard";
 }
@@ -59,7 +59,7 @@ export function setFontSizePref(pref: FontSizePref): void {
   try {
     localStorage.setItem(FONT_SIZE_KEY, pref);
   } catch {
-    /* ignore */
+    /* 忽略 */
   }
   applyFontSize(pref);
 }
@@ -68,7 +68,7 @@ export function setWindowSizePref(pref: WindowSizePref): void {
   try {
     localStorage.setItem(WINDOW_SIZE_KEY, pref);
   } catch {
-    /* ignore */
+    /* 忽略 */
   }
   void applyWindowSize(pref);
 }

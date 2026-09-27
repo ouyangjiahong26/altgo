@@ -1,6 +1,4 @@
 //! Tauri commands — 前端通过 IPC 调用的函数。
-//!
-//! Tauri commands — functions exposed to the frontend over IPC.
 
 use std::{sync::Arc, time::Duration};
 
@@ -25,12 +23,6 @@ use crate::{
 ///
 /// `spawn` 由调用方注入，使本函数不依赖 `AppHandle`，从而可在测试中
 /// 用 fake `PipelineHandle` 验证编排，而无需构造 Tauri app。
-///
-/// Core orchestration for restarting the voice pipeline:
-/// validate config snapshot → stop old pipeline → start new pipeline with `spawn`.
-///
-/// `spawn` is injected by the caller so this function never depends on `AppHandle`; tests can
-/// verify orchestration with a fake `PipelineHandle` instead of building a Tauri app.
 async fn restart_pipeline<S>(
     controller: &PipelineController,
     cfg: Arc<crate::config::Config>,
@@ -79,7 +71,6 @@ fn build_config_response(cfg: &crate::config::Config) -> ConfigResponse {
         asr_model: cfg.transcriber.online.model.clone(),
         asr_api_base_url: cfg.transcriber.online.api_base_url.clone(),
         // 明文 key 不回读，只回“是否已配置”。
-        // The raw key never round-trips; only its configured-ness does.
         has_asr_api_key: !cfg.transcriber.online.api_key.trim().is_empty(),
         polish_level: cfg.polisher.level.clone(),
         polish_model: cfg.polisher.model.clone(),
@@ -206,11 +197,6 @@ pub(crate) type EventEmitter = Arc<dyn Fn(&str, serde_json::Value) + Send + Sync
 ///
 /// 真实路径中 `download` 传 `crate::model::download_with_progress`；
 /// 测试中可替换为 fake downloader，仅验证事件序列。
-///
-/// Core model-download logic; `emit` and `download` can be injected for testing.
-///
-/// On the real path `download` is `crate::model::download_with_progress`; tests may substitute
-/// a fake downloader and verify only the event sequence.
 pub(crate) async fn download_model_with_emitter<D, F>(
     name: &str,
     emit: EventEmitter,
@@ -338,10 +324,6 @@ pub async fn clear_history(history_store: State<'_, HistoryStore>) -> Result<(),
 /// 对历史条目重新润色的可测试核心。
 ///
 /// 把 `AppHandle.emit` 抽象为 `emit` 回调，避免测试中构造 Tauri app。
-///
-/// Testable core of re-polishing a history entry.
-///
-/// Abstracts `AppHandle.emit` behind an `emit` callback so tests don't have to build a Tauri app.
 pub(crate) async fn polish_history_entry_core(
     config_store: &ConfigStore,
     history_store: &HistoryStore,
@@ -377,12 +359,6 @@ pub async fn polish_history_entry(
 /// 测试润色 API 连接：基于表单当前值发一次最小请求，不落盘、不重启流水线。
 ///
 /// 密钥为空时回落到已保存的密钥，方便“填好后未保存”与“已保存”两种状态都能测。
-///
-/// Tests the polish API connection: sends one minimal request from current form values, without
-/// persisting or restarting the pipeline.
-///
-/// When the key field is empty it falls back to the saved key, covering both the
-/// "filled but not saved" and "saved" states in tests.
 #[tauri::command]
 pub async fn test_polisher_connection(
     config_store: State<'_, ConfigStore>,
@@ -419,16 +395,9 @@ pub async fn test_polisher_connection(
 
 /// 供应商目录地址（与 `omp models` 同源）。拉取在 Rust 侧完成：WebView 受 CSP
 /// `connect-src 'self'` 限制，跨域请求统一走 reqwest（与润色测试连接、模型下载同范式）。
-///
-/// Provider catalog URL (same source as `omp models`). Fetched on the Rust side: the WebView
-/// runs under CSP `connect-src 'self'`, so cross-origin requests go through reqwest like
-/// every other network call (polisher test connection, model download).
 const PROVIDER_CATALOG_URL: &str = "https://catalog.stencil.so/models.json";
 
 /// 从给定 URL 拉取供应商目录 JSON，返回原始值交给前端解析（`parseCatalog`）。
-///
-/// Fetches the provider catalog from `url` and returns the raw JSON value; the frontend
-/// parses it via `parseCatalog`.
 async fn fetch_provider_catalog_from(url: &str) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
@@ -449,8 +418,6 @@ async fn fetch_provider_catalog_from(url: &str) -> Result<serde_json::Value, Str
 }
 
 /// 拉取 omp 供应商目录（设置页供应商清单的唯一来源）。
-///
-/// Fetches the omp provider catalog (the sole source of the Settings provider list).
 #[tauri::command]
 pub async fn fetch_provider_catalog() -> Result<serde_json::Value, String> {
     fetch_provider_catalog_from(PROVIDER_CATALOG_URL).await
@@ -472,7 +439,6 @@ mod tests {
     use super::*;
 
     /// 目录拉取成功：返回原始 JSON 值，交前端 `parseCatalog` 解析。
-    /// Catalog fetch success: returns the raw JSON value for the frontend to parse.
     #[tokio::test]
     async fn fetch_provider_catalog_from_parses_json() {
         let mut server = mockito::Server::new_async().await;
@@ -494,7 +460,6 @@ mod tests {
     }
 
     /// 目录服务返回非 2xx：报可读的 HTTP 状态错误（设置页据此展示并可重试）。
-    /// Catalog service returns non-2xx: a readable HTTP status error the Settings page shows.
     #[tokio::test]
     async fn fetch_provider_catalog_from_reports_http_error() {
         let mut server = mockito::Server::new_async().await;
@@ -516,8 +481,6 @@ mod tests {
 
     /// 构造一个等待 stop 信号后才退出的 fake pipeline handle，
     /// 用于验证 `restart_pipeline` 的停止/启动编排。
-    /// Builds a fake pipeline handle that exits only after receiving the stop signal,
-    /// used to verify the stop/start orchestration of `restart_pipeline`.
     fn fake_spawn() -> (crate::PipelineHandle, Arc<AtomicBool>) {
         let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
         let stopped = Arc::new(AtomicBool::new(false));
@@ -558,12 +521,10 @@ mod tests {
         let controller = PipelineController::new();
 
         // 先启动一个旧流水线。
-        // Start an old pipeline first.
         let (old_handle, old_stopped) = fake_spawn();
         controller.start_with(move || old_handle).await.unwrap();
 
         // restart_pipeline 应停止旧流水线并启动新流水线。
-        // restart_pipeline should stop the old pipeline and start the new one.
         let (new_handle, _new_stopped) = fake_spawn();
         let result = restart_pipeline(&controller, Arc::new(store.snapshot().await), move |_cfg| {
             new_handle

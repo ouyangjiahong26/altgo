@@ -60,9 +60,6 @@ export function normalizeConfig(c: AppConfig): AppConfig {
     injectText: c.injectText ?? false,
     // 后端取值大小写与前后空白都不敏感（后端 trim + eq_ignore_ascii_case）：这里同样归一，
     // 避免手写 TOML 的 "Online" 或带空格取值让 UI 按 local 呈现、与后端实际引擎不一致。
-    // The backend value is case-insensitive and whitespace-tolerant server-side (trim +
-    // eq_ignore_ascii_case), so normalize the same way here; otherwise a hand-written "Online"
-    // would render local UI with an online engine.
     transcriberBackend: (c.transcriberBackend ?? "local").trim().toLowerCase(),
     asrModel: c.asrModel ?? "",
     asrApiBaseUrl: c.asrApiBaseUrl ?? "",
@@ -92,7 +89,7 @@ export interface UseConfigFormResult {
 }
 
 /**
- * Owns the configuration form: state, normalization, persistence, key capture.
+ * 持有配置表单：状态、归一化、持久化与按键捕获。
  */
 export function useConfigForm({
   t,

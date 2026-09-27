@@ -1,6 +1,4 @@
 //! 短时捕获用户按下的物理键，用于设置激活录音键。
-//!
-//! Briefly captures the physical key the user presses, for choosing the activation key.
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -32,18 +30,11 @@ pub struct CaptureActivationResponse {
 /// 平台激活键捕获的 trait seam。
 ///
 /// 由 Linux adapter 实现；`capture()` 为同步阻塞方法，调用方负责在独立线程执行。
-///
-/// Activation-key capture trait seam per platform.
-///
-/// Implemented by the Linux adapter; `capture()` blocks synchronously, so callers run it on their
-/// own thread.
 pub trait KeyCapture: Send {
     fn capture(&mut self) -> Result<CaptureActivationResponse, String>;
 }
 
 /// 将常见 evdev 码映射为 `xmodmap -pke` 中可能出现的 keysym 名称；未知则 `evdev_<code>`。
-/// Maps common evdev codes to keysym names as they may appear in `xmodmap -pke`; unknown codes
-/// map to `evdev_<code>`.
 pub fn evdev_code_to_keysym_name(code: u16) -> String {
     match code {
         1 => "Escape".to_string(),
@@ -143,7 +134,6 @@ pub fn evdev_code_to_keysym_name(code: u16) -> String {
 }
 
 /// Windows 虚拟键码（Win32 `VK_*` 常量，与 `winuser.h` 一致）。
-/// Windows virtual-key codes (Win32 `VK_*` constants, aligned with `winuser.h`).
 pub mod windows_vk {
     pub const VK_LMENU: u16 = 0x12;
     pub const VK_RMENU: u16 = 0xA5;
@@ -156,8 +146,6 @@ pub mod windows_vk {
 }
 
 /// 将 Windows VK 码映射为与 Linux keysym 风格一致的按键名称；未知则 `vk_0xXX`。
-/// Maps Windows VK codes to key names styled after Linux keysyms; unknown codes map to
-/// `vk_0xXX`.
 pub fn windows_vk_code_to_name(vk: u16) -> String {
     match vk {
         0x08 => "BackSpace".to_string(),
@@ -191,8 +179,6 @@ pub fn windows_vk_code_to_name(vk: u16) -> String {
 }
 
 /// 将按键名称解析为 Windows VK 码；与 [`windows_vk_code_to_name`] 互逆，`AltGr`/`ISO_Level3_Shift` 视作右 Alt。
-/// Parses a key name into a Windows VK code; inverse of [`windows_vk_code_to_name`], treating
-/// `AltGr`/`ISO_Level3_Shift` as right Alt.
 pub fn key_name_to_windows_vk(name: &str) -> Option<u16> {
     Some(match name {
         "BackSpace" => 0x08,

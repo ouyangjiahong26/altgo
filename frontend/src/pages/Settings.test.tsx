@@ -88,7 +88,6 @@ describe("Settings 供应商目录自动加载", () => {
       expect(loadCatalogMock).toHaveBeenCalledTimes(1);
     });
     // 目录结果按 polishApiBaseUrl 匹配为当前供应商，摘要区显示其名字。
-    // Catalog entries match the saved polishApiBaseUrl and surface in the provider summary.
     await waitFor(() => {
       expect(screen.getByText("Example Provider")).toBeTruthy();
     });

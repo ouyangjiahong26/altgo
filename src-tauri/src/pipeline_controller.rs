@@ -1,5 +1,4 @@
 //! 流水线生命周期管理与状态跟踪。
-//! Pipeline lifecycle management and status tracking.
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -33,11 +32,6 @@ impl PipelineStatus {
 ///
 /// 调用方在外部 spawn 流水线线程并经 `start_with` / `start_with_blocking` 注入句柄，
 /// 本模块因此不依赖 Tauri 与 sink。
-/// Manages pipeline lifecycle. Owns the run handle and shared status arc.
-///
-/// Callers spawn the pipeline thread externally and inject the handle via
-/// `start_with` / `start_with_blocking`, keeping this module free of Tauri
-/// and sink dependencies.
 #[derive(Default)]
 pub struct PipelineController {
     handle: Mutex<Option<PipelineHandle>>,
@@ -49,7 +43,6 @@ impl PipelineController {
         Self::default()
     }
 
-    /// Clone of the shared status arc — passed to the sink at spawn time.
     /// 共享状态 Arc 的克隆 —— spawn 时传给 sink。
     pub fn status_arc(&self) -> Arc<std::sync::RwLock<PipelineStatus>> {
         self.status.clone()
@@ -59,10 +52,8 @@ impl PipelineController {
         *self.status.read().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Start the pipeline using the provided spawn closure.
     /// 用给定的 spawn 闭包启动流水线。
     /// 已有流水线在跑时返回错误。
-    /// Returns an error if a pipeline is already running.
     pub async fn start_with<F: FnOnce() -> PipelineHandle>(&self, spawn: F) -> Result<(), String> {
         let mut guard = self.handle.lock().await;
         if guard.is_some() {
@@ -73,7 +64,6 @@ impl PipelineController {
     }
 
     /// 阻塞版本，供同步初始化场景使用。
-    /// Blocking variant for use in synchronous setup contexts.
     pub fn start_with_blocking<F: FnOnce() -> PipelineHandle>(
         &self,
         spawn: F,
@@ -95,9 +85,6 @@ impl PipelineController {
             let _ = h.stop_tx.send(());
             // 等待旧 pipeline 线程完全退出，释放 OS 资源（子进程、设备节点、hook）。
             // 不阻塞 tokio 运行时——把阻塞的 join 移到专用线程池。
-            // Wait for the old pipeline thread to fully exit, releasing OS resources
-            // (subprocesses, device nodes, hooks). Never block the tokio runtime—the blocking
-            // join runs on a dedicated thread pool.
             let _ = tokio::task::spawn_blocking(move || {
                 let _ = h.thread_handle.join();
             })
@@ -108,7 +95,7 @@ impl PipelineController {
         }
     }
 
-    /// Blocking variant for use in the ExitRequested handler.
+    /// ExitRequested 处理器使用的阻塞版本。
     /// 等待旧 pipeline 线程完全退出后再返回。
     pub fn stop_blocking(&self) {
         let handle = {
@@ -130,7 +117,6 @@ mod tests {
     //! 行为测试：覆盖 PipelineController 的生命周期，不依赖 Tauri / sink。
     //!
     //! `PipelineHandle` 是公开结构体（`oneshot::Sender` + `JoinHandle`），
-    //! Behavior tests covering the PipelineController lifecycle, without depending on Tauri or sink.
     //! 所以这里用一个 "spawn 一个等 stop 信号的线程" 的 fake 闭包来构造它，
     /// 完全不触碰真实管道。
     use super::*;
@@ -138,16 +124,12 @@ mod tests {
 
     /// 构造一个合法的 fake handle：spawn 一个线程，它阻塞直到收到 stop 信号。
     /// 返回 handle 和一个共享标志，可在线程退出后检查它确实收到信号。
-    /// Builds a valid fake handle: spawns a thread that blocks until it receives the stop signal.
-    /// Returns the handle plus a shared flag checked after thread exit to confirm signal delivery.
     fn fake_spawn() -> (PipelineHandle, Arc<std::sync::atomic::AtomicBool>) {
         let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
         let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let stopped_clone = Arc::clone(&stopped);
         let thread_handle = std::thread::spawn(move || {
             // 阻塞等待 stop 信号；永不主动退出（模拟长生命周期管道线程）。
-            // Block waiting for the stop signal; never exits on its own (mimics a long-lived
-            // pipeline thread).
             let _ = stop_rx.blocking_recv();
             stopped_clone.store(true, std::sync::atomic::Ordering::SeqCst);
         });
@@ -163,10 +145,6 @@ mod tests {
     /// 用一个 recv_timeout 把"是否死锁"变成可断言的布尔结果。
     /// 返回 true 表示 `f` 在超时窗口内完成。
     /// 注意：`f` 在独立 OS 线程里跑，若死锁，主线程靠 recv_timeout 仍能超时返回 false。
-    /// Turns "did it deadlock?" into an assertable boolean via one recv_timeout.
-    /// Returns true when `f` completes within the timeout window.
-    /// Note: `f` runs on its own OS thread; on deadlock the main thread still times out and
-    /// returns false thanks to recv_timeout.
     fn completes_within<F: FnOnce() + Send + 'static>(timeout: std::time::Duration, f: F) -> bool {
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -183,7 +161,6 @@ mod tests {
         ctrl.start_with(move || handle).await.unwrap();
 
         // start 后立刻 stop：必须在合理时间内返回（不死锁）。
-        // Stop right after start: must return within a reasonable time (no deadlock).
         let ctrl_clone = Arc::clone(&ctrl);
         assert!(completes_within(
             std::time::Duration::from_secs(3),
@@ -193,7 +170,6 @@ mod tests {
         ));
         assert!(stopped.load(std::sync::atomic::Ordering::SeqCst));
         // stop 后状态复位。
-        // Status resets after stop.
         assert_eq!(ctrl.current_status(), PipelineStatus::Idle);
     }
 
@@ -201,8 +177,6 @@ mod tests {
     async fn repeated_start_stop_reentrant() {
         // start → stop → start → stop：第二次循环应正常工作，
         // 不留悬挂 handle（stop_blocking 会 join 掉旧线程）。
-        // start → stop → start → stop: the second cycle must work normally, leaving no dangling
-        // handle (stop_blocking joins the old thread).
         let ctrl = Arc::new(PipelineController::new());
 
         for i in 0..3 {
@@ -223,14 +197,12 @@ mod tests {
         }
 
         // 全部循环后状态干净。
-        // Status is clean after all cycles.
         assert_eq!(ctrl.current_status(), PipelineStatus::Idle);
     }
 
     #[tokio::test]
     async fn double_start_is_rejected() {
         // 已经在跑时再次 start 应返回错误，且不能覆盖已有 handle。
-        // Starting while already running must return an error and never overwrite the existing handle.
         let ctrl = Arc::new(PipelineController::new());
         let (handle, _stopped) = fake_spawn();
         ctrl.start_with(move || handle).await.unwrap();
@@ -240,7 +212,6 @@ mod tests {
         assert!(err.is_err(), "second start while running should error");
 
         // 清理：必须能干净停掉（证明第一个 handle 仍在）。
-        // Cleanup: must shut down cleanly (proving the first handle is still held).
         let ctrl_clone = Arc::clone(&ctrl);
         assert!(completes_within(
             std::time::Duration::from_secs(3),
@@ -253,7 +224,6 @@ mod tests {
     #[tokio::test]
     async fn stop_when_idle_is_noop() {
         // 没启动就 stop_blocking：不应 panic、不应死锁。
-        // stop_blocking without start: no panic, no deadlock.
         let ctrl = Arc::new(PipelineController::new());
         let ctrl_clone = Arc::clone(&ctrl);
         assert!(completes_within(

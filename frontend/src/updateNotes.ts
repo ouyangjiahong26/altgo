@@ -6,10 +6,6 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
  *
  * 主窗（设置页）发事件并显示窗口，更新说明窗口监听同一事件。放在这里是为了
  * 让事件名与载荷结构只有一个定义处——两侧各自写一遍字符串会悄悄漂移。
- *
- * Shared contract between the main window and the release-notes window:
- * window label, event name, and payload type, defined once so the two sides
- * cannot drift apart.
  */
 
 /** 与 `src-tauri/tauri.conf.json` 中静态窗口的 label 一致。 */
@@ -35,13 +31,9 @@ export interface UpdateInfo {
 /**
  * 把更新结果推给更新说明窗口并前置显示。
  * 窗口不存在（配置被改动）时静默放弃——调用方无需分支。
- *
- * Push the update result to the release-notes window and bring it to the front.
- * Silently no-ops when the window is absent, so callers need no branch.
  */
 export async function openUpdateNotes(info: UpdateInfo): Promise<void> {
   // 先发数据再显示：窗口渲染首帧即带内容，不会闪一下空态。
-  // Emit first, then show, so the first painted frame already has content.
   await emit(UPDATE_NOTES_EVENT, info);
 
   const win = await WebviewWindow.getByLabel(UPDATE_NOTES_WINDOW_LABEL);

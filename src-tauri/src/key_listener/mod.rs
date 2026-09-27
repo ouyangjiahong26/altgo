@@ -2,11 +2,6 @@
 //!
 //! Linux：`xinput test-xi2`（XInput2 扩展）或 `evtest` 回退。
 //! Windows：`WH_KEYBOARD_LL` 低级键盘钩子（`windows.rs`）。
-//!
-//! Key listener module.
-//!
-//! Linux: `xinput test-xi2` (XInput2 extension) with `evtest` fallback.
-//! Windows: the `WH_KEYBOARD_LL` low-level keyboard hook (`windows.rs`).
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -24,11 +19,9 @@ pub type PlatformListener = X11Listener;
 pub type PlatformListener = WindowsKeyListener;
 
 /// 按键事件。
-/// Key event.
 #[derive(Debug)]
 pub struct KeyEvent {
     /// 是否为按下事件
-    /// Whether this is a press event
     pub pressed: bool,
 }
 
@@ -37,14 +30,8 @@ use crate::error::KeyListenerError;
 /// 持续监听激活键的 trait seam。
 ///
 /// 由平台 adapter 实现；pipeline 以 `Box<dyn KeyListener>` 消费，便于注入测试 fake。
-///
-/// Key-listener trait seam for continuous activation-key monitoring.
-///
-/// Implemented by platform adapters; the pipeline consumes it as `Box<dyn KeyListener>`, making
-/// test-fake injection easy.
 pub trait KeyListener: Send {
     /// 开始监听，返回事件通道与后端标识（如 `"xinput"`）。
-    /// Starts listening and returns the event channel plus a backend label (e.g. `"xinput"`).
     fn start(
         &mut self,
     ) -> Result<(tokio::sync::mpsc::UnboundedReceiver<KeyEvent>, &'static str), KeyListenerError>;
@@ -55,7 +42,6 @@ mod tests {
     use super::*;
 
     /// 测试用 fake listener，验证 trait 可以被 boxing 并启动。
-    /// Fake listener for tests, verifying the trait can be boxed and started.
     struct FakeListener {
         backend: &'static str,
     }

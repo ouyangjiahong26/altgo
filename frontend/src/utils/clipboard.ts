@@ -12,7 +12,6 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     return true;
   } catch {
     // 后端剪贴板可能不可用；回退到 WebView API
-    // The backend clipboard may be unavailable; fall back to the WebView API
   }
   try {
     await navigator.clipboard.writeText(text);

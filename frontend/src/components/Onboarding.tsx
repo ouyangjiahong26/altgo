@@ -1,8 +1,5 @@
 /** 首次安装引导：五步向导（欢迎 → 触发键 → 转写引擎 → 润色 → 完成）。
- * First-run wizard: welcome → trigger key → engine → polishing → done.
- * 复用设置页的表单钩子、模型管理与供应商选择器，不另造一套配置逻辑。
- * Reuses the settings form hook, model manager and provider picker instead of a
- * second configuration path. */
+ * 复用设置页的表单钩子、模型管理与供应商选择器，不另造一套配置逻辑。 */
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -22,7 +19,6 @@ type Step = "welcome" | "key" | "engine" | "polish" | "done";
 const STEPS: Step[] = ["welcome", "key", "engine", "polish", "done"];
 
 /** 润色级别 → i18n key：完成页摘要显示级别名用。 */
-/* Polish level → i18n key, used by the done-step summary. */
 const POLISH_LEVEL_KEYS: Record<string, string> = {
   none: "settings.polish_none",
   light: "settings.polish_light",
@@ -68,7 +64,6 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
   }, []);
 
   // 保存成功后收尾；保存失败则留在完成步并显示表单错误。
-  // Finish only after a successful save; on failure stay on the step and show the error.
   useEffect(() => {
     if (!finishing || saving) return;
     if (message === "saved") {
@@ -85,8 +80,6 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
 
   // 只写模型字段：下载在 model-download-finished 之后才结束，可能晚于向导关闭；整份回写会把
   // 期间（含向导结束后在设置页）保存的配置覆盖回旧值。逐字段窄补丁与清除密钥走同一条路径。
-  // Write only the model field: the download finishes after model-download-finished, possibly after
-  // the wizard closed; a whole-config write would revert whatever was saved meanwhile.
   const applyLocalModel = async (name: string) => {
     update("model", name);
     try {
@@ -109,12 +102,11 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
     try {
       getCurrentWindow().startDragging();
     } catch {
-      // ignore
+      // 忽略
     }
   };
 
   /** 步号只数配置步（触发键 / 转写引擎 / 润色，共 3 步）；欢迎页与完成页不编号。 */
-  /* Only configuration steps are numbered (key / engine / polishing = 3); welcome and done are not. */
   const stepLabel = (n: number) =>
     t("onboarding.step_label").replace("{n}", String(n));
 

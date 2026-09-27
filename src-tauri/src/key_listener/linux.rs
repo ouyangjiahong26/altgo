@@ -4,14 +4,6 @@
 //! - **传统 X11**：优先 `xinput test-xi2`（XInput2），失败再 `evtest`。
 //!
 //! 通过 `xmodmap -pke` 解析按键名称到 keycode 的映射（xinput 路径）。
-//!
-//! Linux key listener.
-//!
-//! - **Wayland sessions**: prefer `evtest` reading `/dev/input/event*` (on XWayland,
-//!   `xinput test-xi2` often starts yet never receives global keyboard events).
-//! - **Classic X11**: prefer `xinput test-xi2` (XInput2), falling back to `evtest`.
-//!
-//! Key-name-to-keycode mapping is parsed via `xmodmap -pke` (the xinput path).
 
 use super::{KeyEvent, KeyListener};
 use crate::config::KeyListenerConfig;
@@ -25,22 +17,15 @@ use tokio::sync::mpsc;
 
 /// xmodmap keycode 映射缓存。解析 xmodmap 输出开销大，
 /// 因此首次使用后缓存整张 keycode 表。
-/// Cache for xmodmap keycode mappings. Parsing xmodmap output is expensive,
-/// so we cache the entire keycode table on first use.
 static XMODMAP_CACHE: OnceLock<std::collections::HashMap<String, u8>> = OnceLock::new();
 
-/// evdev keycode for Alt keys（evtest 回退；与 `linux/input-event-codes.h` 一致）
-/// evdev keycode of the Alt keys (evtest fallback; aligned with `linux/input-event-codes.h`)
+/// Alt 键的 evdev keycode（evtest 回退；与 `linux/input-event-codes.h` 一致）
 const EVDEV_KEY_ALT: u16 = 56; // KEY_LEFTALT
 const EVDEV_KEY_ALT_R: u16 = 100; // KEY_RIGHTALT
 
 /// X11 按键监听器，使用 `xinput test-xi2` 捕获全局按键事件。
 ///
 /// 无需 root 权限，依赖 XInput2 扩展。
-///
-/// X11 key listener capturing global key events through `xinput test-xi2`.
-///
-/// Needs no root privileges; depends on the XInput2 extension.
 pub struct X11Listener {
     key_name: String,
     linux_evdev_code: Option<u16>,
@@ -54,14 +39,6 @@ pub struct X11Listener {
 /// 真键盘可能不在 `/dev/input/by-id`（蓝牙、特殊接收器），而游戏鼠标的
 /// 键盘接口反而会占据 by-id 的 `*-kbd` 链接，只扫 by-id 会漏掉真键盘。
 /// 枚举宁多勿漏——监听循环按 evdev 码过滤，多余设备只多一个空闲子进程。
-///
-/// Enumerates keyboard devices usable by the `evtest` fallback (shared with key capture).
-///
-/// Devices are taken from the `kbd`-handler event nodes in `/proc/bus/input/devices`:
-/// a real keyboard may be absent from `/dev/input/by-id` (Bluetooth, special receivers),
-/// while a gaming mouse's keyboard interface can occupy the `*-kbd` link there — scanning
-/// by-id alone misses the real keyboard. Prefer over-inclusion: the listener filters by
-/// evdev code, so surplus devices only cost one idle subprocess each.
 pub fn list_keyboard_devices() -> Result<Vec<PathBuf>, KeyListenerError> {
     let text = std::fs::read_to_string("/proc/bus/input/devices")?;
     Ok(parse_keyboard_devices(&text))
@@ -71,11 +48,6 @@ pub fn list_keyboard_devices() -> Result<Vec<PathBuf>, KeyListenerError> {
 ///
 /// 每个输入设备一段，以空行分隔；`H: Handlers=` 行形如
 /// `Handlers=sysrq kbd event16 leds`，其中 `eventN` 即设备节点。
-///
-/// Parses `/proc/bus/input/devices` text into event-node paths carrying a `kbd` handler.
-///
-/// Each input device forms a paragraph separated by blank lines; the `H: Handlers=` line
-/// looks like `Handlers=sysrq kbd event16 leds`, where `eventN` is the device node.
 fn parse_keyboard_devices(text: &str) -> Vec<PathBuf> {
     let mut devices = Vec::new();
     let mut handlers: Option<&str> = None;
@@ -84,8 +56,6 @@ fn parse_keyboard_devices(text: &str) -> Vec<PathBuf> {
         if let Some(h) = handlers.take() {
             let tokens: Vec<&str> = h.split_whitespace().collect();
             // 只有带 `kbd` handler 的设备才是键盘类；纯鼠标接口只有 `mouse0`。
-            // Only devices with a `kbd` handler are keyboard-like; pure mouse
-            // interfaces carry `mouse0` only.
             if !tokens.contains(&"kbd") {
                 return;
             }
@@ -105,7 +75,6 @@ fn parse_keyboard_devices(text: &str) -> Vec<PathBuf> {
         }
     }
     // 文件末尾可能没有空行，补最后一次。
-    // The file may not end with a blank line; flush once more.
     flush(&mut handlers, &mut devices);
 
     devices
@@ -113,7 +82,6 @@ fn parse_keyboard_devices(text: &str) -> Vec<PathBuf> {
 
 impl X11Listener {
     /// 创建新的 X11 监听器，验证 `xinput` 是否可用。
-    /// Creates a new X11 listener, verifying that `xinput` is available.
     pub fn new(cfg: &KeyListenerConfig) -> Result<Self, KeyListenerError> {
         Command::new("xinput")
             .arg("version")
@@ -135,14 +103,10 @@ impl X11Listener {
     }
 
     /// 开始监听按键事件，返回事件通道与后端标识（`"xinput"` / `"evtest"`）。
-    /// Starts listening for key events, returning the event channel and backend label
-    /// (`"xinput"` / `"evtest"`).
     pub fn start(
         &mut self,
     ) -> Result<(mpsc::UnboundedReceiver<KeyEvent>, &'static str), KeyListenerError> {
         // evtest：有捕获码则只认该码；否则按 keysym 映射到 evdev（左/右 Alt 严格区分）。
-        // evtest: with a captured code, accept only that code; otherwise map keysyms onto evdev
-        // (left/right Alt strictly distinguished).
         let allowed_evdev: std::sync::Arc<[u16]> = if let Some(c) = self.linux_evdev_code {
             std::sync::Arc::from([c])
         } else {
@@ -169,8 +133,6 @@ impl X11Listener {
 
         // Wayland 下 DISPLAY 仍指向 XWayland；`xinput test-xi2 --root` 通常能启动
         // 却收不到全局键盘事件——表现为"无报错、也无按键"。此时优先走 evdev。
-        // On Wayland, DISPLAY still points at XWayland; `xinput test-xi2 --root` usually starts
-        // but does not receive global keyboard events — looks like "no errors, no keys". Prefer evdev.
         if wayland_hint {
             tracing::info!(
                 "Wayland session: trying evtest first (xinput on XWayland typically misses keyboard)"
@@ -187,7 +149,6 @@ impl X11Listener {
         }
 
         // 经典 X11 或 Wayland 下的 evtest 回退：有真实 X11 键表时用 xinput。
-        // Classic X11 or Wayland evtest fallback: xinput when we have a real X11 keymap.
         if display_set {
             tracing::info!(
                 session = wayland_hint,
@@ -252,8 +213,6 @@ impl X11Listener {
 
     /// 尝试启动 xinput test-xi2。
     /// 如果检测到 XWayland (BadAccess)，返回错误触发 fallback。
-    /// Tries to start xinput test-xi2.
-    /// Returns an error when XWayland (BadAccess) is detected, triggering the fallback.
     fn try_start_xinput(
         &mut self,
         keycode: u8,
@@ -270,7 +229,6 @@ impl X11Listener {
             })?;
 
         // 检查 stderr 里是否有 XWayland 告警
-        // Check stderr for XWayland warning
         let stderr = child.stderr.take();
         if let Some(stderr) = stderr {
             std::thread::spawn(move || {
@@ -343,8 +301,6 @@ impl X11Listener {
 
     /// 启动 evtest fallback 监听器。
     /// evtest 需要读取 /dev/input/event* 设备，需要用户属于 input 组。
-    /// Starts the evtest fallback listener.
-    /// evtest reads /dev/input/event* devices, requiring membership in the input group.
     fn start_evtest_fallback(
         &mut self,
         allowed_evdev: std::sync::Arc<[u16]>,
@@ -352,7 +308,6 @@ impl X11Listener {
         running: Arc<AtomicBool>,
     ) -> Result<(), KeyListenerError> {
         // 找出键盘设备
-        // Find keyboard devices
         let keyboard_devices = list_keyboard_devices()?;
         if keyboard_devices.is_empty() {
             return Err(KeyListenerError::StartFailed(
@@ -374,8 +329,6 @@ impl X11Listener {
             std::thread::spawn(move || {
                 // evtest 把设备信息和全部 EV_* 行打到 stdout（不是 stderr）。
                 // 读 stderr 会让 Wayland 回退路径永远收不到按键事件。
-                // evtest prints device info and all EV_* lines to stdout (not stderr).
-                // Reading stderr caused Wayland fallback to never see key events.
                 let mut child = match Command::new("evtest")
                     .arg(&device_path)
                     .stdout(Stdio::piped())
@@ -403,7 +356,6 @@ impl X11Listener {
                     };
 
                     // 解析 evtest 输出："Event: time ..., type 1 (EV_KEY), code 100 (KEY_RIGHTALT), value 1"
-                    // Parse evtest output: "Event: time ..., type 1 (EV_KEY), code 100 (KEY_RIGHTALT), value 1"
                     if line.contains("EV_KEY") {
                         let Some(code_tail) = line.split("code ").nth(1) else {
                             continue;
@@ -415,7 +367,6 @@ impl X11Listener {
                             continue;
                         };
                         // 仅匹配允许的 evdev 码（通常为单个；捕获模式为按下的物理码）。
-                        // Match only allowed evdev codes (usually one; in capture mode, the physically pressed code).
                         let key_matches = allowed.contains(&code);
                         if key_matches {
                             let Some(value_tail) = line.split("value ").nth(1) else {
@@ -431,8 +382,6 @@ impl X11Listener {
                             };
                             // evdev：0 = 松开，1 = 按下，2 = 自动重复（键仍按住）。
                             // 把 repeat 当作松开会破坏长按录音。
-                            // evdev: 0 = release, 1 = press, 2 = autorepeat (key still held).
-                            // Treating repeat as release breaks hold-to-record.
                             let pressed = match value {
                                 0 => false,
                                 1 => true,
@@ -453,7 +402,6 @@ impl X11Listener {
     }
 
     /// 停止监听。
-    /// Stops listening.
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
         if let Some(child) = self.child.as_mut() {
@@ -482,16 +430,12 @@ impl X11Listener {
 
             // xmodmap -pke 输出格式：keycode <N> = keysym ...
             // 如 "keycode  64 = Alt_L Meta_L Alt_L Meta_L"
-            // xmodmap -pke output format: keycode <N> = keysym ...
-            // e.g., "keycode  64 = Alt_L Meta_L Alt_L Meta_L"
             for line in stdout.lines() {
                 if let Some(keycode_str) = line.split_whitespace().nth(1) {
                     if let Ok(keycode) = keycode_str.parse::<u8>() {
                         // 提取行内所有 keysym（跳过 "keycode N =" 部分）
-                        // Extract all keysyms from the line (skip "keycode N =")
                         for keysym in line.split_whitespace().skip(3) {
                             // 跳过可能存在的 "="
-                            // Skip "=" if present
                             let keysym = keysym.trim_end_matches('=');
                             if !keysym.is_empty() && !map.contains_key(keysym) {
                                 map.insert(keysym.to_string(), keycode);
@@ -516,12 +460,10 @@ impl X11Listener {
         let candidates: &[&str] = match self.key_name.as_str() {
             "Alt_L" => &["Alt_L"],
             // 布局上可能只出现 Alt_R、ISO_Level3_Shift 或 AltGr 之一，任一对上即可。
-            // A layout may expose only one of Alt_R, ISO_Level3_Shift, or AltGr—matching any suffices.
             "Alt_R" | "ISO_Level3_Shift" | "AltGr" => &["Alt_R", "ISO_Level3_Shift", "AltGr"],
             _ => {
                 let name = self.key_name.as_str();
                 // 单元素切片：自定义 keysym 名
-                // Single-element slice: custom keysym name
                 return keycode_map.get(name).copied().ok_or_else(|| {
                     KeyListenerError::ResolveFailed(format!(
                         "keycode for '{}' not found in xmodmap output",
@@ -583,7 +525,6 @@ mod tests {
         let cfg = test_config();
         let result = X11Listener::new(&cfg);
         // 有 xinput 时返回 Ok，无 xinput 时返回 Err
-        // Returns Ok with xinput present, Err otherwise
         let has_xinput = Command::new("xinput")
             .arg("version")
             .stdout(Stdio::null())
@@ -605,7 +546,6 @@ mod tests {
         cfg.linux_evdev_code = Some(56);
 
         // 只有在 xinput 可用时才能构造成功
-        // Construction succeeds only when xinput is available
         if Command::new("xinput")
             .arg("version")
             .stdout(Stdio::null())
@@ -622,7 +562,6 @@ mod tests {
     #[test]
     fn keysym_to_evdev_alt_r() {
         // 直接测试内部映射逻辑
-        // Test the internal mapping logic directly
         let code = match "Alt_R" {
             "Alt_L" => EVDEV_KEY_ALT,
             "Alt_R" | "ISO_Level3_Shift" | "AltGr" => EVDEV_KEY_ALT_R,
@@ -645,9 +584,6 @@ mod tests {
     fn parse_keyboard_devices_picks_kbd_handlers_only() {
         // 样例取自真实 /proc/bus/input/devices 结构：鼠标的键盘接口（event3）
         // 与真键盘（event16）都带 kbd handler，纯鼠标接口（event2）不带。
-        // Sample mirrors real /proc/bus/input/devices structure: the mouse's keyboard
-        // interface (event3) and the real keyboard (event16) carry a kbd handler,
-        // while the pure mouse interface (event2) does not.
         let sample = "I: Bus=0003 Vendor=046d Product=c092 Version=0111\n\
                       N: Name=\"Logitech G102 LIGHTSYNC Gaming Mouse\"\n\
                       P: Phys=usb-0000:00:14.0-1/input0\n\
@@ -676,7 +612,6 @@ mod tests {
     #[test]
     fn parse_keyboard_devices_handles_missing_trailing_blank_line() {
         // 末段无空行结尾时也要能取到。
-        // The last paragraph without a trailing blank line must still be captured.
         let sample = "N: Name=\"Wave Keys\"\nH: Handlers=kbd event16 leds \n";
         let devices = parse_keyboard_devices(sample);
         assert_eq!(devices, vec![PathBuf::from("/dev/input/event16")]);

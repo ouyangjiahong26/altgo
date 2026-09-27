@@ -2,10 +2,6 @@
 //!
 //! 这里只放 `#[cfg(test)]` 用的替身结构体 / 实现，避免每个子模块重复
 //! 同一套 fake/mock。
-//!
-//! Test doubles (fakes/mocks) shared across voice_pipeline submodules.
-//!
-//! Only `#[cfg(test)]` doubles live here so each submodule doesn't have to repeat them.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -24,13 +20,10 @@ type ProgressEvent = (String, Option<f32>);
 type ProgressEvents = Arc<Mutex<Vec<ProgressEvent>>>;
 
 // ---------------------------------------------------------------------------
-// KeyListener fake
 // KeyListener fake（假按键监听）
 // ---------------------------------------------------------------------------
 
 /// [`FakeListener::new`] 返回的句柄，测试经它把按键事件注入 `start()` 创建的通道。
-/// Handle returned by [`FakeListener::new`] that lets tests inject key events
-/// into the channel created by `start()`.
 pub(super) struct FakeListenerHandle {
     tx: Arc<Mutex<Option<tokio::sync::mpsc::UnboundedSender<KeyEvent>>>>,
 }
@@ -78,7 +71,6 @@ impl KeyListener for FakeListener {
 }
 
 // ---------------------------------------------------------------------------
-// Recorder fake
 // Recorder fake（假录音器）
 // ---------------------------------------------------------------------------
 
@@ -168,7 +160,6 @@ impl Recorder for std::sync::Arc<FakeRecorder> {
 }
 
 // ---------------------------------------------------------------------------
-// Transcriber fake
 // Transcriber fake（假转写器）
 // ---------------------------------------------------------------------------
 
@@ -256,7 +247,6 @@ impl Transcriber for std::sync::Arc<FakeTranscriber> {
 
 // ---------------------------------------------------------------------------
 // PipelineSink mock — 记录状态变化、错误、结果以便断言
-// PipelineSink mock — records state changes, errors, and results for assertions
 // ---------------------------------------------------------------------------
 
 #[derive(Clone)]
@@ -315,11 +305,9 @@ impl PipelineSink for MockSink {
 
 // ---------------------------------------------------------------------------
 // Output fake — 记录剪贴板写入与文本注入
-// Output fake — records clipboard writes and text injections
 // ---------------------------------------------------------------------------
 
 /// 共享的调用记录句柄（剪贴板写入 / 文本注入）。
-/// Shared call-record handle (clipboard writes / text injection).
 pub(super) type SharedCallLog = Arc<Mutex<Vec<String>>>;
 
 pub(super) struct FakeOutput {

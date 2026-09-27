@@ -92,7 +92,7 @@ export default function Home(): JSX.Element {
       title={siteConfig.title}
       description={translate({id: 'home.meta.description', message: '无需打字，言出法随'})}
     >
-      {/* ─── Hero ─── */}
+      {/* ─── 首屏 ─── */}
       <header className={styles.heroBanner}>
         <div className={styles.heroGlow} />
         <div className={styles.heroGrid} />
@@ -148,7 +148,7 @@ export default function Home(): JSX.Element {
             </Link>
           </div>
 
-          {/* Screenshot showcase */}
+          {/* 截图展示 */}
           <div className={styles.showcase}>
             <div className={styles.showcaseFrame}>
               {screenshots.map((s, i) => (
@@ -185,7 +185,7 @@ export default function Home(): JSX.Element {
       </header>
 
       <main>
-        {/* ─── How it works ─── */}
+        {/* ─── 工作原理 ─── */}
         <section className={styles.howItWorks}>
           <div className="container">
             <p className={styles.sectionKicker}>
@@ -228,7 +228,7 @@ export default function Home(): JSX.Element {
           </div>
         </section>
 
-        {/* ─── Features ─── */}
+        {/* ─── 功能 ─── */}
         <section className={styles.features}>
           <div className="container">
             <p className={styles.sectionKicker}>
@@ -254,7 +254,7 @@ export default function Home(): JSX.Element {
           </div>
         </section>
 
-        {/* ─── CTA ─── */}
+        {/* ─── 行动号召（CTA） ─── */}
         <section className={styles.cta}>
           <div className="container">
             <div className={styles.ctaBox}>

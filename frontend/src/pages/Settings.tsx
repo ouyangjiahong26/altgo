@@ -96,8 +96,6 @@ export default function Settings() {
 
   // 只写模型字段：下载在 model-download-finished 之后才结束，可能晚于用户离开本页；整份回写
   // 会把期间（或在别处）保存的配置覆盖回旧值。窄补丁与清除密钥走同一条路径。
-  // Write only the model field: the download finishes after model-download-finished, possibly after
-  // the user left this page; a whole-config write would revert whatever was saved meanwhile.
   const applyLocalModel = async (name: string) => {
     update("model", name);
     try {
@@ -120,8 +118,6 @@ export default function Settings() {
   };
 
   // 拉取 omp 供应商目录（设置页挂载时自动调用；失败可重试，手填地址仍可用）。
-  // Fetches the omp provider catalog (auto-invoked on mount; failures are retryable
-  // and manual address entry keeps working).
   const loadOnlineCatalog = async () => {
     if (catalogLoading) return;
     setCatalogLoading(true);
@@ -140,8 +136,6 @@ export default function Settings() {
   }, []);
 
   // 用表单当前值直接测试（密钥留空时后端回落到已存密钥），不必先保存。
-  // Test directly with current form values (an empty key falls back to the saved one server-side);
-    // no need to save first.
   const runTestConnection = async () => {
     if (!config) return;
     setTesting(true);
@@ -176,7 +170,6 @@ export default function Settings() {
   };
 
   // 清除已保存的在线识别密钥（后端存明文，清除后 hasAsrApiKey 变 false）。
-  // Clears the saved online ASR key (stored server-side; hasAsrApiKey flips false after clearing).
   const clearAsrApiKey = async () => {
     setClearingAsrKey(true);
     setAsrClearError(null);
@@ -199,11 +192,9 @@ export default function Settings() {
       const res = await invoke<UpdateInfo>("check_update", { mode: "manual" });
       setUpdateInfo(res);
       // 手动检查发现新版本即弹更新说明窗口；无更新或失败保持页内提示，不弹窗。
-      // Pop the release-notes window only when a manual check finds a new version.
       if (res.hasUpdate) await openUpdateNotes(res);
     } catch (err) {
       // Tauri 命令错误：字符串或带 message 的对象。
-      // Tauri command errors are either a string or an object with `message`.
       setUpdateError(
         err && typeof err === "object" && "message" in err && typeof err.message === "string"
           ? err.message
@@ -219,8 +210,6 @@ export default function Settings() {
   }
 
   // 在线后端只需配置密钥即可用；本地面板由模型卡与错误事件自行表达就绪状态。
-  // The online backend only needs a key; the local panel conveys its own readiness
-  // through the model cards and error events.
   const onlineActive = config.transcriberBackend === "online";
 
   return (
@@ -250,9 +239,6 @@ export default function Settings() {
                     <option value="">{t("settings.language_auto")}</option>
                     {/* 旧配置或手写 TOML 里的其他取值（如 yue/ja/ko/auto）原样保留，
                         否则受控下拉会显示成“中文”，与后端实际使用的语言不符。 */}
-                    {/* Other values from older configs or hand-written TOML (yue/ja/ko/auto) are
-                        kept as-is; otherwise the controlled select would show Chinese while the
-                        backend keeps using the original language. */}
                     {!["zh", "en", ""].includes(config.language) && (
                       <option value={config.language}>{config.language}</option>
                     )}

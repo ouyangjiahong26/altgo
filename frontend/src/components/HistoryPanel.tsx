@@ -1,5 +1,4 @@
-/** 转写历史面板：从独立页面迁为主页内面板。
- * Transcription history panel: migrated from a standalone page into the home page. */
+/** 转写历史面板：从独立页面迁为主页内面板。 */
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -164,7 +163,6 @@ export default function HistoryPanel() {
       return;
     } catch {
       // 后端剪贴板（xclip 等）可能失败；从点击手势内改试 WebView API。
-      // Backend clipboard (xclip / etc.) may fail; try WebView API from the click gesture.
     }
     try {
       await navigator.clipboard.writeText(text);
