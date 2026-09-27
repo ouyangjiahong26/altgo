@@ -76,6 +76,8 @@ export default function Settings() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
   const [clearingKey, setClearingKey] = useState(false);
+  const [clearingAsrKey, setClearingAsrKey] = useState(false);
+  const [asrClearError, setAsrClearError] = useState<string | null>(null);
   const [catalogPresets, setCatalogPresets] = useState<ProviderPreset[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -197,6 +199,22 @@ export default function Settings() {
     }
   };
 
+  // 清除已保存的在线识别密钥（后端存明文，清除后 hasAsrApiKey 变 false）。
+  // Clears the saved online ASR key (stored server-side; hasAsrApiKey flips false after clearing).
+  const clearAsrApiKey = async () => {
+    setClearingAsrKey(true);
+    setAsrClearError(null);
+    try {
+      await invoke("save_config", { patch: { asrApiKey: "" } });
+      const c = await invoke<AppConfig>("get_config");
+      setConfig(normalizeConfig(c));
+    } catch (e) {
+      setAsrClearError(String(e));
+    } finally {
+      setClearingAsrKey(false);
+    }
+  };
+
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true);
     setUpdateError(null);
@@ -243,29 +261,42 @@ export default function Settings() {
 
   const localReady = resolvedPath != null && resolvedPath !== "";
   const localBlocked = config.model.trim() !== "" && resolvedPath === null;
+  // online 后端就绪与否只看密钥是否已配置，与本地模型无关。
+  // Online readiness depends only on the key being configured, never on the local model.
+  const onlineActive = config.transcriberBackend === "online";
+  const onlineReady = config.hasAsrApiKey;
+  const readinessOk = onlineActive ? onlineReady : localReady;
 
   return (
     <div className="settings-page settings-page--v2">
       <div
         className={`settings-readiness ${
-          localReady ? "settings-readiness--ok" : "settings-readiness--warn"
+          readinessOk ? "settings-readiness--ok" : "settings-readiness--warn"
         }`}
       >
         <div className="settings-readiness-icon">
-          {localReady ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          {readinessOk ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
         </div>
         <div className="settings-readiness-text">
           <strong className="settings-readiness-title">
-            {localReady
-              ? t("settings.readiness_local_ok")
-              : t("settings.readiness_local_need")}
+            {onlineActive
+              ? onlineReady
+                ? t("settings.readiness_online_ok")
+                : t("settings.readiness_online_need")
+              : localReady
+                ? t("settings.readiness_local_ok")
+                : t("settings.readiness_local_need")}
           </strong>
           <p className="settings-readiness-desc">
-            {localBlocked
-              ? t("settings.readiness_path_missing")
-              : t("settings.readiness_local_desc")}
+            {onlineActive
+              ? t("settings.transcriber_online_hint")
+              : localBlocked
+                ? t("settings.readiness_path_missing")
+                : t("settings.readiness_local_desc")}
           </p>
-          {resolvedPath && <code className="settings-readiness-path">{resolvedPath}</code>}
+          {!onlineActive && resolvedPath && (
+            <code className="settings-readiness-path">{resolvedPath}</code>
+          )}
         </div>
       </div>
 
@@ -295,6 +326,81 @@ export default function Settings() {
                 </div>
               </div>
 
+              <div className="settings-field">
+                <span className="settings-field-label-text">
+                  {t("settings.transcriber_backend")}
+                </span>
+                <div className="settings-field-control">
+                  <select
+                    className="settings-select"
+                    value={config.transcriberBackend === "online" ? "online" : "local"}
+                    onChange={(e) => update("transcriberBackend", e.target.value)}
+                  >
+                    <option value="local">{t("settings.transcriber_backend_local")}</option>
+                    <option value="online">{t("settings.transcriber_backend_online")}</option>
+                  </select>
+                </div>
+              </div>
+              {onlineActive && (
+                <p className="settings-hint">{t("settings.transcriber_online_hint")}</p>
+              )}
+
+              {onlineActive ? (
+                <>
+                  <div className="settings-field">
+                    <span className="settings-field-label-text">{t("settings.model")}</span>
+                    <div className="settings-field-control">
+                      <input
+                        type="text"
+                        className="settings-input"
+                        value={config.asrModel}
+                        onChange={(e) => update("asrModel", e.target.value)}
+                        placeholder="mimo-v2.5-asr"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-field">
+                    <span className="settings-field-label-text">{t("settings.api_url")}</span>
+                    <div className="settings-field-control">
+                      <input
+                        type="text"
+                        className="settings-input"
+                        value={config.asrApiBaseUrl}
+                        onChange={(e) => update("asrApiBaseUrl", e.target.value)}
+                        placeholder="https://token-plan-cn.xiaomimimo.com/v1"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-field">
+                    <span className="settings-field-label-text">{t("settings.api_key")}</span>
+                    <div className="settings-field-control">
+                      <input
+                        type="password"
+                        className="settings-input"
+                        value={config.asrApiKey}
+                        onChange={(e) => update("asrApiKey", e.target.value)}
+                        placeholder={config.hasAsrApiKey ? "sk-***" : "sk-..."}
+                      />
+                    </div>
+                  </div>
+                  {asrClearError && (
+                    <p className="settings-hint settings-test-err">{asrClearError}</p>
+                  )}
+                  {config.hasAsrApiKey && (
+                    <div className="settings-polish-actions">
+                      <button
+                        type="button"
+                        className="settings-btn settings-btn-sm settings-btn-secondary"
+                        onClick={clearAsrApiKey}
+                        disabled={clearingAsrKey}
+                      >
+                        {t("settings.clear_api_key")}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
               <div className="settings-model-grid">
                 {models.map((m) => {
                   const isActive = config.model === m.name;
@@ -383,6 +489,8 @@ export default function Settings() {
                   </div>
                   <p className="settings-hint">{t("settings.custom_path_hint")}</p>
                 </div>
+              )}
+                </>
               )}
               <div className="settings-field">
                 <span className="settings-field-label-text">{t("settings.inject_text")}</span>

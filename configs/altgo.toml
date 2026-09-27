@@ -18,10 +18,18 @@ sample_rate = 16000
 [transcriber]
 model = "sense-voice"                  # 设置页下载后自动填入；也可填模型目录路径
 language = "zh"                        # 语言，如 "zh"（中文）、"en"（英文）；空字符串表示自动检测
-                                        # （SenseVoice 支持中/英/日/韩/粤自动检测）
+                                        # （SenseVoice 支持中/英/日/韩/粤自动检测；在线识别空串时按 "auto" 发送）
 threads = 0                            # 本地引擎线程数；0 = 自动取满 CPU 核数
+backend = "local"                      # 转写后端："local"（本地 SenseVoice，默认）或 "online"（小米 MiMo 在线识别）
 # 本地转写始终使用内嵌 sherpa-onnx 的 SenseVoice 模型：
 # 模型在管道启动时载入一次内存，之后每句话直接推理，无进程启动与冷载开销。
+
+[transcriber.online]
+# 在线转写配置；仅当 [transcriber] backend = "online" 时生效（低配机器可免下载本地模型）。
+api_key = ""                        # API Key，也可通过 ALTGO_TRANSCRIBER_API_KEY 环境变量设置；online 时必填
+api_base_url = "https://token-plan-cn.xiaomimimo.com/v1"   # MiMo 网关地址，已含 /v1
+model = "mimo-v2.5-asr"             # 在线 ASR 模型名
+timeout = 60                        # 请求超时时间（秒）
 
 [polisher]
 protocol = "openai"                 # "openai"（OpenAI 兼容 API）或 "anthropic"（Anthropic Messages API）

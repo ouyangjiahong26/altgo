@@ -8,6 +8,11 @@ export interface AppConfig {
   windowsVkCode: number | null;
   language: string;
   model: string;
+  transcriberBackend: string;
+  asrModel: string;
+  asrApiBaseUrl: string;
+  asrApiKey: string;
+  hasAsrApiKey: boolean;
   polishLevel: string;
   polishModel: string;
   polishApiBaseUrl: string;
@@ -28,6 +33,10 @@ export function saveRequestBody(c: AppConfig) {
     windowsVkCode: c.windowsVkCode,
     language: c.language,
     model: c.model,
+    transcriberBackend: c.transcriberBackend,
+    asrModel: c.asrModel,
+    asrApiBaseUrl: c.asrApiBaseUrl,
+    ...(c.asrApiKey ? { asrApiKey: c.asrApiKey } : {}),
     polishLevel: c.polishLevel,
     polishModel: c.polishModel,
     ...(c.polisherApiKey ? { polishApiKey: c.polisherApiKey } : {}),
@@ -49,6 +58,11 @@ export function normalizeConfig(c: AppConfig): AppConfig {
     autoCheckUpdate: c.autoCheckUpdate ?? true,
     polishThinkingLevel: c.polishThinkingLevel ?? "off",
     injectText: c.injectText ?? false,
+    transcriberBackend: c.transcriberBackend ?? "local",
+    asrModel: c.asrModel ?? "",
+    asrApiBaseUrl: c.asrApiBaseUrl ?? "",
+    asrApiKey: "",
+    hasAsrApiKey: c.hasAsrApiKey ?? false,
     polisherApiKey: "",
     hasPolisherApiKey: c.hasPolisherApiKey ?? false,
   };

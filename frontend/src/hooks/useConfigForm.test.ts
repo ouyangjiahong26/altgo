@@ -8,6 +8,11 @@ describe("saveRequestBody", () => {
     windowsVkCode: null,
     language: "zh",
     model: "sense-voice",
+    transcriberBackend: "local",
+    asrModel: "",
+    asrApiBaseUrl: "",
+    asrApiKey: "",
+    hasAsrApiKey: false,
     polishLevel: "none",
     polishModel: "",
     polishApiBaseUrl: "",
@@ -83,6 +88,11 @@ describe("normalizeConfig", () => {
       windowsVkCode: 0xa5,
       language: "zh",
       model: "sense-voice",
+      transcriberBackend: "local",
+      asrModel: "",
+      asrApiBaseUrl: "",
+      asrApiKey: "secret",
+      hasAsrApiKey: true,
       polishLevel: "none",
       polishModel: "",
       polishApiBaseUrl: "",
@@ -98,5 +108,7 @@ describe("normalizeConfig", () => {
     const result = normalizeConfig(input);
     expect(result.polisherApiKey).toBe("");
     expect(result.hasPolisherApiKey).toBe(true);
+    expect(result.asrApiKey).toBe("");
+    expect(result.hasAsrApiKey).toBe(true);
   });
 });

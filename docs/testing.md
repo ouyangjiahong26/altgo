@@ -202,7 +202,7 @@ Before building this layer, weigh the cost first: real models are large, LLM cal
 
 ## 回归基线
 
-**产品支持范围**：Linux x86_64 与 aarch64；Windows x86_64 与 arm64（原生 API 实现：WH_KEYBOARD_LL、cpal/WASAPI、arboard/SendInput）；SenseVoice 本地转写（仅接受 16kHz 单声道 16 位 PCM WAV）；可选 LLM 润色（OpenAI 兼容或 Anthropic 协议）。云端转写已移除，相关测试随实现一并删除，不要回填。
+**产品支持范围**：Linux x86_64 与 aarch64；Windows x86_64 与 arm64（原生 API 实现：WH_KEYBOARD_LL、cpal/WASAPI、arboard/SendInput）；SenseVoice 本地转写（仅接受 16kHz 单声道 16 位 PCM WAV）或小米 MiMo 在线转写（`[transcriber] backend = "online"`）；可选 LLM 润色（OpenAI 兼容或 Anthropic 协议）。在线转写以 MiMo 后端回归，测试见 `src-tauri/src/mimo_asr.rs` 模块（mockito）；更早的云端转写实现及其测试已随 #121 删除，不要回填。
 
 **CI 保护范围**：
 
@@ -215,7 +215,7 @@ Before building this layer, weigh the cost first: real models are large, LLM cal
 
 ## Regression Baseline
 
-**Product support scope**: Linux x86_64 and aarch64; Windows x86_64 and arm64 (native API implementations: WH_KEYBOARD_LL, cpal/WASAPI, arboard/SendInput); local SenseVoice transcription (accepting only 16kHz mono 16-bit PCM WAV); optional LLM polishing (OpenAI-compatible or Anthropic protocol). Cloud transcription has been removed and its tests deleted along with the implementation—do not backfill.
+**Product support scope**: Linux x86_64 and aarch64; Windows x86_64 and arm64 (native API implementations: WH_KEYBOARD_LL, cpal/WASAPI, arboard/SendInput); local SenseVoice transcription (accepting only 16kHz mono 16-bit PCM WAV) or Xiaomi MiMo online transcription (`[transcriber] backend = "online"`); optional LLM polishing (OpenAI-compatible or Anthropic protocol). Online transcription is back as the MiMo backend, tested in the `src-tauri/src/mimo_asr.rs` module (mockito); the earlier cloud-transcription implementation and its tests were deleted along with #121—do not backfill those.
 
 **CI coverage**:
 

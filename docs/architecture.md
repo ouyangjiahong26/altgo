@@ -10,7 +10,7 @@ This document is an architecture overview of altgo, written for maintainers and 
 
 altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条语音流水线，React 前端负责设置页、历史页与悬浮窗。两个收敛后的设计前提：
 
-- **转写只有一条路径**：本地 SenseVoice（内嵌 sherpa-onnx），模型常驻内存。whisper.cpp、Whisper API、MiMo ASR 已随 #121 删除。
+- **转写双后端**：`[transcriber] backend` 选择——默认 `"local"` 走本地 SenseVoice（内嵌 sherpa-onnx，模型常驻内存），`"online"` 走小米 MiMo 在线识别（chat/completions + `input_audio`，失败直接报错不回退），分发接缝在 `voice_pipeline/builder.rs` 的 `build_transcriber`。whisper.cpp 与 Whisper API 已随 #121 删除。
 - **平台为 Linux（Ubuntu 22.04+，x86_64/aarch64）与 Windows 10+（x86_64/arm64）**。旧的 PowerShell 式 Windows 适配曾随 #121 删除，现行实现（`windows.rs`）为原生 API 重写：WH_KEYBOARD_LL 钩子监听按键、cpal/WASAPI 录音、arboard 剪贴板 + SendInput 文本注入（由 `[output] inject_text` 配置控制，默认关闭，ADR 0005）。
 
 核心设计只有一句话：**业务核心与框架彻底解耦，平台能力一律收进 trait seam**。`voice_pipeline` 模块完全不 import Tauri，只通过 `PipelineSink`、`TranscriptionDispatch`、`OverlaySink` 等 trait seam 与外界交互；按键监听、录音、剪贴板等系统能力也都被收进各自 trait 后面，各平台实现命名为 `linux.rs` / `windows.rs`。
@@ -61,7 +61,7 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 
 altgo is a Tauri-based desktop speech-to-text tool: the Rust backend carries the entire voice pipeline, while the React frontend handles the settings page, history page, and floating overlay window. Two settled design premises:
 
-- **Transcription has exactly one path**: local SenseVoice (with embedded sherpa-onnx), model resident in memory. whisper.cpp, Whisper API, and MiMo ASR were removed along with #121.
+- **Two transcription backends**: selected via `[transcriber] backend`—the default `"local"` uses local SenseVoice (with embedded sherpa-onnx, model resident in memory), while `"online"` uses Xiaomi MiMo online recognition (chat/completions + `input_audio`; errors out directly with no local fallback). The dispatch seam lives in `build_transcriber` of `voice_pipeline/builder.rs`. whisper.cpp and the Whisper API were removed along with #121.
 - **Platforms are Linux (Ubuntu 22.04+, x86_64/aarch64) and Windows 10+ (x86_64/arm64)**. An earlier PowerShell-style Windows adaptation had been removed along with #121; the current implementation (`windows.rs`) was rewritten against native APIs: a WH_KEYBOARD_LL hook for key listening, cpal/WASAPI recording, arboard clipboard plus SendInput text injection (controlled by the `[output] inject_text` setting, off by default, ADR 0005).
 
 The core design fits in one sentence: **the business core is fully decoupled from frameworks, and every platform capability sits behind a trait seam**. The `voice_pipeline` module never imports Tauri and interacts with the outside world only through trait seams such as `PipelineSink`, `TranscriptionDispatch`, and `OverlaySink`; system capabilities like key listening, recording, and clipboard access are likewise tucked behind their own traits, with per-platform implementations named `linux.rs` / `windows.rs`.

@@ -108,7 +108,15 @@ const translations: Record<string, Record<string, string>> = {
     "settings.update_notes": "更新内容：",
     "settings.save": "保存",
     "settings.restart_hint": "保存后会自动重载语音管道（按键监听与转写配置），一般无需重启应用。",
-    "settings.transcription_lead": "语音转文字使用本地 SenseVoice 模型。下载并选中模型后保存即可生效。",
+    "settings.transcription_lead":
+      "语音转文字支持两种引擎：本地 SenseVoice 或在线识别（小米 MiMo），按需切换。",
+    "settings.transcriber_backend": "转写引擎",
+    "settings.transcriber_backend_local": "本地 SenseVoice",
+    "settings.transcriber_backend_online": "在线识别（MiMo ASR）",
+    "settings.transcriber_online_hint":
+      "录音上传到小米 MiMo 网关识别，对低配机器友好；需要联网并产生 API 用量。",
+    "settings.readiness_online_ok": "在线识别已就绪",
+    "settings.readiness_online_need": "请填写在线识别 API 密钥",
     "settings.recording_lead":
       "默认使用键盘右侧 Alt。快速连按两次触发键可长时间录音，再按一次结束。若无效请使用“按下以设置”或自定义 keysym。",
     "settings.readiness_local_ok": "本地转写已就绪",
@@ -266,7 +274,15 @@ const translations: Record<string, Record<string, string>> = {
     "settings.update_notes": "Release notes:",
     "settings.save": "Save",
     "settings.restart_hint": "After saving, the voice pipeline reloads automatically; you usually do not need to restart the app.",
-    "settings.transcription_lead": "Transcription uses the local SenseVoice model. Download and select a model, then save to apply it.",
+    "settings.transcription_lead":
+      "Transcription supports two engines: local SenseVoice or online recognition (Xiaomi MiMo); switch as needed.",
+    "settings.transcriber_backend": "Transcription engine",
+    "settings.transcriber_backend_local": "Local SenseVoice",
+    "settings.transcriber_backend_online": "Online (MiMo ASR)",
+    "settings.transcriber_online_hint":
+      "Audio is uploaded to the Xiaomi MiMo gateway; friendly to low-spec machines, but requires network and incurs API usage.",
+    "settings.readiness_online_ok": "Online transcription ready",
+    "settings.readiness_online_need": "Enter the online ASR API key",
     "settings.recording_lead":
       "Default is Right Alt. Double-tap quickly for hands-free recording, tap again to stop. If the key does not work, use \u201cPress to set\u201d or enter a custom keysym.",
     "settings.readiness_local_ok": "Local transcription ready",

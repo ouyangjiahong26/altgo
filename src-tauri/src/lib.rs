@@ -17,6 +17,7 @@ pub mod error;
 pub mod history;
 pub mod key_capture;
 pub mod key_listener;
+pub mod mimo_asr;
 pub mod model;
 pub mod output;
 pub mod overlay;

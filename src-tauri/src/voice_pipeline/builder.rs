@@ -31,14 +31,30 @@ impl PipelineBuilder {
         ))
     }
 
-    /// 从配置构建本地转写引擎。
+    /// 从配置构建转写引擎。
     ///
-    /// 配置的本地模型缺失或加载失败时返回错误。
-    /// Build the local transcription engine from config.
+    /// `backend = "online"` 走小米 MiMo 在线识别（纯网络调用，不触碰本地模型解析）；
+    /// 其余（默认 `"local"`）走 sherpa-onnx SenseVoice，本地模型缺失或加载失败时返回错误。
+    /// Build the transcription engine from config.
     ///
-    /// Returns error if the configured local model is missing or fails to load.
+    /// `backend = "online"` uses Xiaomi MiMo online recognition (pure network calls, local model
+    /// resolution untouched); anything else (default `"local"`) uses sherpa-onnx SenseVoice and
+    /// errors if the local model is missing or fails to load.
     pub fn build_transcriber(&self) -> Result<Box<dyn Transcriber>, PipelineError> {
         let cfg = &self.cfg.transcriber;
+
+        if cfg.backend.trim().eq_ignore_ascii_case("online") {
+            let o = &cfg.online;
+            let asr = crate::mimo_asr::MimoAsr::new(
+                &o.api_key,
+                &o.api_base_url,
+                &o.model,
+                &cfg.language,
+                o.timeout,
+            )
+            .map_err(PipelineError::fatal_transcriber)?;
+            return Ok(Box::new(asr));
+        }
 
         let model_dir = match crate::model::resolve_model_dir(&cfg.model) {
             Some(d) => d,
@@ -149,6 +165,18 @@ mod tests {
             err,
             PipelineError::Fatal(FatalError::ModelNotFound { .. })
         ));
+    }
+
+    #[test]
+    fn test_build_transcriber_online_skips_local_model() {
+        // 在线后端不解析本地模型：无模型目录也应构造成功。
+        // The online backend never resolves the local model: building must succeed without one.
+        let mut cfg = test_config();
+        cfg.transcriber.backend = "online".to_string();
+        cfg.transcriber.online.api_key = "k".to_string();
+
+        let builder = PipelineBuilder::new(Arc::new(cfg));
+        assert!(builder.build_transcriber().is_ok());
     }
 
     #[test]

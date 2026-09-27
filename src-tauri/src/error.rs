@@ -147,6 +147,18 @@ pub enum TranscriberError {
 
     #[error("audio decode error: {0}")]
     WavDecodeFailed(&'static str),
+
+    #[error("invalid ASR API base URL: {0}")]
+    InvalidBaseUrl(String),
+
+    #[error("ASR API returned {status}: {body}")]
+    ApiError { status: u16, body: String },
+
+    #[error("ASR HTTP client error: {0}")]
+    HttpError(String),
+
+    #[error("ASR JSON parse error: {0}")]
+    JsonError(String),
 }
 
 impl TranscriberError {
@@ -155,6 +167,17 @@ impl TranscriberError {
             Self::EmptyAudio => "音频数据为空，请重新录音。".to_string(),
             Self::ModelLoadFailed { reason } => format!("本地模型加载失败: {}", reason),
             Self::WavDecodeFailed(msg) => format!("音频解码失败: {}", msg),
+            Self::InvalidBaseUrl(url) => {
+                format!(
+                    "在线识别 API 地址无效：'{}'。请填写完整 URL（如 https://token-plan-cn.xiaomimimo.com/v1）。",
+                    url
+                )
+            }
+            Self::ApiError { status, body } => {
+                format!("在线识别 API 错误（HTTP {}）: {}", status, body)
+            }
+            Self::HttpError(msg) => format!("在线识别请求失败: {}", msg),
+            Self::JsonError(msg) => format!("在线识别响应解析失败: {}", msg),
         }
     }
 }

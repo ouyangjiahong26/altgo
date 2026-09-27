@@ -163,6 +163,12 @@ pub struct TranscriberConfig {
     /// 本地引擎线程数；`0` 表示按 CPU 并行度自动取满
     /// Local engine thread count; `0` fills all CPU cores automatically
     pub threads: u32,
+    /// 转写后端："local"（默认）或 "online"（小米 MiMo 在线识别）
+    /// Transcription backend: "local" (default) or "online" (Xiaomi MiMo)
+    pub backend: String,
+    /// [transcriber.online] 在线 ASR 配置
+    /// [transcriber.online] online ASR settings
+    pub online: OnlineTranscriberConfig,
 }
 
 impl Default for TranscriberConfig {
@@ -171,6 +177,42 @@ impl Default for TranscriberConfig {
             model: String::new(),
             language: "zh".to_string(),
             threads: 0,
+            backend: "local".to_string(),
+            online: OnlineTranscriberConfig::default(),
+        }
+    }
+}
+
+/// 在线转写后端配置（小米 MiMo）。
+/// 在线后端仅在 `[transcriber] backend = "online"` 时生效。
+///
+/// Online transcription backend settings (Xiaomi MiMo).
+/// Only takes effect when `[transcriber] backend = "online"`.
+#[derive(Debug, Deserialize, Clone, serde::Serialize)]
+#[serde(default)]
+pub struct OnlineTranscriberConfig {
+    /// API 密钥（可通过 `ALTGO_TRANSCRIBER_API_KEY` 环境变量覆盖）
+    /// API key (overridable via the `ALTGO_TRANSCRIBER_API_KEY` env var)
+    pub api_key: String,
+    /// API 基础 URL（默认小米 MiMo 网关，已含 /v1）
+    /// API base URL (defaults to the Xiaomi MiMo gateway, /v1 included)
+    pub api_base_url: String,
+    /// 在线 ASR 模型名称
+    /// Online ASR model name
+    pub model: String,
+    /// 请求超时时间（秒）
+    /// Request timeout (seconds)
+    #[serde(with = "duration_secs", alias = "timeout_seconds")]
+    pub timeout: Duration,
+}
+
+impl Default for OnlineTranscriberConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            api_base_url: "https://token-plan-cn.xiaomimimo.com/v1".to_string(),
+            model: "mimo-v2.5-asr".to_string(),
+            timeout: Duration::from_secs(60),
         }
     }
 }
@@ -319,6 +361,36 @@ impl Config {
             )));
         }
 
+        // 转写后端取值校验；online 时逐项校验 [transcriber.online] 必填字段。
+        // Validate the backend value; when online, check each required [transcriber.online] field.
+        {
+            let backend = self.transcriber.backend.trim().to_lowercase();
+            if backend != "local" && backend != "online" {
+                return Err(ConfigError::ValidationFailed(format!(
+                    "[transcriber] backend 无效：'{}'，应为 \"local\" 或 \"online\"。",
+                    self.transcriber.backend
+                )));
+            }
+            if backend == "online" {
+                let mut missing: Vec<&str> = Vec::new();
+                if self.transcriber.online.api_key.trim().is_empty() {
+                    missing.push("API 密钥（[transcriber.online] api_key）");
+                }
+                if self.transcriber.online.api_base_url.trim().is_empty() {
+                    missing.push("API 地址（[transcriber.online] api_base_url）");
+                }
+                if self.transcriber.online.model.trim().is_empty() {
+                    missing.push("模型名称（[transcriber.online] model）");
+                }
+                if !missing.is_empty() {
+                    return Err(ConfigError::ValidationFailed(format!(
+                        "在线转写已开启（backend = \"online\"），但缺少：{}。请在设置的“转写”分区补全；密钥也可通过环境变量 ALTGO_TRANSCRIBER_API_KEY 设置。",
+                        missing.join("、")
+                    )));
+                }
+            }
+        }
+
         // 润色开启时逐项校验 [polisher] 必填字段，错误信息指明缺失项。
         // When polishing is enabled, validate each required [polisher] field and point at missing ones.
         if self.polisher.level != "none" {
@@ -395,6 +467,9 @@ where
 {
     if let Ok(key) = env_var("ALTGO_POLISHER_API_KEY") {
         cfg.polisher.api_key = key;
+    }
+    if let Ok(key) = env_var("ALTGO_TRANSCRIBER_API_KEY") {
+        cfg.transcriber.online.api_key = key;
     }
 }
 
@@ -476,6 +551,10 @@ pub struct ConfigPatch {
     /// (clear); `Some(Some(v))` = set to v.
     pub language: Option<String>,
     pub model: Option<String>,
+    pub transcriber_backend: Option<String>,
+    pub asr_api_key: Option<String>,
+    pub asr_api_base_url: Option<String>,
+    pub asr_model: Option<String>,
     pub polish_level: Option<String>,
     pub polish_model: Option<String>,
     pub polish_protocol: Option<String>,
@@ -505,6 +584,20 @@ impl ConfigPatch {
         }
         if let Some(ref v) = self.model {
             cfg.transcriber.model = v.clone();
+        }
+        if let Some(v) = &self.transcriber_backend {
+            cfg.transcriber.backend = v.clone();
+        }
+        // `Some("")` 即清除已存密钥，与 polish_api_key 行为一致。
+        // `Some("")` clears the stored key, matching polish_api_key behavior.
+        if let Some(v) = &self.asr_api_key {
+            cfg.transcriber.online.api_key = v.clone();
+        }
+        if let Some(v) = &self.asr_api_base_url {
+            cfg.transcriber.online.api_base_url = v.clone();
+        }
+        if let Some(v) = &self.asr_model {
+            cfg.transcriber.online.model = v.clone();
         }
         if let Some(ref v) = self.polish_level {
             cfg.polisher.level = v.clone();
@@ -639,6 +732,109 @@ language = "zh"
         let cfg = Config::load(&path).unwrap();
         assert_eq!(cfg.transcriber.model, "sense-voice");
         assert_eq!(cfg.transcriber.language, "zh");
+    }
+
+    #[test]
+    fn test_transcriber_defaults() {
+        let cfg = Config::default();
+        assert_eq!(cfg.transcriber.backend, "local");
+        assert_eq!(
+            cfg.transcriber.online.api_base_url,
+            "https://token-plan-cn.xiaomimimo.com/v1"
+        );
+        assert_eq!(cfg.transcriber.online.model, "mimo-v2.5-asr");
+        assert_eq!(cfg.transcriber.online.timeout, Duration::from_secs(60));
+        assert!(cfg.transcriber.online.api_key.is_empty());
+    }
+
+    #[test]
+    fn test_load_online_backend_full_section() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("altgo.toml");
+        std::fs::write(
+            &path,
+            r#"
+[transcriber]
+backend = "online"
+language = "zh"
+
+[transcriber.online]
+api_key = "secret"
+api_base_url = "https://example.com/v1"
+model = "mimo-v2.5-asr"
+timeout = 30
+"#,
+        )
+        .unwrap();
+
+        let cfg = Config::load(&path).unwrap();
+        assert_eq!(cfg.transcriber.backend, "online");
+        assert_eq!(cfg.transcriber.online.api_key, "secret");
+        assert_eq!(
+            cfg.transcriber.online.api_base_url,
+            "https://example.com/v1"
+        );
+        assert_eq!(cfg.transcriber.online.model, "mimo-v2.5-asr");
+        assert_eq!(cfg.transcriber.online.timeout, Duration::from_secs(30));
+        // 配置合法，校验通过。
+        // Valid config passes validation.
+        assert!(cfg.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_online_requires_key() {
+        let mut cfg = Config::default();
+        cfg.transcriber.backend = "online".to_string();
+        let err = cfg.validate().unwrap_err();
+        assert!(err.to_string().contains("api_key"), "unexpected: {err}");
+        assert!(err.to_string().contains("ALTGO_TRANSCRIBER_API_KEY"));
+
+        cfg.transcriber.online.api_key = "k".to_string();
+        assert!(cfg.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_unknown_backend() {
+        let mut cfg = Config::default();
+        cfg.transcriber.backend = "cloud".to_string();
+        let err = cfg.validate().unwrap_err();
+        assert!(err.to_string().contains("backend"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn test_env_override_asr_api_key() {
+        let cfg = Config::load_with_env(Path::new("/nonexistent.toml"), |name| match name {
+            "ALTGO_TRANSCRIBER_API_KEY" => Ok("test-asr-key".to_string()),
+            _ => Err(std::env::VarError::NotPresent),
+        })
+        .unwrap();
+        assert_eq!(cfg.transcriber.online.api_key, "test-asr-key");
+    }
+
+    #[test]
+    fn test_patch_applies_online_transcriber_fields() {
+        let mut cfg = Config::default();
+        let patch: ConfigPatch = serde_json::from_str(
+            r#"{"transcriberBackend":"online","asrApiKey":"kk","asrApiBaseUrl":"https://m.example/v1","asrModel":"mimo-x"}"#,
+        )
+        .unwrap();
+        patch.apply_to_config(&mut cfg);
+        assert_eq!(cfg.transcriber.backend, "online");
+        assert_eq!(cfg.transcriber.online.api_key, "kk");
+        assert_eq!(cfg.transcriber.online.api_base_url, "https://m.example/v1");
+        assert_eq!(cfg.transcriber.online.model, "mimo-x");
+
+        // 空串即清除密钥。
+        // Empty string clears the key.
+        let patch: ConfigPatch = serde_json::from_str(r#"{"asrApiKey":""}"#).unwrap();
+        patch.apply_to_config(&mut cfg);
+        assert_eq!(cfg.transcriber.online.api_key, "");
+
+        // 缺省字段不修改。
+        // Absent fields leave values unchanged.
+        let patch: ConfigPatch = serde_json::from_str(r#"{}"#).unwrap();
+        patch.apply_to_config(&mut cfg);
+        assert_eq!(cfg.transcriber.backend, "online");
     }
 
     #[test]
