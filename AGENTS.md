@@ -21,7 +21,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 - 整条管道跑在独立 OS 线程的 current_thread tokio runtime 上（`lib.rs::spawn_pipeline_thread`）；一切阻塞工作（推理、剪贴板、历史 I/O、join 线程）走 `spawn_blocking`。
 - 状态管理：Tauri managed state 四件——`ConfigStore`（持锁更新，校验/落盘失败回滚内存）、`HistoryStore`（模块级 I/O 锁，Unix 落盘 0o600）、`PipelineController`（生命周期 + `PipelineStatus` 五态）、`Arc<dyn Output>`。
 - IPC：`cmd.rs` 17 个 `#[tauri::command]`；事件 `pipeline-status`/`transcription-result`/`polish-failed`/`history-updated`/`overlay-state` 等，emit 点在 `tauri_sink.rs` 与 `cmd.rs`，前端 `hooks/useTauri.ts` 统一 listen。
-- 前端两个窗口：主窗（`index.html`，HashRouter 两个页面：主页含历史列表、设置；首次启动先显示引导向导）+ 悬浮窗（`overlay.html`，独立样式链，动画只动 transform 防 Linux WM 黑晕）。主题/字体/窗口尺寸存 localStorage，**不进** Tauri 配置。
+- 前端三个窗口：主窗（`index.html`，HashRouter 两个页面：主页含历史列表、设置；首次启动先显示引导向导）+ 悬浮窗（`overlay.html`，独立样式链，动画只动 transform 防 Linux WM 黑晕）+ 更新说明窗口（`update-notes.html`，手动检查发现新版本时弹出，随应用启动常驻加载、关闭走 hide）。主题/字体/窗口尺寸存 localStorage，**不进** Tauri 配置。
 
 ## Key Directories
 
@@ -91,7 +91,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - `src-tauri/src/cmd.rs` — 全部 IPC 命令；`tauri_sink.rs` — 事件映射 + 浮窗状态切换。
 - `src-tauri/src/error.rs` — 全部错误枚举；`state_machine.rs` — 按键状态机。
 - `src-tauri/src/config.rs` + `config_store.rs` — 配置模型、补丁与持久化；`history.rs` — 历史 JSON。
-- `src-tauri/tauri.conf.json` — 双窗口、bundle targets（deb/rpm/appimage/nsis/msi）、updater 端点。
+- `src-tauri/tauri.conf.json` — 三窗口（主窗 / 悬浮窗 / 更新说明）、bundle targets（deb/rpm/appimage/nsis/msi）、updater 端点。
 - `configs/altgo.toml` — 全部配置字段模板（`[key_listener]`/`[recorder]`/`[transcriber]`/`[polisher]`/`[output]`/`[logging]`）。
 - `CONTEXT.md`、`docs/architecture.md`、`docs/testing.md`、`docs/adr/` — 术语、架构、测试策略、决策记录。
 
