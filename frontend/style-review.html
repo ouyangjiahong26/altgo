@@ -201,6 +201,14 @@
         font-weight: 500;
         color: var(--color-text-muted);
       }
+      /* 非尺寸类 token 的值可能很长（字体族、data URI），值列与预览列各自换行 */
+      .sr-line--misc {
+        grid-template-columns: 200px minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+      }
+      .sr-line--misc > b {
+        overflow-wrap: anywhere;
+      }
       .sr-bar {
         height: 12px;
         background: var(--color-accent);
@@ -323,7 +331,8 @@
       <div>
         <div class="sr-title">altgo 样式审查</div>
         <div class="sr-sub">
-          直接加载 <code>src/styles/*</code> 真实样式表，与 main.tsx / overlay.tsx 的加载顺序一致。
+          直接加载 <code>src/styles/*</code> 的真实样式表：主窗侧与 <code>main.tsx</code> 同序（8 张），浮窗侧只取
+          <code>overlay.css</code>（<code>styles/overlay-base.css</code> 的 <code>body</code> 规则会破坏本页，故省略）。
         </div>
       </div>
       <div class="sr-ctl" role="group" aria-label="主题">
@@ -407,9 +416,11 @@
           <div class="sr-row" id="shadow-scale"></div>
           <h3>动效 --duration-* / --ease-*</h3>
           <div class="sr-row" id="motion-scale"></div>
+          <h3>字体 / 行高 / 字距 / 其它</h3>
+          <div class="sr-list" id="misc-tokens"></div>
           <div class="sr-caption">
             motion.css 里 <code>prefers-reduced-motion: reduce</code> 会把动画与过渡压到 0.01ms——
-            系统开启"减少动态效果"时本页动画应静止。
+            系统开启“减少动态效果”时本页动画应静止。
           </div>
         </section>
 
@@ -577,8 +588,8 @@
                 </div>
 
                 <button class="settings-advanced-toggle">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
                   高级：协议 / 模型 / 地址
-                  <span class="settings-advanced-chevron">▾</span>
                 </button>
                 <div>
                   <div class="settings-field settings-field--nested">
@@ -1033,7 +1044,7 @@
           group: "间距 --space-*",
           tokens: ["--space-1", "--space-2", "--space-3", "--space-4", "--space-5", "--space-6", "--space-8", "--space-10"],
         },
-        { group: "圆角 --radius-*", tokens: ["--radius-sm", "--radius-md", "--radius-lg", "--radius-xl", "--radius-2xl"] },
+        { group: "圆角 --radius-*", tokens: ["--radius-sm", "--radius-md", "--radius-lg", "--radius-xl", "--radius-2xl", "--radius-full"] },
       ];
 
       const root = document.documentElement;
@@ -1193,6 +1204,57 @@
         refreshValues();
       }
 
+      /**
+       * 其余 token：字体族、行高、字距，以及不成体系的 overlay-shadow / select-chevron。
+       * 这些不是尺寸也非纯色，单独一行渲染，值直接读 CSS 变量。
+       */
+      const MISC_TOKENS = [
+        {
+          name: "--font-sans",
+          preview: (t) => `<span style="font-family: var(${t}); font-size: var(--text-sm)">Plus Jakarta Sans / 系统回退</span>`,
+        },
+        {
+          name: "--font-mono",
+          preview: (t) => `<span style="font-family: var(${t}); font-size: var(--text-sm)">JetBrains Mono 0123</span>`,
+        },
+        {
+          name: "--leading-normal",
+          preview: () => `<span style="line-height: var(--leading-normal); font-size: var(--text-xs)">行高 normal<br />第二行</span>`,
+        },
+        {
+          name: "--leading-relaxed",
+          preview: () => `<span style="line-height: var(--leading-relaxed); font-size: var(--text-xs)">行高 relaxed<br />第二行</span>`,
+        },
+        {
+          name: "--tracking-tight",
+          preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">tracking tight</span>`,
+        },
+        {
+          name: "--tracking-wide",
+          preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">TRACKING WIDE</span>`,
+        },
+        {
+          name: "--overlay-shadow",
+          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: 22px; border-radius: var(--radius-sm); box-shadow: var(${t})"></span>`,
+        },
+        {
+          name: "--select-chevron",
+          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: 22px; border-radius: var(--radius-sm); background-image: var(${t}); background-repeat: no-repeat; background-position: center"></span>`,
+        },
+      ];
+
+      function renderMiscTokens() {
+        document.getElementById("misc-tokens").innerHTML = MISC_TOKENS.map(
+          (entry) => `
+          <div class="sr-line sr-line--misc">
+            <code>${entry.name}</code>
+            <b data-raw-value="${entry.name}"></b>
+            <span>${entry.preview(entry.name)}</span>
+          </div>`,
+        ).join("");
+        refreshValues();
+      }
+
       function setFontSize(px) {
         root.style.fontSize = px + "px";
         document.querySelectorAll("[data-size-btn]").forEach((b) =>
@@ -1212,6 +1274,7 @@
       renderRemScales();
       renderShadows();
       renderMotion();
+      renderMiscTokens();
       renderStatusDemos();
       setTheme("dark");
       setFontSize(17);
