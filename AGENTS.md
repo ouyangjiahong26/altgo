@@ -29,7 +29,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 |---|---|
 | `src-tauri/src/` | Rust 核心（crate `altgo-tauri`）：`voice_pipeline/` 业务主循环、`key_listener/`、`key_capture/`、`recorder/`、`output/`、`overlay/`（seam/manager/tauri/activity 分层）、`polisher/`，根文件见 “Important Files” |
 |`frontend/src/`|React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）+ `overlay.tsx` 悬浮窗；`styles/` 分层：design-tokens → design-system → global → layout/components/pages|
-|`frontend/style-review.html`|样式审查页（单文件）：按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*`，另加浮窗与更新说明窗口的 `src/overlay.css`、`src/styles/pages/update-notes.css`（这两份不在 `main.tsx` 的链上），逐项列出全部 token 与组件/页面片段，可切暗亮主题与根字号；不在 vite 构建入口内|
+|`frontend/style-review.html`|样式审查页目录（`frontend/review/` 下按主题分五个分页：设计 token、基础与组件、界面、窗口、页面整体）：各分页按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*`，另加浮窗与更新说明窗口的 `src/overlay.css`、`src/styles/pages/update-notes.css`（这两份不在 `main.tsx` 的链上），共享 `review/review.css` 框架样式与 `review/review.js` 主题/字号切换，可切暗亮主题与根字号；不在 vite 构建入口内|
 | `configs/` | 用户 TOML 模板；应用实际读 `~/.config/altgo/altgo.toml` |
 | `resources/prompts/` | 润色 prompt：`base.txt` + `light/medium/heavy-suffix.txt`（`none` 档不润色） |
 | `docs/` | 维护者文档：`architecture.md`、`testing.md`、`adr/`（ADR-0003~0006）、`agents/`（agent 工作约定） |
@@ -84,7 +84,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - **配置补丁**：`ConfigPatch` 三态语义——缺省 = 不改、`null` = 清除、值 = 设置（`config.rs`）。
 - **注释**：只写中文，不写英文对照，解释“为什么”而非“是什么”；公开 API 加文档注释；函数 < 50 行、文件 < 1000 行（`CONTRIBUTING.md`）。工具指令注释（`eslint-disable`、`ts-expect-error`、`/// <reference types=…>` 等）与注释里的示例值、命令、URL、代码片段保持原样——它们不属于英文对照。
 - **日志/可见性**：`tracing` 结构化字段（如 `tracing::info!(backend, "key listener active")`）；内部实现收紧 `pub(crate)`。
-- **前端**：i18n 自研字典（`frontend/src/i18n/`，key 形如 `settings.save`）；状态色/间距等一律走 `styles/design-tokens.css` 的 CSS 变量，不写死颜色；改动 token、基础层或组件样式时同步更新样式审查页 `frontend/style-review.html`。
+- **前端**：i18n 自研字典（`frontend/src/i18n/`，key 形如 `settings.save`）；状态色/间距等一律走 `styles/design-tokens.css` 的 CSS 变量，不写死颜色；改动 token、基础层或组件样式时同步更新样式审查页 `frontend/review/` 对应分页。
 
 ## Important Files
 

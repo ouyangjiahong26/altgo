@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>altgo 样式审查 · 窗口</title>
+    <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
+    <link rel="stylesheet" href="../src/styles/global.css" />
+    <link rel="stylesheet" href="../src/styles/layout.css" />
+    <link rel="stylesheet" href="../src/styles/components/ui-primitives.css" />
+    <link rel="stylesheet" href="../src/styles/pages/home.css" />
+    <link rel="stylesheet" href="../src/styles/pages/settings.css" />
+    <link rel="stylesheet" href="../src/styles/pages/history.css" />
+    <link rel="stylesheet" href="../src/styles/pages/onboarding.css" />
+    <link rel="stylesheet" href="../src/overlay.css" />
+    <link rel="stylesheet" href="../src/styles/pages/update-notes.css" />
+    <link rel="stylesheet" href="review.css" />
+  </head>
+  <body>
+<header class="sr-top">
+      <div>
+        <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 窗口</div>
+        <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致；可切换深浅主题与根字号（15 / 17 / 19）。</div>
+      </div>
+      <div class="sr-ctl" role="group" aria-label="主题">
+        <button type="button" data-theme-btn="dark" aria-pressed="true">暗色</button>
+        <button type="button" data-theme-btn="light" aria-pressed="false">亮色</button>
+      </div>
+      <div class="sr-ctl" role="group" aria-label="根字号">
+        <button type="button" data-size-btn="15" aria-pressed="false">15px</button>
+        <button type="button" data-size-btn="17" aria-pressed="true">17px</button>
+        <button type="button" data-size-btn="19" aria-pressed="false">19px</button>
+      </div>
+    </header>
+    <div class="sr-wrap">
+      <nav class="sr-nav">
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">设计 token <a href="tokens.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="tokens.html#colors">色彩 token</a>
+          <a href="tokens.html#type">排版</a>
+          <a href="tokens.html#space">间距 / 圆角 / 动效</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">基础与组件 <a href="foundations.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="foundations.html#base">基础层</a>
+          <a href="foundations.html#primitives">UI Primitives</a>
+          <a href="foundations.html#layout">Layout 头部</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">界面 <a href="screens.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="screens.html#settings">设置页</a>
+          <a href="screens.html#onboarding">首次引导</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">窗口</div>
+          <a href="#overlay" style="color: var(--color-text)">悬浮窗</a>
+          <a href="#update-notes" style="color: var(--color-text)">更新说明窗口</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">页面整体 <a href="pages.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="pages.html#pages">页面整体</a>
+        </div>
+      </nav>
+      <main>
+<section class="sr-sec" id="overlay">
+          <h2>悬浮窗</h2>
+          <p class="sr-desc">悬浮窗 280×64，内容胶囊 248×40。录音：红点与电平轨迹；转写中：旋转环与进度线；完成：对勾与单行文本（失败为琥珀色）。</p>
+          <div class="sr-col">
+            <div>
+              <div class="sr-frame sr-frame--ov">
+                <div class="island-container island-enter">
+                  <div class="island">
+                    <span class="dot" aria-hidden="true"></span>
+                    <div class="level-trace" aria-hidden="true">
+                      <div class="trace-bar" style="height: 6px"></div>
+                      <div class="trace-bar" style="height: 18px"></div>
+                      <div class="trace-bar" style="height: 11px"></div>
+                      <div class="trace-bar" style="height: 24px"></div>
+                      <div class="trace-bar" style="height: 14px"></div>
+                      <div class="trace-bar" style="height: 20px"></div>
+                      <div class="trace-bar" style="height: 8px"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="sr-caption">录音：红点与电平轨迹，高度随音量变化。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--ov">
+                <div class="island-container island-enter">
+                  <div class="island">
+                    <div class="processing-ring"></div>
+                    <div class="overlay-tx-progress-track">
+                      <div class="overlay-tx-progress-fill" style="transform: scaleX(0.42)"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="sr-caption">转写中：旋转环与进度线，进度未知时为往复动画。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--ov">
+                <div class="island-container island-enter">
+                  <div class="island">
+                    <div class="done-indicator">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                    </div>
+                    <span class="result-text">这是转写并润色后的单行结果文本，超出会被省略号截断</span>
+                    <span class="result-warn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 16H3z"/><path d="M12 9v5M12 17h.01"/></svg></span>
+                    <button class="btn-close" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                  </div>
+                </div>
+              </div>
+              <div class="sr-caption">完成：对勾圆盘与单行文本，失败时为琥珀警示，右上角关闭。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--ov">
+                <div class="island-container island-exit">
+                  <div class="island">
+                    <div class="done-indicator done-indicator--failed"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3l9 16H3z"/></svg></div>
+                    <span class="result-text">润色失败，已使用原文</span>
+                  </div>
+                </div>
+              </div>
+              <div class="sr-caption">退出：整胶囊下移并淡出。</div>
+            </div>
+          </div>
+        </section>
+
+<section class="sr-sec" id="update-notes">
+          <h2>更新说明窗口</h2>
+          <p class="sr-desc">更新说明窗口 340×400，手动检查更新时弹出；内容为版本说明：分类标题与条目，支持粗体与代码样式。</p>
+          <p class="sr-note sr-note--info">
+            窗口样式见 <code>src/styles/pages/update-notes.css</code>；下列预览与产品一致地跟随本页主题切换（产品里跟随主窗，经 storage 事件跨窗口同步）。
+          </p>
+          <div class="sr-col">
+            <div>
+              <div class="sr-frame sr-frame--notes">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-summary"><div class="update-notes-headline">发现新版本 v2.6.18</div><div class="update-notes-versions"><span class="update-notes-version">当前 2.6.17</span><span class="update-notes-version update-notes-version--latest">最新 2.6.18</span><span class="update-notes-date">2026-09-27</span></div></div><div class="update-notes-body"><div class="release-notes"><h4 class="release-notes-heading">Changed</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>悬浮窗精简为单行极简胶囊</strong></li><li class="release-notes-item"><strong>设置界面改版</strong><ul class="release-notes-sublist"><li class="release-notes-subitem">子条目</li></ul></li></ul><h4 class="release-notes-heading">Fixes</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>更新与分发渠道指向新仓库名</strong></li></ul></div></div><div class="update-notes-actions"><button type="button" class="update-notes-btn update-notes-btn--primary"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>立即更新并重启</button></div></div>
+              </div>
+              <div class="sr-caption">应用内更新：底部为“立即更新并重启”。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--notes">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-summary"><div class="update-notes-headline">发现新版本 v2.6.18</div><div class="update-notes-versions"><span class="update-notes-version">当前 2.6.17</span><span class="update-notes-version update-notes-version--latest">最新 2.6.18</span><span class="update-notes-date">2026-09-27</span></div></div><div class="update-notes-body"><div class="release-notes"><h4 class="release-notes-heading">Changed</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>悬浮窗精简为单行极简胶囊</strong></li><li class="release-notes-item"><strong>设置界面改版</strong><ul class="release-notes-sublist"><li class="release-notes-subitem">子条目</li></ul></li></ul><h4 class="release-notes-heading">Fixes</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>更新与分发渠道指向新仓库名</strong></li></ul></div></div><div class="update-notes-actions"><button type="button" class="update-notes-btn update-notes-btn--primary">打开下载页面</button></div></div>
+              </div>
+              <div class="sr-caption">安装包更新：底部为“打开下载页面”。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--notes">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-body"><p class="update-notes-empty">暂无更新信息</p></div><div class="update-notes-actions"><button type="button" class="update-notes-btn update-notes-btn--primary">打开下载页面</button></div></div>
+              </div>
+              <div class="sr-caption">空态：显示“暂无更新信息”。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--notes">
+<div class="update-notes-window"><header class="update-notes-header" data-tauri-drag-region="true"><span class="update-notes-title" data-tauri-drag-region="true">更新说明</span><button type="button" class="update-notes-close" title="关闭" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></header><div class="update-notes-summary"><div class="update-notes-headline">发现新版本 v2.6.18</div><div class="update-notes-versions"><span class="update-notes-version">当前 2.6.17</span><span class="update-notes-version update-notes-version--latest">最新 2.6.18</span><span class="update-notes-date">2026-09-27</span></div></div><div class="update-notes-body"><div class="release-notes"><h4 class="release-notes-heading">Changed</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>悬浮窗精简为单行极简胶囊</strong></li><li class="release-notes-item"><strong>设置界面改版</strong><ul class="release-notes-sublist"><li class="release-notes-subitem">子条目</li></ul></li></ul><h4 class="release-notes-heading">Fixes</h4><ul class="release-notes-list"><li class="release-notes-item"><strong>更新与分发渠道指向新仓库名</strong></li></ul></div></div><div class="update-notes-actions"><div class="update-notes-error">录音进行中，无法安装更新</div><button type="button" class="update-notes-btn update-notes-btn--primary" disabled=""><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>正在下载并安装更新…</button></div></div>
+              </div>
+              <div class="sr-caption">安装中与失败：按钮禁用并显示进度，失败原因显示在按钮上方。</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="review.js"></script>
+  </body>
+</html>

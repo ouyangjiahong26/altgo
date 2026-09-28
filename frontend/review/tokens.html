@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>altgo 样式审查 · 设计 token</title>
+    <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
+    <link rel="stylesheet" href="../src/styles/global.css" />
+    <link rel="stylesheet" href="../src/styles/layout.css" />
+    <link rel="stylesheet" href="../src/styles/components/ui-primitives.css" />
+    <link rel="stylesheet" href="../src/styles/pages/home.css" />
+    <link rel="stylesheet" href="../src/styles/pages/settings.css" />
+    <link rel="stylesheet" href="../src/styles/pages/history.css" />
+    <link rel="stylesheet" href="../src/styles/pages/onboarding.css" />
+    <link rel="stylesheet" href="../src/overlay.css" />
+    <link rel="stylesheet" href="../src/styles/pages/update-notes.css" />
+    <link rel="stylesheet" href="review.css" />
+  </head>
+  <body>
+<header class="sr-top">
+      <div>
+        <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 设计 token</div>
+        <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致；可切换深浅主题与根字号（15 / 17 / 19）。</div>
+      </div>
+      <div class="sr-ctl" role="group" aria-label="主题">
+        <button type="button" data-theme-btn="dark" aria-pressed="true">暗色</button>
+        <button type="button" data-theme-btn="light" aria-pressed="false">亮色</button>
+      </div>
+      <div class="sr-ctl" role="group" aria-label="根字号">
+        <button type="button" data-size-btn="15" aria-pressed="false">15px</button>
+        <button type="button" data-size-btn="17" aria-pressed="true">17px</button>
+        <button type="button" data-size-btn="19" aria-pressed="false">19px</button>
+      </div>
+    </header>
+    <div class="sr-wrap">
+      <nav class="sr-nav">
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">设计 token</div>
+          <a href="#colors" style="color: var(--color-text)">色彩 token</a>
+          <a href="#type" style="color: var(--color-text)">排版</a>
+          <a href="#space" style="color: var(--color-text)">间距 / 圆角 / 动效</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">基础与组件 <a href="foundations.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="foundations.html#base">基础层</a>
+          <a href="foundations.html#primitives">UI Primitives</a>
+          <a href="foundations.html#layout">Layout 头部</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">界面 <a href="screens.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="screens.html#settings">设置页</a>
+          <a href="screens.html#onboarding">首次引导</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">窗口 <a href="windows.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="windows.html#overlay">悬浮窗</a>
+          <a href="windows.html#update-notes">更新说明窗口</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">页面整体 <a href="pages.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="pages.html#pages">页面整体</a>
+        </div>
+      </nav>
+      <main>
+<section class="sr-sec" id="colors">
+          <h2>色彩 token</h2>
+          <p class="sr-desc">全部设计变量一览：配色分深浅两套主题，色块底纹为透明棋盘格，便于看清半透明色。</p>
+          <div id="token-groups"></div>
+        </section>
+
+<section class="sr-sec" id="type">
+          <h2>排版</h2>
+          <p class="sr-desc">字号随根字号整体缩放，提供 15 / 17 / 19 三档；正文与等宽两套字体，此处可切换预览。</p>
+          <div class="sr-list" id="type-scale"></div>
+
+          <h3>实际用法</h3>
+          <div class="sr-frame sr-col">
+            <div class="layout-logo" style="font-size: var(--text-xl)">altgo</div>
+            <span class="layout-subtitle">speech to text</span>
+            <p style="font-size: var(--text-base); color: var(--color-text)">
+              正文：按住触发键说话，松开后自动转写并润色。
+            </p>
+            <p class="settings-hint">settings-hint：辅助说明文案，--text-xs + --color-text-muted。</p>
+            <p style="font-family: var(--font-mono); font-size: var(--text-sm)">
+              --font-mono 0123456789 Alt_R
+            </p>
+          </div>
+          <div class="sr-caption">logo 文字使用强调色渐变；中文标题不额外加字距。</div>
+        </section>
+
+<section class="sr-sec" id="space">
+          <h2>间距 / 圆角 / 动效</h2>
+          <h3>间距 --space-*</h3>
+          <div class="sr-list" id="space-scale"></div>
+          <h3>圆角 --radius-*</h3>
+          <div class="sr-row" id="radius-scale"></div>
+          <h3>阴影 --shadow-*</h3>
+          <div class="sr-row" id="shadow-scale"></div>
+          <h3>动效 --duration-* / --ease-*</h3>
+          <div class="sr-row" id="motion-scale"></div>
+          <div class="sr-caption">系统开启“减少动态效果”时，动画与过渡全部停用。</div>
+          <h3>字体 / 行高 / 字距 / 其它</h3>
+          <div class="sr-list" id="misc-tokens"></div>
+          <div class="sr-caption">悬浮窗阴影刻意为无：半透明阴影在部分 Linux 环境会渲染成黑影，预览即为真实效果。</div>
+        </section>
+      </main>
+    </div>
+    <script src="review.js"></script>
+    <script>
+const TOKEN_GROUPS = [
+        {
+          title: "背景与表面",
+          tokens: [
+            "--color-bg",
+            "--color-surface-1",
+            "--color-surface-2",
+            "--color-surface-3",
+            "--color-bg-card",
+            "--color-bg-card-hover",
+            "--color-bg-input",
+            "--color-bg-input-focus",
+            "--color-bg-muted",
+            "--color-hover-surface",
+          ],
+        },
+        { title: "文本", tokens: ["--color-text", "--color-text-secondary", "--color-text-muted", "--color-on-primary"] },
+        {
+          title: "强调色",
+          tokens: [
+            "--color-accent",
+            "--color-accent-hover",
+            "--color-accent-soft",
+            "--color-accent-glow",
+            "--color-accent-tint-bg",
+            "--color-accent-tint-border",
+            "--color-accent-tint-shadow",
+          ],
+        },
+        {
+          title: "语义色（成功 / 危险 / 警告）",
+          tokens: [
+            "--color-green",
+            "--color-green-bg",
+            "--color-green-glow",
+            "--color-red",
+            "--color-red-bg",
+            "--color-red-glow",
+            "--color-amber",
+            "--color-amber-bg",
+            "--color-amber-glow",
+            "--danger-border",
+            "--danger-hover-bg",
+          ],
+        },
+        {
+          title: "描边与焦点",
+          tokens: ["--color-border", "--color-border-subtle", "--color-border-strong", "--color-border-focus"],
+        },
+        {
+          title: "悬浮窗专用",
+          tokens: [
+            "--overlay-surface-solid",
+            "--overlay-border",
+            "--overlay-text",
+            "--overlay-result-text",
+            "--overlay-muted",
+            "--overlay-processing-track",
+          ],
+        },
+      ];
+
+      const REM_TOKENS = [
+        { group: "字号 --text-*", tokens: ["--text-xs", "--text-sm", "--text-base", "--text-lg", "--text-xl", "--text-2xl"] },
+        {
+          group: "间距 --space-*",
+          tokens: ["--space-1", "--space-2", "--space-3", "--space-4", "--space-5", "--space-6", "--space-8", "--space-10"],
+        },
+        { group: "圆角 --radius-*", tokens: ["--radius-sm", "--radius-md", "--radius-lg", "--radius-xl", "--radius-2xl", "--radius-full"] },
+      ];
+
+      
+function renderTokenGroups() {
+        const host = document.getElementById("token-groups");
+        host.innerHTML = TOKEN_GROUPS.map(
+          (group) => `
+            <h3>${group.title}</h3>
+            <div class="sr-swatches">
+              ${group.tokens
+                .map(
+                  (t) => `
+                <div class="sr-swatch">
+                  <div class="sr-chip"><span style="background: var(${t})"></span></div>
+                  <div class="sr-meta">
+                    <span class="sr-name">${t}</span>
+                    <span class="sr-val" data-color-value="${t}"></span>
+                  </div>
+                </div>`,
+                )
+                .join("")}
+            </div>`,
+        ).join("");
+        refreshValues();
+      }
+
+      function renderRemScales() {
+        document.getElementById("type-scale").innerHTML = scaleRows(REM_TOKENS[0], "font-size");
+        document.getElementById("space-scale").innerHTML = scaleRows(REM_TOKENS[1], "width");
+        document.getElementById("radius-scale").innerHTML = REM_TOKENS[2].tokens
+          .map(
+            (t) => `
+          <div class="sr-col" style="align-items: center; gap: var(--space-1)">
+            <div class="sr-box" style="width: 84px; height: 56px; border-radius: var(${t})"></div>
+            <code style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-secondary)">${t}</code>
+            <b style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted)" data-rem-value="${t}"></b>
+          </div>`,
+          )
+          .join("");
+        refreshValues();
+      }
+
+      function scaleRows(entry, mode) {
+        return entry.tokens
+          .map((t) => {
+            const bar =
+              mode === "font-size"
+                ? `<span style="font-size: var(${t}); color: var(--color-text)">按住触发键说话 Aa 转录</span>`
+                : `<span class="sr-bar" style="width: var(${t})"></span>`;
+            return `
+            <div class="sr-line">
+              <code>${t}</code>
+              <b data-rem-value="${t}"></b>
+              ${bar}
+            </div>`;
+          })
+          .join("");
+      }
+
+      function renderShadows() {
+        const list = ["--shadow-sm", "--shadow-md", "--shadow-lg", "--shadow-glow-accent", "--shadow-glow-green", "--shadow-glow-red", "--shadow-glow-amber"];
+        document.getElementById("shadow-scale").innerHTML = list
+          .map(
+            (t) => `<div class="sr-shadow-demo" style="box-shadow: var(${t}); min-width: 150px">${t}</div>`,
+          )
+          .join("");
+      }
+
+      function renderMotion() {
+        const list = [
+          "--duration-fast",
+          "--duration-normal",
+          "--duration-slow",
+          "--ease-out",
+          "--ease-in-out",
+          "--ease-spring",
+        ];
+        document.getElementById("motion-scale").innerHTML = list
+          .map(
+            (t) => `
+          <div class="sr-col" style="align-items: center">
+            <div class="sr-box sr-hover-scale" style="width: 84px; height: 56px; border-radius: var(--radius-md)"></div>
+            <code style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-secondary)">${t}</code>
+            <b style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted)" data-raw-value="${t}"></b>
+          </div>`,
+          )
+          .join("");
+        refreshValues();
+      }
+
+      
+/**
+       * 其余 token：字体族、行高、字距，以及不成体系的 overlay-shadow / select-chevron。
+       * 这些不是尺寸也非纯色，单独一行渲染，值直接读 CSS 变量。
+       */
+      const MISC_TOKENS = [
+        {
+          name: "--font-sans",
+          preview: (t) => `<span style="font-family: var(${t}); font-size: var(--text-sm)">Plus Jakarta Sans / 系统回退</span>`,
+        },
+        {
+          name: "--font-mono",
+          preview: (t) => `<span style="font-family: var(${t}); font-size: var(--text-sm)">IBM Plex Mono 0123</span>`,
+        },
+        {
+          name: "--leading-normal",
+          preview: () => `<span style="line-height: var(--leading-normal); font-size: var(--text-xs)">行高 normal<br />第二行</span>`,
+        },
+        {
+          name: "--leading-relaxed",
+          preview: () => `<span style="line-height: var(--leading-relaxed); font-size: var(--text-xs)">行高 relaxed<br />第二行</span>`,
+        },
+        {
+          name: "--tracking-tight",
+          preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">tracking tight</span>`,
+        },
+        {
+          name: "--tracking-wide",
+          preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">TRACKING WIDE</span>`,
+        },
+        {
+          name: "--overlay-shadow",
+          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: 22px; border-radius: var(--radius-sm); box-shadow: var(${t})"></span>`,
+        },
+        {
+          name: "--select-chevron",
+          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: 22px; border-radius: var(--radius-sm); background-image: var(${t}); background-repeat: no-repeat; background-position: center"></span>`,
+        },
+      ];
+
+      function renderMiscTokens() {
+        document.getElementById("misc-tokens").innerHTML = MISC_TOKENS.map(
+          (entry) => `
+          <div class="sr-line sr-line--misc">
+            <code>${entry.name}</code>
+            <b data-raw-value="${entry.name}"></b>
+            <span>${entry.preview(entry.name)}</span>
+          </div>`,
+        ).join("");
+        refreshValues();
+      }
+
+      
+      renderTokenGroups();
+      renderRemScales();
+      renderShadows();
+      renderMotion();
+      renderMiscTokens();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>altgo 样式审查 · 界面</title>
+    <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
+    <link rel="stylesheet" href="../src/styles/global.css" />
+    <link rel="stylesheet" href="../src/styles/layout.css" />
+    <link rel="stylesheet" href="../src/styles/components/ui-primitives.css" />
+    <link rel="stylesheet" href="../src/styles/pages/home.css" />
+    <link rel="stylesheet" href="../src/styles/pages/settings.css" />
+    <link rel="stylesheet" href="../src/styles/pages/history.css" />
+    <link rel="stylesheet" href="../src/styles/pages/onboarding.css" />
+    <link rel="stylesheet" href="../src/overlay.css" />
+    <link rel="stylesheet" href="../src/styles/pages/update-notes.css" />
+    <link rel="stylesheet" href="review.css" />
+  </head>
+  <body>
+<header class="sr-top">
+      <div>
+        <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 界面</div>
+        <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致；可切换深浅主题与根字号（15 / 17 / 19）。</div>
+      </div>
+      <div class="sr-ctl" role="group" aria-label="主题">
+        <button type="button" data-theme-btn="dark" aria-pressed="true">暗色</button>
+        <button type="button" data-theme-btn="light" aria-pressed="false">亮色</button>
+      </div>
+      <div class="sr-ctl" role="group" aria-label="根字号">
+        <button type="button" data-size-btn="15" aria-pressed="false">15px</button>
+        <button type="button" data-size-btn="17" aria-pressed="true">17px</button>
+        <button type="button" data-size-btn="19" aria-pressed="false">19px</button>
+      </div>
+    </header>
+    <div class="sr-wrap">
+      <nav class="sr-nav">
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">设计 token <a href="tokens.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="tokens.html#colors">色彩 token</a>
+          <a href="tokens.html#type">排版</a>
+          <a href="tokens.html#space">间距 / 圆角 / 动效</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">基础与组件 <a href="foundations.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="foundations.html#base">基础层</a>
+          <a href="foundations.html#primitives">UI Primitives</a>
+          <a href="foundations.html#layout">Layout 头部</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">界面</div>
+          <a href="#settings" style="color: var(--color-text)">设置页</a>
+          <a href="#onboarding" style="color: var(--color-text)">首次引导</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">窗口 <a href="windows.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="windows.html#overlay">悬浮窗</a>
+          <a href="windows.html#update-notes">更新说明窗口</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">页面整体 <a href="pages.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="pages.html#pages">页面整体</a>
+        </div>
+      </nav>
+      <main>
+<section class="sr-sec" id="settings">
+          <h2>设置页</h2>
+          <p class="sr-desc">设置页：区块卡分组堆叠，字段行左标签右控件；窗口变窄时字段改为上下堆叠。</p>
+          <div class="sr-frame sr-frame--tall">
+            <div class="settings-form">
+              <section class="settings-section settings-section--primary settings-section--transcription">
+                <h3 class="settings-section-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+                  转写
+                </h3>
+
+                <div class="settings-field">
+                  <span class="settings-field-label-text">语言</span>
+                  <div class="settings-field-control settings-field-control--narrow">
+                    <select class="settings-select">
+                      <option>中文</option>
+                      <option>English</option>
+                      <option>自动检测</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="settings-field">
+                  <span class="settings-field-label-text">转写引擎</span>
+                  <div class="settings-field-control">
+                    <div class="settings-engine-switch">
+                      <button class="settings-engine-btn active">本地 SenseVoice</button>
+                      <button class="settings-engine-btn">在线识别（MiMo ASR）</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-field">
+                  <span class="settings-field-label-text">API Key</span>
+                  <div class="settings-field-control">
+                    <input class="settings-input" type="password" value="sk-xxxxxxxx" />
+                  </div>
+                </div>
+
+                <div class="settings-field">
+                  <span class="settings-field-label-text"></span>
+                  <div class="settings-field-control">
+                    <p class="settings-hint settings-test-err">密钥无效或网络不可达</p>
+                  </div>
+                </div>
+
+                <div class="settings-polish-actions">
+                  <button class="settings-btn settings-btn-sm settings-btn-secondary">测试连接</button>
+                  <button class="settings-btn settings-btn-sm settings-btn-danger">清除已存密钥</button>
+                </div>
+
+                <button class="settings-advanced-toggle">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  高级：协议 / 模型 / 地址
+                </button>
+                <div>
+                  <div class="settings-field settings-field--nested">
+                    <span class="settings-field-label-text">模型</span>
+                    <div class="settings-field-control">
+                      <input class="settings-input" value="mimo-v2.5-asr" />
+                    </div>
+                  </div>
+                  <div class="settings-field settings-field--nested">
+                    <span class="settings-field-label-text">接口地址</span>
+                    <div class="settings-field-control">
+                      <input class="settings-input" value="https://token-plan-cn.xiaomimimo.com/v1" />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-model-grid">
+                  <div class="settings-model-card is-active">
+                    <div class="settings-model-card-head">
+                      <span class="settings-model-card-name">sense-voice</span>
+                      <span class="settings-model-card-badge">使用中</span>
+                    </div>
+                    <p class="settings-model-card-desc">SenseVoice（中英日韩粤自动检测，速度快）</p>
+                    <p class="settings-model-card-meta">230 MB · 已下载</p>
+                    <div class="settings-model-card-actions">
+                      <button class="settings-btn settings-btn-sm settings-btn-secondary">重新下载</button>
+                      <button class="settings-btn settings-btn-sm settings-btn-danger">删除</button>
+                    </div>
+                  </div>
+                  <div class="settings-model-card">
+                    <div class="settings-model-card-head">
+                      <span class="settings-model-card-name">sense-voice-yue</span>
+                    </div>
+                    <p class="settings-model-card-desc">粤语增强模型</p>
+                    <p class="settings-model-card-meta">232 MB · 未下载</p>
+                    <div class="settings-model-card-actions">
+                      <button class="settings-btn settings-btn-sm settings-btn-primary">下载并启用</button>
+                    </div>
+                  </div>
+                  <div class="settings-model-card" style="grid-column: 1 / -1">
+                    <div class="settings-model-card-head">
+                      <span class="settings-model-card-name">model.int8.onnx</span>
+                    </div>
+                    <div class="model-progress" style="width: 100%">
+                      <div class="progress-bar"><div class="progress-fill" style="width: 62%"></div></div>
+                      <div class="progress-text">62% · 12.3 MB/s</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-section settings-section--recording">
+                <h3 class="settings-section-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
+                  录音
+                </h3>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">触发键</span>
+                  <div class="settings-field-control settings-field-control--trigger-key">
+                    <select class="settings-select">
+                      <option>右 Alt（Alt_R）</option>
+                      <option>自定义…</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">按键捕获</span>
+                  <div class="settings-field-control">
+                    <div class="settings-key-binding-readout">
+                      <code class="settings-key-binding-code">Alt_R</code>
+                      <button class="settings-btn settings-btn-sm settings-btn-secondary">重新捕获</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">文本注入</span>
+                  <div class="settings-field-control">
+                    <input type="checkbox" checked />
+                  </div>
+                </div>
+                <p class="settings-hint">仅 Windows 生效，默认关闭（ADR-0005）。</p>
+              </section>
+            </div>
+          </div>
+        </section>
+
+<section class="sr-sec" id="onboarding">
+          <h2>首次引导</h2>
+          <p class="sr-desc">首次引导向导：欢迎、触发键、转写引擎、润色、完成五屏，其中配置步共 3 步。</p>
+          <div class="sr-frame sr-frame--win">
+            <div class="onboarding">
+              <div class="onboarding-drag"></div>
+              <div class="onboarding-body">
+                <div class="onboarding-step">
+                  <img src="../public/altgo-logo.svg" alt="" width="52" height="52" class="onboarding-logo" />
+                  <h2 class="onboarding-title">欢迎使用 altgo</h2>
+                  <p class="onboarding-text">
+                    按住快捷键说话，松手自动转写并润色，结果写入剪贴板。先花一分钟完成基础设置。
+                  </p>
+                  <div class="onboarding-card">
+                    <button class="onboarding-choice">
+                      <span class="onboarding-choice-body">
+                        <span class="onboarding-choice-title">本地转写</span>
+                        <span class="onboarding-choice-desc">离线运行，首次需下载模型</span>
+                      </span>
+                    </button>
+                    <button class="onboarding-choice">
+                      <span class="onboarding-choice-body">
+                        <span class="onboarding-choice-title">在线转写</span>
+                        <span class="onboarding-choice-desc">填写 API Key 即可使用</span>
+                      </span>
+                    </button>
+                  </div>
+                  <div class="onboarding-summary">
+                    <span>转写引擎</span>
+                    <span class="onboarding-summary-value">本地 · sense-voice</span>
+                  </div>
+                  <div class="onboarding-dots">
+                    <span class="onboarding-dot active"></span>
+                    <span class="onboarding-dot"></span>
+                    <span class="onboarding-dot"></span>
+                  </div>
+                </div>
+              </div>
+              <div class="onboarding-foot">
+                <span class="onboarding-step-label">第 1 步 / 共 3 步</span>
+                <button class="settings-btn settings-btn-primary">下一步</button>
+              </div>
+            </div>
+          </div>
+          <div class="sr-caption">分步入场动效；圆点指示当前步；末步为完成态图标。</div>
+        </section>
+      </main>
+    </div>
+    <script src="review.js"></script>
+  </body>
+</html>

@@ -116,8 +116,6 @@
 
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 
-  --status-ring-track: rgba(255, 255, 255, 0.08);
-
   --danger-border: rgba(251, 113, 133, 0.35);
   --danger-hover-bg: rgba(251, 113, 133, 0.2);
 }
@@ -183,8 +181,6 @@
   --overlay-shadow: none;
 
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2352525b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-
-  --status-ring-track: rgba(24, 24, 27, 0.12);
 
   --danger-border: rgba(225, 29, 72, 0.3);
   --danger-hover-bg: rgba(225, 29, 72, 0.14);

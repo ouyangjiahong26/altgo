@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>altgo 样式审查 · 页面整体</title>
+    <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
+    <link rel="stylesheet" href="../src/styles/global.css" />
+    <link rel="stylesheet" href="../src/styles/layout.css" />
+    <link rel="stylesheet" href="../src/styles/components/ui-primitives.css" />
+    <link rel="stylesheet" href="../src/styles/pages/home.css" />
+    <link rel="stylesheet" href="../src/styles/pages/settings.css" />
+    <link rel="stylesheet" href="../src/styles/pages/history.css" />
+    <link rel="stylesheet" href="../src/styles/pages/onboarding.css" />
+    <link rel="stylesheet" href="../src/overlay.css" />
+    <link rel="stylesheet" href="../src/styles/pages/update-notes.css" />
+    <link rel="stylesheet" href="review.css" />
+  </head>
+  <body>
+<header class="sr-top">
+      <div>
+        <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 页面整体</div>
+        <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致；可切换深浅主题与根字号（15 / 17 / 19）。</div>
+      </div>
+      <div class="sr-ctl" role="group" aria-label="主题">
+        <button type="button" data-theme-btn="dark" aria-pressed="true">暗色</button>
+        <button type="button" data-theme-btn="light" aria-pressed="false">亮色</button>
+      </div>
+      <div class="sr-ctl" role="group" aria-label="根字号">
+        <button type="button" data-size-btn="15" aria-pressed="false">15px</button>
+        <button type="button" data-size-btn="17" aria-pressed="true">17px</button>
+        <button type="button" data-size-btn="19" aria-pressed="false">19px</button>
+      </div>
+    </header>
+    <div class="sr-wrap">
+      <nav class="sr-nav">
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">设计 token <a href="tokens.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="tokens.html#colors">色彩 token</a>
+          <a href="tokens.html#type">排版</a>
+          <a href="tokens.html#space">间距 / 圆角 / 动效</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">基础与组件 <a href="foundations.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="foundations.html#base">基础层</a>
+          <a href="foundations.html#primitives">UI Primitives</a>
+          <a href="foundations.html#layout">Layout 头部</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">界面 <a href="screens.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="screens.html#settings">设置页</a>
+          <a href="screens.html#onboarding">首次引导</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">窗口 <a href="windows.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="windows.html#overlay">悬浮窗</a>
+          <a href="windows.html#update-notes">更新说明窗口</a>
+        </div>
+        <div class="sr-nav-group">
+          <div class="sr-nav-title">页面整体</div>
+          <a href="#pages" style="color: var(--color-text)">页面整体</a>
+        </div>
+      </nav>
+      <main>
+<section class="sr-sec" id="pages">
+          <h2>页面整体</h2>
+          <p class="sr-desc">
+            主页各区域互斥：空态与结果二选一；进度条只在转写时出现；错误横幅浮在页面顶部。
+            历史列表固定在主页内容下方，见空态帧。
+          </p>
+          <div class="sr-pair">
+            <div>
+              <div class="sr-frame sr-frame--win">
+                <div class="layout">
+                      <header class="layout-header">
+                        <div class="layout-header-left">
+                          <div class="layout-logo-wrapper">
+                            <img src="../public/altgo-logo.svg" alt="" width="28" height="28" class="layout-logo-mark" />
+                            <span class="layout-logo">altgo</span>
+                          </div>
+                          <span class="layout-subtitle">语音转文字</span>
+                        </div>
+                        <div class="layout-header-right">
+                          <nav class="layout-nav">
+                            <a class="layout-nav-link active" href="#pages">主页</a>
+                            <a class="layout-nav-link" href="#pages">设置</a>
+                          </nav>
+                        </div>
+                      </header>
+                  <main class="layout-main">
+                    <div class="home">
+                      <div class="home-idle">
+                        <div class="home-status-row">
+                          <div class="home-status-line">
+                            <span class="home-status-dot" style="background: var(--color-text-muted)"></span>
+                            <span class="home-status-text" style="color: var(--color-text-muted)">等待说话</span>
+                          </div>
+                          <span class="home-hint">按住触发键说话，松开后自动转写。快速连按两次同一键可长时间连续录音，再按一次结束。</span>
+                        </div>
+                        <div class="home-key-backend">监听方式：X11 xinput</div>
+                      </div>
+                      <div class="history-page">
+                        <div class="history-page-header">
+                          <h1 class="history-page-title">转写历史</h1>
+                          <div class="history-toolbar">
+                            <label class="history-select-all">
+                              <input type="checkbox" />
+                              <span>全选</span>
+                            </label>
+                            <button class="history-btn history-btn--danger">删除所选</button>
+                            <button class="history-btn history-btn--danger history-btn--outline">清空全部</button>
+                          </div>
+                        </div>
+                        <ul class="history-list">
+                          <li class="history-item">
+                            <label class="history-item-check"><input type="checkbox" /></label>
+                            <div class="history-item-body">
+                              <time class="history-item-time">2026/09/27 18:06</time>
+                              <p class="history-item-text">我希望把现在的悬浮窗优化一下，它有些太大了，需要精简一点，减少用户的认知负荷。</p>
+                              <div class="history-item-actions">
+                                <button class="history-btn history-btn--small">复制</button>
+                                <button class="history-btn history-btn--small history-btn--accent">润色</button>
+                              </div>
+                            </div>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </main>
+                </div>
+              </div>
+              <div class="sr-caption">空态：状态行 + 操作提示 + 监听方式。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--win">
+                <div class="layout">
+                      <header class="layout-header">
+                        <div class="layout-header-left">
+                          <div class="layout-logo-wrapper">
+                            <img src="../public/altgo-logo.svg" alt="" width="28" height="28" class="layout-logo-mark" />
+                            <span class="layout-logo">altgo</span>
+                          </div>
+                          <span class="layout-subtitle">语音转文字</span>
+                        </div>
+                        <div class="layout-header-right">
+                          <nav class="layout-nav">
+                            <a class="layout-nav-link active" href="#pages">主页</a>
+                            <a class="layout-nav-link" href="#pages">设置</a>
+                          </nav>
+                        </div>
+                      </header>
+                  <main class="layout-main">
+                    <div class="home">
+                      <div class="home-idle">
+                        <div class="home-status-row">
+                          <div class="home-status-line">
+                            <span class="home-status-dot" style="background: var(--color-amber)"></span>
+                            <span class="home-status-text" style="color: var(--color-amber)">正在转写...</span>
+                          </div>
+                          <span class="home-hint">按住触发键说话，松开后自动转写。快速连按两次同一键可长时间连续录音，再按一次结束。</span>
+                        </div>
+                        <div class="home-tx-progress-wrap">
+                          <div class="home-tx-progress-phase">转写中...</div>
+                          <div class="home-tx-progress-bar"><div class="home-tx-progress-fill" style="width: 45%"></div></div>
+                        </div>
+                        <div class="home-key-backend">监听方式：X11 xinput</div>
+                      </div>
+                    </div>
+                  </main>
+                </div>
+              </div>
+              <div class="sr-caption">转写中：状态点变琥珀，出现进度条。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--win">
+                <div class="layout">
+                      <header class="layout-header">
+                        <div class="layout-header-left">
+                          <div class="layout-logo-wrapper">
+                            <img src="../public/altgo-logo.svg" alt="" width="28" height="28" class="layout-logo-mark" />
+                            <span class="layout-logo">altgo</span>
+                          </div>
+                          <span class="layout-subtitle">语音转文字</span>
+                        </div>
+                        <div class="layout-header-right">
+                          <nav class="layout-nav">
+                            <a class="layout-nav-link active" href="#pages">主页</a>
+                            <a class="layout-nav-link" href="#pages">设置</a>
+                          </nav>
+                        </div>
+                      </header>
+                  <main class="layout-main">
+                    <div class="home">
+                      <div class="home-idle">
+                        <div class="home-status-row">
+                          <div class="home-status-line">
+                            <span class="home-status-dot" style="background: var(--color-text-muted)"></span>
+                            <span class="home-status-text" style="color: var(--color-text-muted)">等待说话</span>
+                          </div>
+                          <span class="home-hint">按住触发键说话，松开后自动转写。快速连按两次同一键可长时间连续录音，再按一次结束。</span>
+                        </div>
+                        <div class="home-key-backend">监听方式：X11 xinput</div>
+                      </div>
+                      <div class="home-error">
+                        <span class="error-icon">!</span>
+                        <span class="error-text">转写失败：模型文件缺失</span>
+                      </div>
+                    </div>
+                  </main>
+                </div>
+              </div>
+              <div class="sr-caption">错误：提示浮层盖在页面顶部内容上。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--win">
+                <div class="layout">
+                      <header class="layout-header">
+                        <div class="layout-header-left">
+                          <div class="layout-logo-wrapper">
+                            <img src="../public/altgo-logo.svg" alt="" width="28" height="28" class="layout-logo-mark" />
+                            <span class="layout-logo">altgo</span>
+                          </div>
+                          <span class="layout-subtitle">语音转文字</span>
+                        </div>
+                        <div class="layout-header-right">
+                          <nav class="layout-nav">
+                            <a class="layout-nav-link active" href="#pages">主页</a>
+                            <a class="layout-nav-link" href="#pages">设置</a>
+                          </nav>
+                        </div>
+                      </header>
+                  <main class="layout-main">
+                    <div class="home">
+                      <div class="home-result">
+                        <span class="home-result-label">转写结果</span>
+                        <div class="home-result-card">
+                          <p class="home-result-text">这是最近一次转写结果，润色后写入了剪贴板。</p>
+                        </div>
+                        <button class="home-copy-btn">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                          复制到剪贴板
+                        </button>
+                      </div>
+                    </div>
+                  </main>
+                </div>
+              </div>
+              <div class="sr-caption">结果：结果卡与复制按钮。</div>
+            </div>
+<div>
+              <div class="sr-frame sr-frame--win">
+                <div class="layout">
+                  <header class="layout-header">
+                    <div class="layout-header-left">
+                      <div class="layout-logo-wrapper">
+                        <img src="../public/altgo-logo.svg" alt="" width="28" height="28" class="layout-logo-mark" />
+                        <span class="layout-logo">altgo</span>
+                      </div>
+                    </div>
+                    <div class="layout-header-right">
+                      <nav class="layout-nav">
+                        <a class="layout-nav-link" href="#pages">主页</a>
+                        <a class="layout-nav-link active" href="#pages">设置</a>
+                      </nav>
+                    </div>
+                  </header>
+                  <main class="layout-main">
+                    <div class="settings-page">
+                      <div class="settings-form">
+                        <section class="settings-section">
+                          <h3 class="settings-section-title">润色</h3>
+                          <div class="settings-field">
+                            <span class="settings-field-label-text">润色档位</span>
+                            <div class="settings-field-control settings-field-control--narrow">
+                              <select class="settings-select">
+                                <option>关闭</option>
+                                <option selected>轻度</option>
+                                <option>中度</option>
+                                <option>重度</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div class="settings-field">
+                            <span class="settings-field-label-text">供应商</span>
+                            <div class="settings-field-control">
+                              <button class="provider-preset-item">
+                                <span class="provider-preset-info">
+                                  <span class="provider-preset-model-name">DeepSeek</span>
+                                  <span class="provider-preset-desc">openai 兼容</span>
+                                </span>
+                                <span class="provider-preset-badge provider-preset-badge--prime">推荐</span>
+                              </button>
+                            </div>
+                          </div>
+                          <button class="settings-btn settings-btn-primary" style="width: 100%">保存</button>
+                        </section>
+                      </div>
+                    </div>
+                  </main>
+                </div>
+              </div>
+              <div class="sr-caption">设置页：区块卡堆叠，底部保存按钮固定可见。</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="review.js"></script>
+  </body>
+</html>
