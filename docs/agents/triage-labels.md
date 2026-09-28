@@ -10,6 +10,6 @@
 | `ready-for-human`          | `ready-for-human`    | 需要人工实现                               |
 | `wontfix`                  | `wontfix`            | 不打算处理                                 |
 
-当技能提到某个角色（例如 "apply the AFK-ready triage label"）时，请使用上表中对应的标签字符串。
+当技能提到某个角色（例如 “apply the AFK-ready triage label”）时，请使用上表中对应的标签字符串。
 
 修改右侧列以匹配你实际使用的词汇。

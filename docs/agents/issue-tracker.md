@@ -20,11 +20,11 @@
 
 设为 `是` 时，PR 与 issue 走相同的标签和状态：`gh pr view <number> --comments` 读、`gh pr diff <number>` 看 diff，`gh pr comment` / `gh pr edit --add-label`/`--remove-label` / `gh pr close` 操作；列出待分诊 PR 时按 `authorAssociation` 过滤掉 `OWNER`/`MEMBER`/`COLLABORATOR`。GitHub 的 issue 与 PR 共用编号空间，`#42` 可能是任一，先 `gh pr view 42` 确认。
 
-## 当技能说 "publish to the issue tracker"
+## 当技能说 “publish to the issue tracker”
 
 创建一个 GitHub issue。
 
-## 当技能说 "fetch the relevant ticket"
+## 当技能说 “fetch the relevant ticket”
 
 运行 `gh issue view <number> --comments`。
 
