@@ -3,17 +3,19 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "../i18n";
+import { copyToClipboard } from "../utils/clipboard";
 import {
   Trash2,
   Copy,
   Check,
+  FileText,
   Sparkles,
+  PenLine,
   Loader2,
   AlertCircle,
 } from "lucide-react";
 
 interface PolishConfig {
-  polishLevel: string;
   polishModel: string;
   polishApiBaseUrl: string;
   hasPolisherApiKey: boolean;
@@ -43,7 +45,10 @@ export default function HistoryPanel() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [polishingId, setPolishingId] = useState<string | null>(null);
+  // 记录“已复制”按钮的复合键（`{id}:text` / `{id}:raw`），区分复制润色文本与原始转写。
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [instructionId, setInstructionId] = useState<string | null>(null);
+  const [instructionText, setInstructionText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [polishConfig, setPolishConfig] = useState<PolishConfig | null>(null);
 
@@ -149,54 +154,58 @@ export default function HistoryPanel() {
     })();
   };
 
-  const handleCopy = async (id: string, text: string) => {
+  const handleCopy = async (key: string, text: string) => {
     setError(null);
-    const markCopied = () => {
-      setCopiedId(id);
+    // 优先走后端剪贴板（xclip 等），失败回退 WebView API（copyToClipboard 内置）。
+    if (await copyToClipboard(text)) {
+      setCopiedId(key);
       window.setTimeout(() => {
-        setCopiedId((prev) => (prev === id ? null : prev));
+        setCopiedId((prev) => (prev === key ? null : prev));
       }, 2000);
-    };
-    try {
-      await invoke("copy_text", { text });
-      markCopied();
-      return;
-    } catch {
-      // 后端剪贴板（xclip 等）可能失败；从点击手势内改试 WebView API。
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      markCopied();
-    } catch {
+    } else {
       setError(t("history.copy_failed"));
     }
   };
 
-  const handlePolish = async (id: string) => {
-    if (polishConfig?.polishLevel === "none") {
-      setError(t("history.polish_disabled"));
-      return;
-    }
-    if (
-      !polishConfig?.polishApiBaseUrl?.trim() ||
-      !polishConfig?.polishModel?.trim() ||
-      !polishConfig?.hasPolisherApiKey
-    ) {
+  // 手动润色固定 medium 档（后端绕过全局 none），此处只需校验 API 已配置。
+  const polishConfigMissing =
+    !polishConfig?.polishApiBaseUrl?.trim() ||
+    !polishConfig?.polishModel?.trim() ||
+    !polishConfig?.hasPolisherApiKey;
+
+  const handlePolish = async (id: string, extraInstruction?: string) => {
+    if (polishConfigMissing) {
       setError(t("history.polish_config_missing"));
       return;
     }
     setPolishingId(id);
     setError(null);
     try {
-      const updated = await invoke<HistoryEntry>("polish_history_entry", { id });
+      const updated = await invoke<HistoryEntry>("polish_history_entry", {
+        id,
+        extraInstruction: extraInstruction ?? "",
+      });
       setEntries((prev) =>
         prev.map((e) => (e.id === updated.id ? updated : e)),
       );
+      setInstructionId(null);
+      setInstructionText("");
     } catch (e) {
       setError(String(e));
     } finally {
       setPolishingId(null);
     }
+  };
+
+  const openInstruction = (id: string) => {
+    setError(null);
+    setInstructionText("");
+    setInstructionId(id);
+  };
+
+  const closeInstruction = () => {
+    setInstructionId(null);
+    setInstructionText("");
   };
 
   return (
@@ -270,11 +279,11 @@ export default function HistoryPanel() {
                 <div className="history-item-actions">
                   <button
                     type="button"
-                    className={`history-btn history-btn--small ${copiedId === e.id ? "history-btn--copied" : ""}`}
-                    onClick={() => void handleCopy(e.id, e.text)}
+                    className={`history-btn history-btn--small ${copiedId === `${e.id}:text` ? "history-btn--copied" : ""}`}
+                    onClick={() => void handleCopy(`${e.id}:text`, e.text)}
                     title={t("history.copy")}
                   >
-                    {copiedId === e.id ? (
+                    {copiedId === `${e.id}:text` ? (
                       <>
                         <Check size={14} />
                         {t("history.copied")}
@@ -283,6 +292,24 @@ export default function HistoryPanel() {
                       <>
                         <Copy size={14} />
                         {t("history.copy")}
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={`history-btn history-btn--small ${copiedId === `${e.id}:raw` ? "history-btn--copied" : ""}`}
+                    onClick={() => void handleCopy(`${e.id}:raw`, e.rawText)}
+                    title={t("history.copy_raw")}
+                  >
+                    {copiedId === `${e.id}:raw` ? (
+                      <>
+                        <Check size={14} />
+                        {t("history.raw_copied")}
+                      </>
+                    ) : (
+                      <>
+                        <FileText size={14} />
+                        {t("history.copy_raw")}
                       </>
                     )}
                   </button>
@@ -300,7 +327,54 @@ export default function HistoryPanel() {
                     )}
                     {t("history.polish")}
                   </button>
+                  <button
+                    type="button"
+                    className="history-btn history-btn--small"
+                    disabled={polishingId === e.id}
+                    onClick={() => openInstruction(e.id)}
+                    title={t("history.polish_with_instruction")}
+                  >
+                    <PenLine size={14} />
+                    {t("history.polish_with_instruction")}
+                  </button>
                 </div>
+                {instructionId === e.id && (
+                  <div className="history-item-instruction">
+                    <input
+                      type="text"
+                      className="history-instruction-input"
+                      value={instructionText}
+                      onChange={(ev) => setInstructionText(ev.target.value)}
+                      onKeyDown={(ev) => {
+                        if (ev.key === "Enter" && polishingId !== e.id) {
+                          void handlePolish(e.id, instructionText);
+                        }
+                      }}
+                      disabled={polishingId === e.id}
+                      placeholder={t("history.instruction_placeholder")}
+                    />
+                    <button
+                      type="button"
+                      className="history-btn history-btn--small history-btn--accent"
+                      disabled={polishingId === e.id}
+                      onClick={() => void handlePolish(e.id, instructionText)}
+                    >
+                      {polishingId === e.id ? (
+                        <Loader2 size={14} className="history-spin" />
+                      ) : (
+                        t("history.submit")
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="history-btn history-btn--small"
+                      disabled={polishingId === e.id}
+                      onClick={closeInstruction}
+                    >
+                      {t("history.cancel")}
+                    </button>
+                  </div>
+                )}
               </div>
             </li>
           ))}

@@ -324,20 +324,27 @@ pub async fn clear_history(history_store: State<'_, HistoryStore>) -> Result<(),
 /// 对历史条目重新润色的可测试核心。
 ///
 /// 把 `AppHandle.emit` 抽象为 `emit` 回调，避免测试中构造 Tauri app。
+/// 手动润色固定 medium 档：这是用户显式触发的动作，绕过全局 none
+/// （全局 none 只约束实时流水线）。
 pub(crate) async fn polish_history_entry_core(
     config_store: &ConfigStore,
     history_store: &HistoryStore,
     id: &str,
+    extra_instruction: Option<&str>,
     emit: impl Fn(&str),
 ) -> Result<history::HistoryEntry, String> {
     let cfg = config_store.snapshot().await;
     let formatter =
         polisher::LLMFormatter::from_config_with_sources(&cfg).map_err(|e| e.to_string())?;
-    let polish_level = polisher::PolishLevel::effective(&cfg.polisher.level);
 
-    let updated =
-        voice_pipeline::dispatch_history_polish(history_store, id, &formatter, polish_level)
-            .await?;
+    let updated = voice_pipeline::dispatch_history_polish(
+        history_store,
+        id,
+        &formatter,
+        polisher::PolishLevel::Medium,
+        extra_instruction,
+    )
+    .await?;
 
     emit("history-updated");
     Ok(updated)
@@ -349,10 +356,17 @@ pub async fn polish_history_entry(
     config_store: State<'_, ConfigStore>,
     history_store: State<'_, HistoryStore>,
     id: String,
+    extra_instruction: Option<String>,
 ) -> Result<history::HistoryEntry, String> {
-    polish_history_entry_core(&config_store, &history_store, &id, |event| {
-        let _ = app.emit(event, ());
-    })
+    polish_history_entry_core(
+        &config_store,
+        &history_store,
+        &id,
+        extra_instruction.as_deref(),
+        |event| {
+            let _ = app.emit(event, ());
+        },
+    )
     .await
 }
 
@@ -812,7 +826,7 @@ mod tests {
 
         let emitted = Arc::new(Mutex::new(Vec::new()));
         let emitted2 = Arc::clone(&emitted);
-        let updated = polish_history_entry_core(&config_store, &store, &entry.id, |event| {
+        let updated = polish_history_entry_core(&config_store, &store, &entry.id, None, |event| {
             emitted2.lock().unwrap().push(event.to_string())
         })
         .await
@@ -841,13 +855,87 @@ mod tests {
         let config_store = ConfigStore::load(cfg_path);
 
         let emitted = Arc::new(Mutex::new(Vec::new()));
-        let result = polish_history_entry_core(&config_store, &store, "missing-id", |event| {
-            emitted.lock().unwrap().push(event.to_string())
-        })
-        .await;
+        let result =
+            polish_history_entry_core(&config_store, &store, "missing-id", None, |event| {
+                emitted.lock().unwrap().push(event.to_string())
+            })
+            .await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));
         assert!(emitted.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn polish_history_entry_core_global_none_level_still_polishes() {
+        // 手动润色固定 medium：即使全局档位为 none 也应发起润色请求并写回 text。
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/chat/completions")
+            .with_status(200)
+            .with_body(r#"{"choices":[{"message":{"role":"assistant","content":"润色后的文本"}}]}"#)
+            .create_async()
+            .await;
+
+        let history_dir = tempfile::tempdir().unwrap();
+        let store = HistoryStore::new(history_dir.path().join("history.json"));
+        let entry = store
+            .append("原始文本".to_string(), "原始文本".to_string())
+            .unwrap();
+
+        let cfg_dir = tempfile::tempdir().unwrap();
+        let cfg_path = cfg_dir.path().join("altgo.toml");
+        let mut cfg = Config::default();
+        cfg.polisher.level = "none".to_string();
+        cfg.polisher.api_key = "polish-key".to_string();
+        cfg.polisher.api_base_url = server.url();
+        cfg.polisher.model = "model".to_string();
+        cfg.save(&cfg_path).unwrap();
+        let config_store = ConfigStore::load(cfg_path);
+
+        let updated = polish_history_entry_core(&config_store, &store, &entry.id, None, |_| {})
+            .await
+            .unwrap();
+
+        assert_eq!(updated.text, "润色后的文本");
+        assert_eq!(updated.raw_text, "原始文本");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn polish_history_entry_core_extra_instruction_reaches_request_body() {
+        // 补充指令须透传到请求体：system prompt 末尾带“补充要求：”前缀与指令内容。
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::Regex("补充要求：语气更客气".to_string()))
+            .with_status(200)
+            .with_body(r#"{"choices":[{"message":{"role":"assistant","content":"润色后的文本"}}]}"#)
+            .create_async()
+            .await;
+
+        let history_dir = tempfile::tempdir().unwrap();
+        let store = HistoryStore::new(history_dir.path().join("history.json"));
+        let entry = store
+            .append("原始文本".to_string(), "原始文本".to_string())
+            .unwrap();
+
+        let cfg_dir = tempfile::tempdir().unwrap();
+        let cfg_path = cfg_dir.path().join("altgo.toml");
+        let mut cfg = Config::default();
+        cfg.polisher.level = "medium".to_string();
+        cfg.polisher.api_key = "polish-key".to_string();
+        cfg.polisher.api_base_url = server.url();
+        cfg.polisher.model = "model".to_string();
+        cfg.save(&cfg_path).unwrap();
+        let config_store = ConfigStore::load(cfg_path);
+
+        let updated =
+            polish_history_entry_core(&config_store, &store, &entry.id, Some("语气更客气"), |_| {})
+                .await
+                .unwrap();
+
+        assert_eq!(updated.text, "润色后的文本");
+        mock.assert_async().await;
     }
 }

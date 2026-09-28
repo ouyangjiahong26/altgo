@@ -124,13 +124,15 @@ pub fn select_text(prefer_polished: bool, output: &TranscriptionResult) -> Strin
 
 /// 为已有历史条目编排一次“润色后再持久化”。
 ///
-/// 从 `history` 读入 `id`，对 `raw_text` 执行 `formatter.polish`，经 `polish_entry` 写回。
+/// 从 `history` 读入 `id`，对 `raw_text` 执行润色（`extra_instruction` 非空时经
+/// `polish_with_instruction` 附带补充要求），经 `polish_entry` 写回。
 /// 所有阻塞 I/O 均移入 `spawn_blocking`。返回更新后的 `HistoryEntry`。
 pub async fn dispatch_history_polish(
     history: &HistoryStore,
     id: &str,
     formatter: &LLMFormatter,
     polish_level: PolishLevel,
+    extra_instruction: Option<&str>,
 ) -> Result<crate::history::HistoryEntry, String> {
     let store = history.clone();
     let id_owned = id.to_string();
@@ -140,10 +142,18 @@ pub async fn dispatch_history_polish(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "history entry not found".to_string())?;
 
-    let polished = formatter
-        .polish(&entry.raw_text, polish_level)
-        .await
-        .map_err(|e| e.to_string())?;
+    // 补充指令 trim 后为空视同未提供，走普通润色路径。
+    let extra = extra_instruction.map(str::trim).filter(|s| !s.is_empty());
+    let polished = match extra {
+        Some(instruction) => formatter
+            .polish_with_instruction(&entry.raw_text, polish_level, instruction)
+            .await
+            .map_err(|e| e.to_string())?,
+        None => formatter
+            .polish(&entry.raw_text, polish_level)
+            .await
+            .map_err(|e| e.to_string())?,
+    };
 
     let store = history.clone();
     let id_owned = id.to_string();
@@ -673,7 +683,7 @@ mod tests {
         // PolishLevel::None 会成功返回原文，适合测编排链路而不过度依赖网络。
         let formatter = failing_formatter();
         let result =
-            dispatch_history_polish(&store, &entry.id, &formatter, PolishLevel::None).await;
+            dispatch_history_polish(&store, &entry.id, &formatter, PolishLevel::None, None).await;
 
         assert!(result.is_ok());
         let updated = result.unwrap();
@@ -692,7 +702,8 @@ mod tests {
         let formatter = failing_formatter();
 
         let result =
-            dispatch_history_polish(&store, "missing-id", &formatter, PolishLevel::None).await;
+            dispatch_history_polish(&store, "missing-id", &formatter, PolishLevel::None, None)
+                .await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));
@@ -709,7 +720,7 @@ mod tests {
         // 使用需要实际调用 API 的级别，让 polish 在连接失败后返回 Err。
         let formatter = failing_formatter();
         let result =
-            dispatch_history_polish(&store, &entry.id, &formatter, PolishLevel::Medium).await;
+            dispatch_history_polish(&store, &entry.id, &formatter, PolishLevel::Medium, None).await;
 
         assert!(result.is_err());
         assert!(!result.unwrap_err().is_empty());
