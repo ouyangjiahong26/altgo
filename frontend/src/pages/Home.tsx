@@ -6,11 +6,24 @@ import {
   useTranscriptionProgress,
 } from "../hooks/useTauri";
 import { useTranslation } from "../i18n";
-import { StatusIndicator } from "../components/StatusIndicator";
 import HistoryPanel from "../components/HistoryPanel";
 import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { copyToClipboard } from "../utils/clipboard";
+
+const statusColor = {
+  idle: "var(--color-text-muted)",
+  recording: "var(--color-red)",
+  processing: "var(--color-amber)",
+  done: "var(--color-green)",
+} as const;
+
+const statusI18n = {
+  idle: "status.idle",
+  recording: "status.recording",
+  processing: "status.processing",
+  done: "status.done",
+} as const;
 
 export default function Home() {
   const { t } = useTranslation();
@@ -51,7 +64,18 @@ export default function Home() {
       {!transcription ? (
         <div className="home-idle">
           <div className="home-status-row">
-            <StatusIndicator status={mappedStatus} size="lg" />
+            <div className="home-status-line">
+              <span
+                className={`home-status-dot ${mappedStatus === "recording" ? "breathing" : ""}`}
+                style={{ background: statusColor[mappedStatus] }}
+              />
+              <span
+                className="home-status-text"
+                style={{ color: statusColor[mappedStatus] }}
+              >
+                {t(statusI18n[mappedStatus])}
+              </span>
+            </div>
             <p className="home-hint" title={t("main.hint")}>{t("main.hint")}</p>
           </div>
           {mappedStatus === "processing" && (

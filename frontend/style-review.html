@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="src/styles/global.css" />
     <link rel="stylesheet" href="src/styles/layout.css" />
     <link rel="stylesheet" href="src/styles/components/ui-primitives.css" />
-    <link rel="stylesheet" href="src/styles/components/status-indicator.css" />
     <link rel="stylesheet" href="src/styles/pages/home.css" />
     <link rel="stylesheet" href="src/styles/pages/settings.css" />
     <link rel="stylesheet" href="src/styles/pages/history.css" />
@@ -369,7 +368,6 @@
         <a href="#space">间距 / 圆角 / 动效</a>
         <a href="#base">基础层</a>
         <a href="#primitives">UI Primitives</a>
-        <a href="#status">状态指示器</a>
         <a href="#layout">Layout 头部</a>
         <a href="#settings">设置页</a>
         <a href="#history">历史条目</a>
@@ -499,18 +497,6 @@
             <div class="sr-frame" style="height: 140px">
               <div class="loading-container">加载中...</div>
             </div>
-          </div>
-        </section>
-
-        <section class="sr-sec" id="status">
-          <h2>状态指示器</h2>
-          <p class="sr-desc">
-            结构来自 <code>StatusIndicator.tsx</code>：环形 SVG（<code>--status-ring-track</code> 轨道 +
-            按状态着色的进度弧）、模糊光晕（<code>.status-glow.active</code>）、下方状态文案。尺寸档
-            sm 48 / md 72 / lg 96，弧宽 2 / 3 / 4。
-          </p>
-          <div class="sr-frame">
-            <div class="sr-row" style="justify-content: space-around; align-items: flex-start" id="status-demos"></div>
           </div>
         </section>
 
@@ -717,7 +703,7 @@
                   <button class="history-btn history-btn--danger history-btn--outline">清空全部</button>
                 </div>
               </div>
-              <p class="history-error">复制失败：剪贴板不可用</p>
+              <p class="history-error">无法写入剪贴板，请检查系统剪贴板工具或权限后重试。</p>
               <ul class="history-list">
                 <li class="history-item">
                   <label class="history-item-check"><input type="checkbox" /></label>
@@ -866,11 +852,11 @@
                 <div class="island-container island-exit">
                   <div class="island">
                     <div class="done-indicator done-indicator--failed"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3l9 16H3z"/></svg></div>
-                    <span class="result-text">润色失败，已回退原文</span>
+                    <span class="result-text">润色失败，已使用原文</span>
                   </div>
                 </div>
               </div>
-              <div class="sr-caption">.island-exit：退出态（下移 8px + 仅内层淡出），实际隐藏延迟约 220ms</div>
+              <div class="sr-caption">.island-exit：退出态（下移 8px + 仅内层淡出），实际隐藏延迟约 180ms</div>
             </div>
           </div>
         </section>
@@ -939,33 +925,30 @@
                     <div class="home">
                       <div class="home-idle">
                         <div class="home-status-row">
-                          <div class="status-indicator">
-                            <div class="status-ring-container" style="width: 48px; height: 48px">
-                              <svg class="status-svg" width="48" height="48" viewBox="0 0 48 48">
-                                <circle class="status-ring-bg" cx="24" cy="24" r="21" stroke-width="2" />
-                                <circle class="status-ring-active" cx="24" cy="24" r="21" stroke="var(--color-text-muted)" stroke-width="2" stroke-dasharray="1 400" />
-                              </svg>
-                            </div>
+                          <div class="home-status-line">
+                            <span class="home-status-dot" style="background: var(--color-text-muted)"></span>
+                            <span class="home-status-text" style="color: var(--color-text-muted)">等待说话</span>
                           </div>
                           <span class="home-hint">按住触发键说话，松开后自动转写。快速连按两次同一键可长时间连续录音，再按一次结束。</span>
                         </div>
-                        <div class="home-key-backend">监听方式：Windows 键盘钩子</div>
+                        <div class="home-key-backend">监听方式：X11 xinput</div>
                       </div>
                       <div class="home-result">
+                        <span class="home-result-label">转写结果</span>
                         <div class="home-result-card">
-                          <div class="home-result-label">识别结果</div>
                           <p class="home-result-text">这是最近一次转写结果，润色后写入了剪贴板。</p>
-                          <button class="home-copy-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-                            复制
-                          </button>
                         </div>
+                        <button class="home-copy-btn">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                          复制到剪贴板
+                        </button>
                       </div>
                       <div class="home-tx-progress-wrap">
-                        <div class="home-tx-progress-phase">正在转写…</div>
+                        <div class="home-tx-progress-phase">转写中...</div>
                         <div class="home-tx-progress-bar"><div class="home-tx-progress-fill" style="width: 45%"></div></div>
                       </div>
-                      <div class="home-error">
+                      <!-- 审查页堆叠演示：home-error 在产品里是绝对定位浮层，这里改随流排布避免压住状态行 -->
+                      <div class="home-error" style="position: static">
                         <span class="error-icon">!</span>
                         <span class="error-text">转写失败：模型文件缺失</span>
                       </div>
@@ -1083,7 +1066,7 @@
         },
         {
           title: "描边与焦点",
-          tokens: ["--color-border", "--color-border-subtle", "--color-border-strong", "--color-border-focus", "--status-ring-track"],
+          tokens: ["--color-border", "--color-border-subtle", "--color-border-strong", "--color-border-focus"],
         },
         {
           title: "悬浮窗专用",
@@ -1213,36 +1196,6 @@
         refreshValues();
       }
 
-      const STATUS_DEMOS = [
-        { status: "idle", label: "等待说话", color: "--color-text-muted", size: "md" },
-        { status: "recording", label: "录音中", color: "--color-red", size: "md", active: true },
-        { status: "processing", label: "转写中", color: "--color-amber", size: "md", spinning: true },
-        { status: "done", label: "完成", color: "--color-green", size: "md" },
-      ];
-
-      function renderStatusDemos() {
-        const dim = { sm: 48, md: 72, lg: 96 };
-        const stroke = { sm: 2, md: 3, lg: 4 };
-        document.getElementById("status-demos").innerHTML = STATUS_DEMOS.map((d) => {
-          const size = dim[d.size];
-          const w = stroke[d.size];
-          const r = (size - w * 2) / 2;
-          return `
-          <div class="status-indicator">
-            <div class="status-ring-container" style="width: ${size}px; height: ${size}px">
-              <div class="status-glow ${d.active ? "active" : ""}" style="width: ${size * 1.5}px; height: ${size * 1.5}px; color: var(${d.color})"></div>
-              <svg class="status-svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-                <circle class="status-ring-bg" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke-width="${w}"></circle>
-                <circle class="status-ring-active ${d.spinning ? "spinning" : ""}" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke="var(${d.color})" stroke-width="${w}"
-                  ${d.status === "processing" ? `stroke-dasharray="${(r * 1.5).toFixed(1)} ${(r * 5).toFixed(1)}"` : ""}
-                  style="transform: rotate(-90deg); transform-origin: center"></circle>
-              </svg>
-            </div>
-            <span class="status-label" style="color: var(${d.color})">${d.label}</span>
-          </div>`;
-        }).join("");
-      }
-
       function refreshValues() {
         document.querySelectorAll("[data-color-value]").forEach((el) => {
           el.textContent = cssVar(el.dataset.colorValue) || "—";
@@ -1335,7 +1288,6 @@
       renderShadows();
       renderMotion();
       renderMiscTokens();
-      renderStatusDemos();
       setTheme("dark");
       setFontSize(17);
     </script>

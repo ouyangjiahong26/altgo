@@ -9,7 +9,6 @@ void applyWindowSize();
 import "./styles/global.css";
 import "./styles/layout.css";
 import "./styles/components/ui-primitives.css";
-import "./styles/components/status-indicator.css";
 import "./styles/pages/home.css";
 import "./styles/pages/settings.css";
 import "./styles/pages/history.css";
