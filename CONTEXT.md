@@ -44,6 +44,9 @@
 **历史条目（HistoryEntry）**
 单条转写记录：`id`、`createdAtMs`、`rawText`（转写原文）、`text`（润色后，或与原文相同）。永不存音频。
 
+**重新润色（带指令）（Repolish with Instruction）**
+对历史条目以原始转写（raw_text）为输入手动重新润色的动作，可选附带用户补充指令；补充指令以“补充要求”段追加到润色 system prompt 末尾，手动重润固定 medium 档、不受全局 none 档限制。
+
 ## 输出
 
 **悬浮窗（Overlay）**

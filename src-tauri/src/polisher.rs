@@ -165,6 +165,11 @@ const ZH_LJG_GUIDANCE: &str = r#"
 /// 双链路口径一致：仓库根运行加载 base.txt，打包安装走本兜底）。
 const OUTPUT_FORBIDDEN_RULES: &str = " Hard rules at every level: never output emoji, kaomoji, or decorative symbols; never output Markdown formatting (bold, italics, headings, lists, tables, code fences) — plain prose only; never output AI-style clichés, meta commentary, or summarizing formulas such as “总的来说”“综上所述”“值得一提的是”“不难发现”“我们可以看到”“希望能帮到你”, \"in summary\", \"hope this helps\" — if the source contains one, rephrase the point without the formula; remove spoken fillers (嗯、呃、啊、哈哈、对吧) unconditionally, even when they seem to carry tone. ";
 
+/// 任务边界硬规则（与 `resources/prompts/base.txt` 的 "Task boundaries" 小节同步维护，
+/// 双链路口径一致：仓库根运行加载 base.txt，打包安装走本兜底）。
+/// 约束润色只整理用户自己的话：不回答原文中的问题、不改写句式为陈述或回复、不增删信息。
+const TIDY_ONLY_RULES: &str = " Hard boundaries at every level: you only tidy up the user's own sentence. Never answer questions asked in the text; a question must remain a question. Never rewrite the sentence into a statement, a reply, or a conversation with the user. Never add or remove information; correct only punctuation, typos, transcription errors, and broken grammar. ";
+
 fn get_system_prompt(level: PolishLevel, language: &str) -> String {
     let lang_name = match language {
         "zh" => "Simplified Chinese (简体中文, Mainland standard)",
@@ -186,6 +191,7 @@ fn get_system_prompt(level: PolishLevel, language: &str) -> String {
 
     // 写作与表达要求：全文融入用户提供的规范；轻量润色时强调不改结构、仅作最小必要调整。
     let forbidden = OUTPUT_FORBIDDEN_RULES;
+    let tidy = TIDY_ONLY_RULES;
     let zh_combined: String = if language == "zh" && !matches!(level, PolishLevel::None) {
         let intro = match level {
             PolishLevel::None => "",
@@ -204,13 +210,13 @@ fn get_system_prompt(level: PolishLevel, language: &str) -> String {
     match level {
         PolishLevel::None => String::new(),
         PolishLevel::Light => format!(
-            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Fix punctuation and obvious typos without changing the original meaning or word choices. Output only the corrected text with no explanation.{forbidden}{zh_script_rule}{zh_combined}"
+            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Fix punctuation and obvious typos without changing the original meaning or word choices. Output only the corrected text with no explanation.{tidy}{forbidden}{zh_script_rule}{zh_combined}"
         ),
         PolishLevel::Medium => format!(
-            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Fix punctuation, typos, and grammar issues to make the text more fluent and natural, without changing the original meaning. Output only the corrected text with no explanation.{forbidden}{zh_script_rule}{zh_combined}"
+            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Fix punctuation, typos, and grammar issues to make the text more fluent and natural, without changing the original meaning. Output only the corrected text with no explanation.{tidy}{forbidden}{zh_script_rule}{zh_combined}"
         ),
         PolishLevel::Heavy => format!(
-            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Rewrite it into well-structured, clearly expressed text. You may adjust word order and phrasing, but preserve the core meaning. Output only the rewritten text with no explanation.{forbidden}{zh_script_rule}{zh_combined}"
+            "You are a post-processing assistant for speech-to-text in {lang_name}. The user gives you raw speech recognition text in {lang_name}. Rewrite it into well-structured, clearly expressed text. You may adjust word order and phrasing, but preserve the core meaning. Output only the rewritten text with no explanation.{tidy}{forbidden}{zh_script_rule}{zh_combined}"
         ),
     }
 }
@@ -749,12 +755,52 @@ impl LLMFormatter {
             return Ok(text.to_string());
         }
 
-        let system_prompt = self
-            .prompt_source
+        let system_prompt = self.resolve_system_prompt(level);
+        self.request_polish(system_prompt, text).await
+    }
+
+    /// 使用 LLM 润色文本，并在 system prompt 末尾追加用户补充要求。
+    ///
+    /// 补充指令经 trim 后为空时等价于 [`polish`]；级别为 `None` 或文本为空时
+    /// 与 [`polish`] 一致，直接返回原文。
+    pub async fn polish_with_instruction(
+        &self,
+        text: &str,
+        level: PolishLevel,
+        instruction: &str,
+    ) -> Result<String, PolisherError> {
+        if matches!(level, PolishLevel::None) || text.is_empty() {
+            return Ok(text.to_string());
+        }
+        let instruction = instruction.trim();
+        if instruction.is_empty() {
+            return self.polish(text, level).await;
+        }
+
+        let system_prompt = format!(
+            "{}\n\n补充要求：{}",
+            self.resolve_system_prompt(level),
+            instruction
+        );
+        self.request_polish(system_prompt, text).await
+    }
+
+    /// 解析当前生效的 system prompt：prompt source 链（PromptStore → Custom）
+    /// 失败或缺位时回落到内置 hardcoded prompt。
+    fn resolve_system_prompt(&self, level: PolishLevel) -> String {
+        self.prompt_source
             .as_ref()
             .and_then(|s| s.get_prompt(level, &self.language).ok())
-            .unwrap_or_else(|| get_system_prompt(level, &self.language));
+            .unwrap_or_else(|| get_system_prompt(level, &self.language))
+    }
 
+    /// 按当前协议把 `system_prompt` + 待润色文本发给 LLM（含重试），
+    /// 返回剥除思维链残渣后的润色结果。
+    async fn request_polish(
+        &self,
+        system_prompt: String,
+        text: &str,
+    ) -> Result<String, PolisherError> {
         let polished = retry_with_backoff(self.max_retries, || async {
             match self.protocol {
                 protocol::ApiProtocol::OpenAi => {
@@ -1417,6 +1463,110 @@ mod tests {
         .unwrap();
         let result = formatter.polish("", PolishLevel::Medium).await.unwrap();
         assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_system_prompt_contains_tidy_only_rules() {
+        // 兜底 prompt 的任务边界硬约束：三个润色档位都必须携带，与 base.txt 同步。
+        for level in [PolishLevel::Light, PolishLevel::Medium, PolishLevel::Heavy] {
+            let prompt = get_system_prompt(level, "zh");
+            assert!(prompt.contains("a question must remain a question"));
+            assert!(prompt.contains("Never rewrite the sentence into a statement"));
+            assert!(prompt.contains("Never add or remove information"));
+        }
+        assert!(get_system_prompt(PolishLevel::None, "zh").is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_polish_with_instruction_appends_instruction_to_system_prompt() {
+        let mut server = mockito::Server::new_async().await;
+        let expected_system = format!(
+            "{}\n\n补充要求：{}",
+            get_system_prompt(PolishLevel::Medium, "zh"),
+            "语气更客气"
+        );
+        let mock = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::PartialJsonString(
+                serde_json::json!({
+                    "messages": [
+                        {"role": "system", "content": expected_system},
+                        {"role": "user", "content": "原始文本"}
+                    ]
+                })
+                .to_string(),
+            ))
+            .with_status(200)
+            .with_body(mock_success_response("润色后的文本"))
+            .create_async()
+            .await;
+
+        let formatter = LLMFormatter::new(
+            "key".to_string(),
+            server.url(),
+            "model".to_string(),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        let result = formatter
+            .polish_with_instruction("原始文本", PolishLevel::Medium, "  语气更客气  ")
+            .await
+            .unwrap();
+        assert_eq!(result, "润色后的文本");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_polish_with_instruction_blank_instruction_sends_plain_prompt() {
+        // 空白指令 trim 后视同未提供：system prompt 与普通 polish 完全一致。
+        // matcher 精确匹配 system content，若误加“补充要求”后缀则断言失败。
+        let mut server = mockito::Server::new_async().await;
+        let expected_system = get_system_prompt(PolishLevel::Medium, "zh");
+        let mock = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::PartialJsonString(
+                serde_json::json!({
+                    "messages": [
+                        {"role": "system", "content": expected_system},
+                        {"role": "user", "content": "原始文本"}
+                    ]
+                })
+                .to_string(),
+            ))
+            .with_status(200)
+            .with_body(mock_success_response("润色后的文本"))
+            .create_async()
+            .await;
+
+        let formatter = LLMFormatter::new(
+            "key".to_string(),
+            server.url(),
+            "model".to_string(),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        let result = formatter
+            .polish_with_instruction("原始文本", PolishLevel::Medium, "   ")
+            .await
+            .unwrap();
+        assert_eq!(result, "润色后的文本");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_polish_with_instruction_none_level_returns_original() {
+        let formatter = LLMFormatter::new(
+            "key".to_string(),
+            "http://localhost".to_string(),
+            "model".to_string(),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        let result = formatter
+            .polish_with_instruction("hello", PolishLevel::None, "更正式")
+            .await
+            .unwrap();
+        assert_eq!(result, "hello");
     }
 
     fn mock_success_response(content: &str) -> String {
