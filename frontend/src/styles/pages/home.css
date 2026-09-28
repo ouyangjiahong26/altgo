@@ -22,7 +22,7 @@
   animation: home-panel-in var(--duration-slow) var(--ease-out) both;
 }
 
-/* 状态行：状态指示 + 单行操作提示（提示过长时省略，不再折行撑高页面） */
+/* 状态行：状态指示 + 操作提示（提示过长时折行，不省略） */
 .home-status-row {
   display: flex;
   align-items: center;
@@ -37,9 +37,6 @@
   color: var(--color-text-muted);
   line-height: var(--leading-relaxed);
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* 纯文字状态行：着色小圆点 + 状态文字（录音时圆点呼吸） */
