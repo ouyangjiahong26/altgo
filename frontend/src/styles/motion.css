@@ -29,15 +29,6 @@
   }
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(-90deg);
-  }
-  to {
-    transform: rotate(270deg);
-  }
-}
-
 @keyframes home-panel-in {
   from {
     opacity: 0;

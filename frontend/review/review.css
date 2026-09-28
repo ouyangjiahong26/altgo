@@ -344,12 +344,21 @@
 .sr-frame {
   overflow: visible;
 }
+/* --tall 的旧限高与“高度随内容展开”冲突，解除 */
+.sr-frame--tall {
+  max-height: none;
+}
 .sr-caption {
   font-family: inherit;
 }
 /* 窗口宽度与实际软件一致：主窗 440 / 悬浮窗 280 / 更新说明 340 */
 .sr-frame--win {
   height: auto;
+}
+/* 首次引导是绝对定位整窗层，不贡献文档流高度，需保留固定帧高 */
+.sr-frame--win:has(.onboarding) {
+  height: 480px;
+  overflow: hidden;
 }
 .sr-frame--win .layout {
   height: auto;
