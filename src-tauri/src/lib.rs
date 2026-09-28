@@ -114,7 +114,21 @@ pub fn run() {
         std::env::set_var("GDK_BACKEND", backend);
     }
 
+    // 共享状态一律经 `Builder::manage` 注册：Tauri 在调用 `setup` 钩子之前就已创建
+    // `tauri.conf.json` 里的窗口并开始加载前端，前端首批 IPC（如 `get_config`）可能先于
+    // `setup` 到达。状态若只在 `setup` 里注册，这些命令会以 state not managed 失败，
+    // 首次引导会永久停在“加载中”。
+    let config_path = config::Config::default_config_path();
+    let history_path = config_path
+        .parent()
+        .map(|p| p.join("history.json"))
+        .unwrap_or_else(|| config_path.with_extension("history.json"));
+
     tauri::Builder::default()
+        .manage(config_store::ConfigStore::load(config_path))
+        .manage(history::HistoryStore::new(history_path))
+        .manage(pipeline_controller::PipelineController::new())
+        .manage(Arc::new(output::PlatformOutput::new()) as Arc<dyn output::Output>)
         // 单实例保护：第二个实例启动时唤起已有实例的窗口并自行退出。
         // 避免两个进程各装一个键盘钩子，导致同一次录音被转写、注入两次。
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -127,23 +141,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            let config_path = config::Config::default_config_path();
-            let history_path = config_path
-                .parent()
-                .map(|p| p.join("history.json"))
-                .unwrap_or_else(|| config_path.with_extension("history.json"));
-
-            let config_store = config_store::ConfigStore::load(config_path);
-            let history_store = history::HistoryStore::new(history_path);
-            let pipeline_controller = pipeline_controller::PipelineController::new();
-
-            let cfg = Arc::new(config_store.snapshot_blocking());
+            let cfg = Arc::new(app.state::<config_store::ConfigStore>().snapshot_blocking());
             cfg.validate().map_err(|e| e.to_string())?;
-
-            app.manage(config_store);
-            app.manage(history_store);
-            app.manage(pipeline_controller);
-            app.manage(Arc::new(output::PlatformOutput::new()) as Arc<dyn output::Output>);
 
             tray::create_tray(app)?;
 
@@ -162,8 +161,12 @@ pub fn run() {
 
             let controller = app.state::<pipeline_controller::PipelineController>();
             let status_arc = controller.status_arc();
-            controller
-                .start_with_blocking(|| spawn_pipeline_thread(app.handle(), cfg, status_arc))?;
+            // 前端可能在 `setup` 之前就调用 save_config（窗口加载早于 setup 钩子），那条路径
+            // 已经起过流水线；此时保留既有实例，既不重复启动、也不当作致命错误（返回 Err 会让
+            // Tauri 直接 panic 退出）。
+            controller.ensure_started_with_blocking(|| {
+                spawn_pipeline_thread(app.handle(), cfg, status_arc)
+            });
 
             Ok(())
         })
