@@ -22,7 +22,7 @@ const config: Config = {
 
   i18n: {
     defaultLocale: 'zh-Hans',
-    locales: ['zh-Hans', 'en'],
+    locales: ['zh-Hans'],
   },
 
   presets: [
@@ -68,10 +68,6 @@ const config: Config = {
           sidebarId: 'docsSidebar',
           position: 'left',
           label: '文档',
-        },
-        {
-          type: 'localeDropdown',
-          position: 'right',
         },
         {
           href: 'https://github.com/ouyangjiahong26/altgo',

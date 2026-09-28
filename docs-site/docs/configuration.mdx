@@ -7,15 +7,7 @@ title: 配置指南
 
 altgo 使用 TOML 格式的配置文件，所有字段都有默认值，只需修改你需要的部分。
 
-# Configuration Guide
-
-altgo uses a TOML configuration file. Every field has a default value, so you only need to change the parts you care about.
-
 ## 配置文件位置
-
-`~/.config/altgo/altgo.toml`
-
-## Config File Location
 
 `~/.config/altgo/altgo.toml`
 
@@ -30,26 +22,9 @@ language = "zh"          # 空字符串 = 自动检测（中/英/日/韩/粤）
 threads = 0              # 0 = 自动取满 CPU 核数
 ```
 
-
-## Transcription Engine Configuration
-
-### Local SenseVoice (the only transcription method, no API key required)
-
-```toml
-[transcriber]
-model = "sense-voice"   # 设置页下载后自动填入；也可填模型目录路径
-language = "zh"          # 空字符串 = 自动检测（中/英/日/韩/粤）
-threads = 0              # 0 = 自动取满 CPU 核数
-```
-
-
 ## 润色配置
 
 altgo 支持通过 LLM 对转写文本进行润色。
-
-## Polisher Configuration
-
-altgo supports polishing transcribed text through an LLM.
 
 ### 润色级别
 
@@ -60,27 +35,7 @@ altgo supports polishing transcribed text through an LLM.
 | `medium` | 修正语法、改善语序通顺度 | 是 |
 | `heavy` | 结构化重写，适合正式文档 | 是 |
 
-### Polishing Levels
-
-| Level | Effect | Needs API key |
-|------|------|:---:|
-| `none` | No polishing; the raw transcription is output as-is | No |
-| `light` | Fix punctuation and typos | Yes |
-| `medium` | Fix grammar and improve fluency | Yes |
-| `heavy` | Structured rewriting, suited to formal documents | Yes |
-
 ### 配置示例
-
-```toml
-[polisher]
-level = "medium"
-protocol = "openai"
-api_key = "sk-your-key"
-api_base_url = "https://..."
-model = "your-model"
-```
-
-### Example Configuration
 
 ```toml
 [polisher]
@@ -101,17 +56,6 @@ model = "your-model"
 也可以直接填完整 endpoint（以 `/chat/completions` 或 `/messages` 结尾），此时原样使用。
 
 设置页的“润色”分区有**测试连接**按钮：选好供应商预设、填入密钥后点击，会立即发一次最小请求并给出可读的结果（密钥无效、地址不对、超时等），无需先保存或实际录音验证。
-
-### The `api_base_url` Format
-
-Both forms are supported; the app automatically assembles the correct request URL:
-
-- **Without a version path** (origin): e.g. `https://api.deepseek.com`, `https://api.anthropic.com`; `/v1/chat/completions` or `/v1/messages` is appended automatically;
-- **With a version path**: e.g. `https://api.moonshot.cn/v1`, `https://open.bigmodel.cn/api/paas/v4`, `https://dashscope.aliyuncs.com/compatible-mode/v1`; only `/chat/completions` or `/messages` is appended.
-
-You may also paste a full endpoint (one ending in `/chat/completions` or `/messages`); it is then used verbatim.
-
-The "Polishing" section of the Settings page has a **Test Connection** button: pick a provider preset, fill in the key, and click it — a minimal request is sent immediately with a readable result (invalid key, wrong URL, timeout, etc.), without saving first or doing an actual recording.
 
 ### 支持的 Provider
 
@@ -207,100 +151,6 @@ model = "qwen2.5:7b"
 
 设置页内置约百家供应商预设（原生 13 家 + 迁移自 [cc-switch](https://github.com/farion1231/cc-switch) 的 86 家，涵盖国产官方、聚合服务与第三方中转的 Anthropic / OpenAI 双协议端点），选择后自动填入地址与协议，只需补上密钥。带有 `(Anthropic)` / `(OpenAI)` 后缀的是同一供应商的不同协议端点。
 
-### Supported Providers
-
-#### OpenAI
-
-```toml
-[polisher]
-protocol = "openai"
-api_key = "sk-your-key"
-api_base_url = "https://api.openai.com"
-model = "gpt-3.5-turbo"
-```
-
-#### DeepSeek
-
-```toml
-[polisher]
-protocol = "openai"
-api_key = "sk-your-key"
-api_base_url = "https://api.deepseek.com"
-model = "deepseek-v4-flash"
-```
-
-#### Anthropic
-
-```toml
-[polisher]
-protocol = "anthropic"
-api_key = "sk-ant-your-key"
-api_base_url = "https://api.anthropic.com"
-model = "claude-sonnet-4-20250514"
-```
-
-#### Volcano Ark (Doubao)
-
-```toml
-[polisher]
-protocol = "openai"
-api_key = "your-ark-key"
-api_base_url = "https://ark.cn-beijing.volces.com/api/v3"
-model = "doubao-seed-1.6-flash-250828"
-```
-
-#### Baidu Qianfan
-
-```toml
-[polisher]
-protocol = "openai"
-api_key = "your-qianfan-key"
-api_base_url = "https://qianfan.baidubce.com/v2"
-model = "ernie-4.5-turbo-128k"
-```
-
-#### MiniMax
-
-```toml
-[polisher]
-protocol = "openai"
-api_key = "your-minimax-key"
-api_base_url = "https://api.minimaxi.com/v1"
-model = "MiniMax-M3"
-```
-
-#### OpenRouter
-
-```toml
-[polisher]
-protocol = "openai"
-api_key = "your-openrouter-key"
-api_base_url = "https://openrouter.ai/api/v1"
-model = "deepseek/deepseek-v4-flash"
-```
-
-#### Google Gemini (OpenAI-compatible endpoint)
-
-```toml
-[polisher]
-protocol = "openai"
-api_key = "your-google-key"
-api_base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
-model = "gemini-2.5-flash-lite"
-```
-
-#### Local Ollama
-
-```toml
-[polisher]
-protocol = "openai"
-api_key = "ollama"
-api_base_url = "http://localhost:11434"
-model = "qwen2.5:7b"
-```
-
-The provider list comes entirely from the Oh My Pi catalog (catalog.stencil.so, the same source the `omp models` command uses) and loads automatically when the Settings page opens—fetched once per session, with a retry on failure. Picking a provider fills in the address and protocol automatically; you only add the key. When offline or if the catalog is unreachable, fill in the API address and model manually.
-
 ### 思考层级（默认关闭）
 
 语音润色是轻量文本任务，推理模型先“思考”再回答会凭空多出数秒延迟和 token 花费。默认（`thinking_level = "off"`）对支持关闭思考的服务商自动附带关闭参数，无需配置：
@@ -330,50 +180,9 @@ The provider list comes entirely from the Oh My Pi catalog (catalog.stencil.so, 
 export ALTGO_POLISHER_API_KEY="sk-your-key"
 ```
 
-### Thinking Level (Off by Default)
-
-Voice polishing is a lightweight text task; reasoning models that "think" before answering would add seconds of latency and token cost for nothing. By default (`thinking_level = "off"`) the app automatically attaches the disable parameter for providers that support it — no configuration needed:
-
-| Provider | Parameter attached automatically |
-|---|---|
-| Tongyi (dashscope), SiliconFlow (.cn / .com) | `enable_thinking: false` |
-| Zhipu (bigmodel.cn / z.ai), Volcano Ark, MiniMax, DeepSeek, Moonshot, Kimi, Xiaomi MiMo | `thinking: {"type": "disabled"}` |
-| OpenRouter | `reasoning: {"enabled": false}` |
-| Anthropic protocol + the default-thinking vendors above (DeepSeek, Xiaomi MiMo, …) | `thinking: {"type": "disabled"}` |
-
-Set `thinking_level` to `"low"` / `"medium"` / `"high"` (the Settings page "Thinking level" dropdown) to turn thinking on in each provider's dialect:
-
-| Provider | Attached when a level is on |
-|---|---|
-| Tongyi, SiliconFlow | `enable_thinking: true` (on/off only, no tiers) |
-| Zhipu, Volcano Ark, MiniMax, DeepSeek, Moonshot, Kimi, Xiaomi MiMo | `thinking: {"type": "enabled"}` (on/off only, no tiers) |
-| OpenRouter | `reasoning: {"effort": "low"/"medium"/"high"}` |
-| Everyone else (OpenAI official included) | `reasoning_effort: "low"/"medium"/"high"` |
-| Anthropic protocol | `thinking: {"type": "enabled", "budget_tokens": 1024/4096/16384}`; `max_tokens` is raised automatically (it must exceed the budget) and `temperature` is omitted (incompatible with thinking) |
-
-Everything else is unchanged: relay endpoints missing from the table get stray `<think>` residue stripped on the way out (the Anthropic protocol takes the first text block); over the Anthropic protocol only the default-thinking vendors above get an explicit disable — official Anthropic and unknown endpoints send no such field (their thinking is opt-in, and newer official models reject `disabled` with a 400). When a default-thinking vendor gets no disable parameter, thinking shares `max_tokens` with the answer: once thinking eats the budget the visible text comes back empty, which surfaces as a failed polish; a few forced-thinking models (e.g. Zhipu GLM-5.3) reject the disable parameter — choose a preset-recommended model to avoid them; a model that rejects the chosen level surfaces the provider's error.
-
-Override the key via environment variable:
-
-```bash
-export ALTGO_POLISHER_API_KEY="sk-your-key"
-```
-
 ## 按键配置
 
 与 [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml) 一致；默认触发键为 **右 Alt**。若在设置页使用“按下以设置”，Linux 会写入 `linux_evdev_code` 字段。
-
-```toml
-[key_listener]
-key_name = "Alt_R"                 # 触发键（示例：右 Alt；左 Alt 可用 Alt_L）
-long_press_threshold_ms = 200      # 长按判定阈值 (ms)
-double_click_interval_ms = 300     # 双击判定间隔 (ms)
-min_press_duration_ms = 100        # 最短按下时长，过滤 IME 抖动
-```
-
-## Key Binding Configuration
-
-Consistent with [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml); the default trigger key is **right Alt**. If you use "Press to set" on the Settings page, Linux writes the `linux_evdev_code` field.
 
 ```toml
 [key_listener]
@@ -391,14 +200,6 @@ sample_rate = 16000                # SenseVoice 固定采样率；其他值会�
 channels = 1                       # 单声道
 ```
 
-## Recording Configuration
-
-```toml
-[recorder]
-sample_rate = 16000                # SenseVoice 固定采样率；其他值会被拒绝
-channels = 1                       # 单声道
-```
-
 ## 输出配置
 
 ```toml
@@ -407,15 +208,6 @@ prefer_polished = true             # 剪贴板/注入优先使用润色成功且
 ```
 
 **Linux** 需要可用的 **`xclip`、`xsel` 或 `wl-copy`** 之一，否则自动写剪贴板会失败（仍可在悬浮窗内点击复制，或使用主页历史列表里的复制按钮）。
-
-## Output Configuration
-
-```toml
-[output]
-prefer_polished = true             # 剪贴板/注入优先使用润色成功且非空的文本
-```
-
-On **Linux**, one of **`xclip`, `xsel`, or `wl-copy`** must be available; otherwise automatic clipboard writing fails (you can still copy via the overlay window or the copy buttons in the home page's history list).
 
 ## 日志配置
 
@@ -431,20 +223,6 @@ level = "info"                     # debug / info / warn / error
 RUST_LOG=altgo=debug altgo
 ```
 
-## Logging Configuration
-
-```toml
-[logging]
-level = "info"                     # debug / info / warn / error
-```
-
-An environment variable works too:
-
-```bash
-# Linux
-RUST_LOG=altgo=debug altgo
-```
-
 ## 优先级
 
 **环境变量 > 配置文件 > 代码默认值**
@@ -453,12 +231,3 @@ RUST_LOG=altgo=debug altgo
 |---------|---------|
 | `ALTGO_POLISHER_API_KEY` | `polisher.api_key` |
 | `RUST_LOG` | 日志级别 |
-
-## Precedence
-
-**Environment variables > config file > code defaults**
-
-| Environment variable | Field overridden |
-|---------|---------|
-| `ALTGO_POLISHER_API_KEY` | `polisher.api_key` |
-| `RUST_LOG` | Log level |

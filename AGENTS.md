@@ -115,7 +115,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - **Linux 运行时外部工具**：`xinput`、`xmodmap`、`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`。Wayland 会话在 GUI 初始化前自动切 XWayland（`display_backend.rs`），否则浮窗定位不生效。
 - **环境变量**：`ALTGO_POLISHER_API_KEY` 覆盖 `[polisher] api_key`；`ALTGO_MODEL_BASE_URL` 覆盖模型下载镜像。
 - **PR 标题**：只写改动内容，不带决策过程痕迹（如“方案 A/B”、“备选已否决”之类）；决策与取舍写进 PR 正文、commit 正文或 ADR。
-- **Loop 工程**：`/loop-go <任务>` 循环 builder 与 checker 直到检查全绿。停止规则：最多 5 轮（每轮声明 "Cycle N/5"）；同一失败连续两次 → 停止报告；修复使原本通过的检查失败 → 停止；到上限 → 停止报告现状。
+- **Loop 工程**：`/loop-go <任务>` 循环 builder 与 checker 直到检查全绿。停止规则：最多 5 轮（每轮声明 “Cycle N/5”）；同一失败连续两次 → 停止报告；修复使原本通过的检查失败 → 停止；到上限 → 停止报告现状。
 
 ## Agent skills
 
@@ -145,6 +145,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - 按逻辑组织，区分相近概念；不用空泛、夸大的修饰语。
 - 面向实际读者，从已知事实推到陌生结论；用分析说服，不装腔或堆砌。
 - 全仓库文档不得使用直角引号「」，引号用弯引号（“”）。
+- 文档只写中文，不维护英文镜像：`README.md`、`CONTEXT.md`、`CONTRIBUTING.md`、`docs/`、`docs-site/`、`packaging/*/README.md` 均单语中文（原英文半区已移除；`docs-site` 不再有 `i18n/` 英文站，`docusaurus.config.ts` 的 `locales` 只有 `zh-Hans`）。代码注释同样只写中文，见“Code Conventions & Common Patterns”一节的注释约定。
 
 ## 编码准则
 

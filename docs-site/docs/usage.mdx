@@ -5,25 +5,11 @@ title: 使用说明
 
 # 使用说明
 
-# Usage Guide
-
 ## 录音模式
 
 ### 长按模式（默认）
 
 按住 **右 Alt**（或你在设置里捕获的键）说话，松开即停止录音并进入转写（及可选润色）。
-
-```
-按下右 Alt ──→ 开始录音
-   │
-   │  说话中…
-   │
-松开右 Alt ──→ 停止录音 → 转写 →（润色）→ 写入剪贴板 + 悬浮窗展示
-```
-
-### Hold Mode (default)
-
-Hold **right Alt** (or the key you captured in Settings) to speak; on release recording stops and transcription (with optional polishing) begins.
 
 ```
 按下右 Alt ──→ 开始录音
@@ -49,22 +35,6 @@ Hold **right Alt** (or the key you captured in Settings) to speak; on release re
 连续模式下不必一直按住键，可停顿思考；停止时单击即可。
 :::
 
-### Continuous Mode
-
-Suited to longer speech: **double-click** the trigger key to enter continuous recording, then **single-click** once to stop.
-
-```
-双击右 Alt ──→ 连续录音
-   │
-   │  持续录音中…
-   │
-单击右 Alt ──→ 停止 → 转写 →（润色）→ 剪贴板 + 悬浮窗
-```
-
-:::tip Tip
-In continuous mode you do not have to keep holding the key — pause to think as you like; a single click stops it.
-:::
-
 ## 处理流程
 
 录音结束后，后台会依次：
@@ -75,16 +45,6 @@ In continuous mode you do not have to keep holding the key — pause to think as
 
 若剪贴板工具不可用，仍可在**悬浮窗**内点击复制；**主页的历史列表**也会保留文本记录（仅文本，不存音频）。
 
-## Processing Pipeline
-
-After recording ends, the background runs these steps in order:
-
-1. **Transcribe** — local SenseVoice
-2. **Polish** (unless the level is `none`) — optimize the text via LLM
-3. **Output** — **write to the system clipboard** and pop up the **overlay window**
-
-If no clipboard tool is available, you can still click Copy inside the **overlay window**; the **history list on the home page** also keeps text records (text only, no audio stored).
-
 ## 润色级别
 
 | 级别 | 适用场景 |
@@ -94,15 +54,6 @@ If no clipboard tool is available, you can still click Copy inside the **overlay
 | `medium` | 日常写作、语序通顺 |
 | `heavy` | 正式文档、结构化重写 |
 
-## Polishing Levels
-
-| Level | Best for |
-|------|---------|
-| `none` | Verbatim words and low latency |
-| `light` | Punctuation and typos |
-| `medium` | Everyday writing, smoother word order |
-| `heavy` | Formal documents, structured rewriting |
-
 ## 输出与界面
 
 - **剪贴板**：成功后默认写入，可在任意支持粘贴的应用中使用快捷键粘贴（`Ctrl+V`）。
@@ -111,15 +62,6 @@ If no clipboard tool is available, you can still click Copy inside the **overlay
 - **系统托盘**：显示/隐藏主窗口、退出。
 
 历史数据默认位于 `~/.config/altgo/history.json`。
-
-## Output and Interface
-
-- **Clipboard**: written by default on success; paste with the usual shortcut (`Ctrl+V`) in any app that supports pasting.
-- **Overlay window**: shows the current result; you can copy again or close it.
-- **Main window**: home (status, latest transcription, and the history list: view/delete/re-polish a single entry) and **Settings**; a step-by-step wizard (trigger key → engine → polishing) runs on first launch.
-- **System tray**: show/hide the main window, quit.
-
-History data lives at `~/.config/altgo/history.json` by default.
 
 ## 开发者：本地运行 GUI
 
@@ -131,26 +73,7 @@ cargo tauri dev
 完整发布链路：
 - 以仓库根目录的 **`make build`** 为准，与 CI 一致。
 
-## Developers: Run the GUI Locally
-
-```bash
-cd frontend && npm install && cd ..
-cargo tauri dev
-```
-
-Full release pipeline:
-- Governed by **`make build`** at the repository root, consistent with CI.
-
 ## 命令行（若已安装 `altgo` 可执行文件）
-
-```bash
-altgo                              # 默认配置启动
-altgo --config /path/to/altgo.toml # 指定配置
-altgo --version
-altgo --help
-```
-
-## Command Line (if the `altgo` executable is installed)
 
 ```bash
 altgo                              # 默认配置启动
