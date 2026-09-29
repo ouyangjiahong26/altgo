@@ -39,5 +39,10 @@ whisper.cpp/
 # Local tooling
 .zcode/
 
+# 品牌资产生成：服务凭据、依赖与中间产物
+tools/assets/.env
+tools/assets/out/
+tools/assets/node_modules/
+
 # TypeScript incremental build info (generated)
 /frontend/tsconfig.tsbuildinfo

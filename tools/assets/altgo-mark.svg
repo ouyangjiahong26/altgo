@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none" role="img" aria-label="altgo">
+  <title>altgo</title>
+  <!-- 桌面快捷方式 / 启动器图标：透明底 + 纯标记，不画底色方块。
+       在深色、浅色与花哨壁纸上都要能看清；四周留约 12% 安全区，避免被各平台裁切。
+       支架与弧线相接、整体压紧，保证 16px 下仍读得出是麦克风。 -->
+  <g fill="#4F46E5">
+    <rect x="13.3" y="6.2" width="5.4" height="11.4" rx="2.7"/>
+    <rect x="15.1" y="23.2" width="1.8" height="3.6" rx="0.9"/>
+  </g>
+  <path d="M9.8 15.2a6.2 6.2 0 0 0 12.4 0" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" fill="none"/>
+</svg>

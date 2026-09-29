@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>altgo 品牌资产预览</title>
+    <style>
+      /* 按 GitHub README 的实际渲染宽度预览，避免 SVG 被拉到整屏宽看待 */
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 40px 24px 64px;
+        background: #0d1117;
+        color: #e6edf3;
+        font-family: "Inter", system-ui, -apple-system, "Segoe UI", "Noto Sans SC", sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .wrap { max-width: 896px; margin: 0 auto; }
+      h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; }
+      .lead { margin: 0 0 10px; color: #8b949e; }
+      .note {
+        padding: 10px 14px;
+        border-left: 2px solid #6e79f2;
+        background: rgba(110, 121, 242, 0.07);
+        border-radius: 0 6px 6px 0;
+        font-size: 13px;
+        color: #8b949e;
+        margin-bottom: 32px;
+      }
+      section { margin-bottom: 40px; }
+      h2 {
+        margin: 0 0 4px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #8b949e;
+      }
+      .meta { margin: 0 0 12px; font-size: 12.5px; color: #6e7681; }
+      /* README 正文列宽 896px，横幅按这个宽度呈现 */
+      .shot { border: 1px solid #21262d; border-radius: 8px; overflow: hidden; background: #0d1117; }
+      .shot img { display: block; width: 100%; height: auto; }
+      /* 悬浮窗图是 440×40，按 README 里的原始尺寸居中展示 */
+      .shot-inline { padding: 22px; }
+      .shot-inline img { display: block; width: 440px; max-width: 100%; height: auto; margin: 0 auto; }
+      .gap { height: 12px; }
+      code {
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 12px;
+        padding: 1px 5px;
+        background: #161b22;
+        border-radius: 4px;
+        color: #c9d1d9;
+      }
+      .icon-box {
+        display: flex;
+        gap: 28px;
+        align-items: center;
+        padding: 22px;
+        border: 1px solid #21262d;
+        border-radius: 8px;
+        background-image:
+          linear-gradient(45deg, #161b22 25%, transparent 25%, transparent 75%, #161b22 75%),
+          linear-gradient(45deg, #161b22 25%, transparent 25%, transparent 75%, #161b22 75%);
+        background-size: 16px 16px;
+        background-position: 0 0, 8px 8px;
+        background-color: #0d1117;
+      }
+      .icon-box figure { margin: 0; text-align: center; }
+      .icon-box figcaption { margin-top: 6px; font-size: 11px; color: #8b949e; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>品牌资产预览</h1>
+      <p class="lead">按 GitHub README 的实际渲染宽度（896px）展示，所见即所得。</p>
+      <div class="note">
+        改样式或母版后，跑 <code>node tools/assets/build-assets.mjs</code> 重生成位图，刷新本页即可。
+      </div>
+
+      <section>
+        <h2>README 横幅</h2>
+        <p class="meta">assets/banner.png · 1536×400 · 渲染为 896 宽、高约 233px</p>
+        <div class="shot"><img src="/repo/assets/banner.png" alt="altgo 横幅" /></div>
+      </section>
+
+      <section>
+        <h2>功能清单插图</h2>
+        <p class="meta">assets/overlay-phase-*.svg · 440×40 · 按原始尺寸展示</p>
+        <div class="shot">
+          <div class="shot-inline"><img src="/repo/assets/overlay-phase-recording.svg" alt="录音相位" /></div>
+        </div>
+        <div class="gap"></div>
+        <div class="shot">
+          <div class="shot-inline"><img src="/repo/assets/overlay-phase-transcribing.svg" alt="转写中相位" /></div>
+        </div>
+        <div class="gap"></div>
+        <div class="shot">
+          <div class="shot-inline"><img src="/repo/assets/overlay-phase-result.svg" alt="完成相位" /></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>图标</h2>
+        <p class="meta">左边是桌面快捷方式用的透明标记，中间是应用图标，右边看小尺寸下的效果</p>
+        <div class="icon-box">
+          <figure>
+            <img src="/repo/assets/icon-transparent.png" width="72" height="72" alt="透明标记" />
+            <figcaption>透明标记</figcaption>
+          </figure>
+          <figure>
+            <img src="/repo/src-tauri/icons/icon.png" width="72" height="72" alt="应用图标" />
+            <figcaption>应用图标</figcaption>
+          </figure>
+          <figure>
+            <img src="/repo/assets/icon-transparent.png" width="24" height="24" alt="24 像素效果" />
+            <figcaption>24px</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section>
+        <h2>社交分享图</h2>
+        <p class="meta">assets/og-image.png · 1536×1024</p>
+        <div class="shot"><img src="/repo/assets/og-image.png" alt="社交分享图" /></div>
+      </section>
+    </div>
+  </body>
+</html>

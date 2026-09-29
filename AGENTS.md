@@ -29,7 +29,8 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 |---|---|
 | `src-tauri/src/` | Rust 核心（crate `altgo-tauri`）：`voice_pipeline/` 业务主循环、`key_listener/`、`key_capture/`、`recorder/`、`output/`、`overlay/`（seam/manager/tauri/activity 分层）、`polisher/`，根文件见 “Important Files” |
 |`frontend/src/`|React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）+ `overlay.tsx` 悬浮窗；`styles/` 分层：design-tokens → design-system → global → layout/components/pages|
-|`frontend/style-review.html`|样式审查页目录（`frontend/review/` 下按主题分五个分页：设计 token、基础与组件、界面、窗口、页面整体）：各分页按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*`，另加浮窗与更新说明窗口的 `src/overlay.css`、`src/styles/pages/update-notes.css`（这两份不在 `main.tsx` 的链上），共享 `review/review.css` 框架样式与 `review/review.js` 主题/字号切换，可切暗亮主题与根字号；不在 vite 构建入口内|
+|`frontend/style-review.html`|样式审查页目录（`frontend/review/` 下按主题分五个分页：设计 token、基础与组件、界面、窗口、页面整体）：各分页按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*`，另加浮窗与更新说明窗口的 `src/overlay.css`、`src/styles/pages/update-notes.css`（这两份不在 `main.tsx` 的链上），共享 `review/review.css` 框架样式与 `review/review.js` 主题/字号切换；`frontend/preview.html` 是改样式后的唯一预览入口（一页看全各窗口，带配色切换），`review/figures.html` 按窗口真实尺寸单独渲染任一状态（`?fig=` 指定，`?probe=` 打印控件计算值）；均不在 vite 构建入口内|
+| `tools/assets/` | 品牌资产生成：图标母版 `altgo-icon.svg`（带底方块）与 `altgo-mark.svg`（透明底裸标记）+ `build-icon.mjs`、横幅/分享图母版 + `build-assets.mjs`、GPT 出图 `gen.mjs`（提示词见 `prompts.brand.json`）、截图用静态服务器 `serve.mjs`；用法见 `tools/assets/README.md` |
 | `configs/` | 用户 TOML 模板；应用实际读 `~/.config/altgo/altgo.toml` |
 | `resources/prompts/` | 润色 prompt：`base.txt` + `light/medium/heavy-suffix.txt`（`none` 档不润色） |
 | `docs/` | 维护者文档：`architecture.md`、`testing.md`、`adr/`（ADR-0003~0006）、`agents/`（agent 工作约定） |
@@ -105,7 +106,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - Loop 三件套不在 `.claude/`：builder/checker 实为 `docs/agents/builder.md`、`docs/agents/checker.md`，`loop-go` 规则见下节。
 - Node 下界三处不一（CONTRIBUTING 18+ / `docs-site` engines ≥20 / CI 22）；Rust MSRV 未在 `Cargo.toml` 强制（CI 用 stable）。
 - 文档统一写仓库全名 `ouyangjiahong26/altgo`（原 `cislunarspace/altgo` 已改名，旧名 GitHub 自动重定向；`gh` 默认仓库已设 `ouyangjiahong26/altgo`，`git remote -v` 现查）。
-- `frontend/src/styles/components/ui-primitives.css` 的 `.input-wrapper`/`.input-label`/`.input-field`/`.select-field`/`.input-error` 在 TSX 中已无引用（设置页统一用 `settings.css` 的 `.settings-input`/`.settings-select`），仅 `.loading-container` 仍被 `Settings.tsx` 使用。
+- `frontend/src/styles/components/ui-primitives.css` 是跨页面复用的控件基底（`.btn`/`.field`/`.select`/`.segmented`/`.badge`/`.kbd`/`.empty-state`）；各页面只做尺寸与排布，不再各自重写一套按钮皮肤。
 - `frontend/src/styles/pages/history.css` 现服务于 `frontend/src/components/HistoryPanel.tsx`（#170 把历史页并入主页后的遗留命名），`pages/` 下已无 History 页面。
 
 ## Runtime/Tooling Preferences

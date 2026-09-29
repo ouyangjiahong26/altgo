@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 400" width="1536" height="400">
+  <!--
+    altgo README 横幅。画布 1536×400（约 3.8:1）：README 里按 896 宽渲染时高约 233px，
+    不占满整屏。元素刻意放大——字标与标记是主体，不放说明性小字。
+    底色与界面暗色主题同一族；字标用具体字体名而非通用族，避免渲染器回退到衬线体。
+  -->
+  <rect width="1536" height="400" fill="#131318"/>
+
+  <!-- 左侧：应用标记（与 src-tauri/icons 同源，32 单位网格放大 4.5 倍） -->
+  <g transform="translate(104 128)">
+    <rect width="144" height="144" rx="32" fill="#4F46E5"/>
+    <rect x="59.4" y="33.3" width="25.2" height="50.4" rx="12.6" fill="#FFFFFF"/>
+    <path d="M44.55 67.95a27.45 27.45 0 0 0 54.9 0" stroke="#FFFFFF" stroke-width="8.55" stroke-linecap="round" fill="none"/>
+    <rect x="67.725" y="94.95" width="8.55" height="15.75" rx="4.275" fill="#FFFFFF"/>
+  </g>
+
+  <!-- 字标：唯一的文字元素 -->
+  <text x="300" y="232" font-family="Segoe UI" font-size="84" font-weight="600" fill="#E8E8EA" letter-spacing="-2">altgo</text>
+
+  <!-- 右侧：电平条束，呼应录音相位的视觉语言。条宽 8、间距 12，整体垂直居中 -->
+  <g fill="#7B7FF0">
+    <rect x="1200" y="166" width="8" height="68" rx="4"/>
+    <rect x="1220" y="142" width="8" height="116" rx="4"/>
+    <rect x="1240" y="158" width="8" height="84" rx="4"/>
+    <rect x="1260" y="120" width="8" height="160" rx="4"/>
+    <rect x="1280" y="150" width="8" height="100" rx="4"/>
+    <rect x="1300" y="132" width="8" height="136" rx="4"/>
+    <rect x="1320" y="162" width="8" height="76" rx="4"/>
+    <rect x="1340" y="138" width="8" height="124" rx="4"/>
+    <rect x="1360" y="156" width="8" height="88" rx="4"/>
+    <rect x="1380" y="146" width="8" height="108" rx="4"/>
+  </g>
+  <g fill="#3A3A44">
+    <rect x="1412" y="178" width="8" height="44" rx="4"/>
+    <rect x="1432" y="184" width="8" height="32" rx="4"/>
+    <rect x="1452" y="180" width="8" height="40" rx="4"/>
+    <rect x="1472" y="188" width="8" height="24" rx="4"/>
+  </g>
+</svg>

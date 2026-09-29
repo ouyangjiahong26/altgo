@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1024" width="1536" height="1024">
+  <!-- altgo 社交分享图（og:image）。1536×1024 便于各平台按需裁切，
+       主体收在中间安全区，四周留够余量。 -->
+  <rect width="1536" height="1024" fill="#0F1015"/>
+
+  <!-- 极淡 1px 网格：技术感来源，透明度压到 3% 以内不抢主体 -->
+  <g stroke="#FFFFFF" stroke-opacity="0.03" stroke-width="1">
+    <path d="M128 0V1024M256 0V1024M384 0V1024M512 0V1024M640 0V1024M768 0V1024M896 0V1024M1024 0V1024M1152 0V1024M1280 0V1024M1408 0V1024"/>
+    <path d="M0 128H1536M0 256H1536M0 384H1536M0 512H1536M0 640H1536M0 768H1536M0 896H1536"/>
+  </g>
+
+  <!-- 图标：与 src-tauri/icons 同源（32 单位网格放大 5 倍） -->
+  <g transform="translate(608 300) scale(5)">
+    <rect width="32" height="32" rx="7" fill="#4F46E5"/>
+    <rect x="13.2" y="7.4" width="5.6" height="11.2" rx="2.8" fill="#FFFFFF"/>
+    <path d="M9.9 15.1a6.1 6.1 0 0 0 12.2 0" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" fill="none"/>
+    <rect x="15.05" y="21.1" width="1.9" height="3.5" rx="0.95" fill="#FFFFFF"/>
+  </g>
+
+  <text x="768" y="640" text-anchor="middle" font-family="Segoe UI" font-size="72" font-weight="600" fill="#E8E8EA" letter-spacing="-1">altgo</text>
+  <text x="768" y="692" text-anchor="middle" font-family="Microsoft YaHei" font-size="27" fill="#8A8A94">按住说话，松开即得文字</text>
+
+  <!-- 底部一行元信息，用小字与细线收尾 -->
+  <line x1="608" y1="760" x2="928" y2="760" stroke="#2B2B31" stroke-width="1"/>
+  <text x="768" y="792" text-anchor="middle" font-family="Microsoft YaHei" font-size="19" fill="#6E6E78">Linux · Windows　语音转文字桌面工具</text>
+</svg>
