@@ -1,10 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-  <defs>
-    <linearGradient id="altgoGrad" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6366f1"/>
-      <stop offset="1" stop-color="#a78bfa"/>
-    </linearGradient>
-  </defs>
-  <rect width="32" height="32" rx="8" fill="url(#altgoGrad)"/>
-  <path fill="#fff" fill-opacity="0.95" d="M16 7.5c-1.38 0-2.5 1.12-2.5 2.5v5.5a2.5 2.5 0 1 0 5 0V10c0-1.38-1.12-2.5-2.5-2.5zm-4.25 7.25V16a4.25 4.25 0 0 0 3.4 4.17V22.5h-1.75v1.5h6v-1.5h-1.75v-2.33A4.25 4.25 0 0 0 20.25 16v-1.25h-1.5V16a2.75 2.75 0 1 1-5.5 0v-1.25h-1.5z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none" role="img" aria-label="altgo">
+  <title>altgo</title>
+  <rect width="32" height="32" rx="7" fill="#4F46E5"/>
+  <!-- 麦克风：胶囊本体 + 底部支座弧 + 支架。几何按 32×32 网格取半像素对齐，
+       缩放到位图后边缘不糊；整体重心压到画布中线附近，避免视觉上浮。 -->
+  <rect x="13.2" y="7.4" width="5.6" height="11.2" rx="2.8" fill="#FFFFFF"/>
+  <path d="M9.9 15.1a6.1 6.1 0 0 0 12.2 0" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round"/>
+  <rect x="15.05" y="21.1" width="1.9" height="3.5" rx="0.95" fill="#FFFFFF"/>
 </svg>
