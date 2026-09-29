@@ -123,7 +123,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 | 文件 | 内容 | 读它的技能 |
 |---|---|---|
-| `docs/agents/issue-tracker.md` | issue/PR 全走 GitHub（`gh` CLI）；AI 贡献标记约定；外部 PR 是否作分诊渠道（否）；GitHub Project 的 Owner、Project ID、Status 字段与七个选项 ID | `/triage`、`/github-project`、`/open-pr`、`/merge-pr` |
+| `docs/agents/issue-tracker.md` | issue/PR 全走 GitHub（`gh` CLI）；AI 贡献标记约定；外部 PR 是否作分诊渠道（否）；Issue/PR 正文写作约定指向；GitHub Project 的 Owner、Project ID、Status 字段与七个选项 ID | `/triage`、`/github-project`、`/open-pr`、`/merge-pr` |
 | `docs/agents/triage-labels.md` | 五个分诊角色到本仓标签字符串的映射（`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`） | `/triage` |
 | `docs/agents/domain.md` | 领域文档布局：单上下文 = 根 `CONTEXT.md` + `docs/adr/`；命名用术语表词汇；与 ADR 矛盾必须显式标注 | `/domain-modeling`、`/grill-with-docs`、`/codebase-design` |
 | `docs/agents/builder.md`、`docs/agents/checker.md` | `/loop-go` 的 builder / checker 职责与产出要求 | `/loop-go` |
@@ -144,6 +144,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - 准确、清楚、简洁；先理解材料，再提炼结论。
 - 按逻辑组织，区分相近概念；不用空泛、夸大的修饰语。
 - 面向实际读者，从已知事实推到陌生结论；用分析说服，不装腔或堆砌。
+- Issue 与 PR 正文、AI 生成的评论、commit body 与 CHANGELOG 条目按 `CONTRIBUTING.md` 的“正文写作约定”一节写：完整叙述回答固定问题集、平实句子、少特殊符号、细节不进折叠区；开单模板已内联问题集引导。
 - 全仓库文档不得使用直角引号「」，引号用弯引号（“”）。
 - 文档只写中文，不维护英文镜像：`README.md`、`CONTEXT.md`、`CONTRIBUTING.md`、`docs/`、`docs-site/`、`packaging/*/README.md` 均单语中文（原英文半区已移除；`docs-site` 不再有 `i18n/` 英文站，`docusaurus.config.ts` 的 `locales` 只有 `zh-Hans`）。代码注释同样只写中文，见“Code Conventions & Common Patterns”一节的注释约定。
 

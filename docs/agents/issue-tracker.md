@@ -11,6 +11,7 @@
 - **添加 / 移除标签**：`gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **关闭**：`gh issue close <number> --comment "..."`
 - **AI 贡献标记**：AI 提交的 issue 与 PR 标题以 `[AI Generated][<类型>]` 开头（类型是大写标签，如 `[FEAT]`、`[FIX]`、`[DOCS]`、`[CHORE]`、`[ENH]`、`[TASK]`、`[RESEARCH]`）；AI 写的评论首行用 `> **[AI Generated]** 本评论由 AI 完成。` 或 `> **[AI Assisted]** 本评论由 AI 辅助完成。`
+- **正文写作风格**：PR 与 Issue 正文、AI 生成的评论、commit body 和 CHANGELOG 条目的写作约定（完整叙述、平实句子、少特殊符号、细节不进折叠区）见 `CONTRIBUTING.md` 的“正文写作约定”一节；开单模板已内联问题集引导。
 
 仓库可从 `git remote -v` 推断 —— 在克隆目录中运行 `gh` 会自动识别。
 
