@@ -8,8 +8,10 @@ import {
 import { useTranslation } from "../i18n";
 import HistoryPanel from "../components/HistoryPanel";
 import { Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { copyToClipboard } from "../utils/clipboard";
+import { KEY_PRESETS } from "../config/keyPresets";
 
 const statusColor = {
   idle: "var(--color-text-muted)",
@@ -25,6 +27,18 @@ const statusI18n = {
   done: "status.done",
 } as const;
 
+/** 把提示文案里的 {key} 占位换成键位标记，键名来自配置，按文本节点渲染。 */
+function renderTriggerPrompt(template: string, keyLabel: string) {
+  const [before, after = ""] = template.split("{key}");
+  return (
+    <>
+      {before}
+      <span className="kbd">{keyLabel}</span>
+      {after}
+    </>
+  );
+}
+
 export default function Home() {
   const { t } = useTranslation();
   const status = useStatus();
@@ -33,6 +47,7 @@ export default function Home() {
   const keyBackend = useKeyListenerBackend();
   const txProgress = useTranscriptionProgress();
   const [copied, setCopied] = useState(false);
+  const [triggerLabel, setTriggerLabel] = useState("");
 
   const handleCopy = async () => {
     if (transcription) {
@@ -44,40 +59,49 @@ export default function Home() {
     }
   };
 
-  const statusMap: Record<string, 'idle' | 'recording' | 'processing' | 'done'> = {
-    idle: 'idle',
-    recording: 'recording',
-    processing: 'processing',
-    done: 'done',
+  // 空态要说清“按住哪个键”，这里取一次配置；失败就退回默认预设文案。
+  useEffect(() => {
+    invoke<{ keyName?: string }>("get_config")
+      .then((cfg) => {
+        const keyName = cfg?.keyName ?? "Alt_R";
+        const preset = KEY_PRESETS.find((p) => p.value === keyName);
+        setTriggerLabel(preset ? t(preset.labelKey) : keyName);
+      })
+      .catch(() => setTriggerLabel(t(KEY_PRESETS[0].labelKey)));
+    // t 随语言切换变化，切换语言时需要重新取标签文案
+  }, [t]);
+
+  const statusMap: Record<string, "idle" | "recording" | "processing" | "done"> = {
+    idle: "idle",
+    recording: "recording",
+    processing: "processing",
+    done: "done",
   };
 
-  const mappedStatus = statusMap[status] || 'idle';
+  const mappedStatus = statusMap[status] || "idle";
 
   return (
     <div className="home">
       {error && (
         <div className="home-error">
-          <span className="error-icon">⚠️</span>
+          <span className="error-icon">⚠</span>
           <p className="error-text">{error}</p>
         </div>
       )}
       {!transcription ? (
         <div className="home-idle">
-          <div className="home-status-row">
-            <div className="home-status-line">
-              <span
-                className={`home-status-dot ${mappedStatus === "recording" ? "breathing" : ""}`}
-                style={{ background: statusColor[mappedStatus] }}
-              />
-              <span
-                className="home-status-text"
-                style={{ color: statusColor[mappedStatus] }}
-              >
-                {t(statusI18n[mappedStatus])}
-              </span>
-            </div>
-            <p className="home-hint" title={t("main.hint")}>{t("main.hint")}</p>
+          <div className="home-status-line">
+            <span
+              className={`home-status-dot ${mappedStatus === "recording" ? "breathing" : ""}`}
+              style={{ background: statusColor[mappedStatus] }}
+            />
+            <span className="home-status-text" style={{ color: statusColor[mappedStatus] }}>
+              {t(statusI18n[mappedStatus])}
+            </span>
           </div>
+          {mappedStatus === "idle" && triggerLabel && (
+            <p className="home-trigger-hint">{renderTriggerPrompt(t("main.trigger_prompt"), triggerLabel)}</p>
+          )}
           {mappedStatus === "processing" && (
             <div className="home-tx-progress-wrap">
               <span className="home-tx-progress-phase">
@@ -93,10 +117,7 @@ export default function Home() {
                   style={
                     txProgress?.fraction != null
                       ? {
-                          width: `${Math.min(
-                            100,
-                            Math.max(0, txProgress.fraction * 100)
-                          )}%`,
+                          width: `${Math.min(100, Math.max(0, txProgress.fraction * 100))}%`,
                         }
                       : undefined
                   }
@@ -113,23 +134,26 @@ export default function Home() {
           <span className="home-result-label">{t("main.result_label")}</span>
           <div className="home-result-card">
             <p className="home-result-text">{transcription}</p>
+            <div className="home-result-foot">
+              <span className="home-result-meta">{t("main.result_meta")}</span>
+              <button
+                className={`btn btn-sm btn-secondary home-copy-btn ${copied ? "copied" : ""}`}
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <>
+                    <Check size={13} />
+                    <span>{t("overlay.copied")}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={13} />
+                    <span>{t("main.copy")}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-          <button
-            className={`home-copy-btn ${copied ? 'copied' : ''}`}
-            onClick={handleCopy}
-          >
-            {copied ? (
-              <>
-                <Check size={16} color="var(--color-green)" />
-                <span className="home-copy-done">{t("overlay.copied")}</span>
-              </>
-            ) : (
-              <>
-                <Copy size={16} />
-                <span>{t("main.copy")}</span>
-              </>
-            )}
-          </button>
         </div>
       )}
       <HistoryPanel />

@@ -45,8 +45,9 @@
    Island — 三个相位共用的单一胶囊
    ============================================ */
 
-/* 全相位同一胶囊几何（248×40、全圆角），相位切换只剩内容 crossfade。
-   40px = 单行文本 + 呼吸空间；248px = 窗口 280px 两侧各留 16px。 */
+/* 全相位同一悬浮条几何（248×40、6px 圆角），相位切换只剩内容 crossfade。
+   40px = 单行文本 + 呼吸空间；248px = 窗口 280px 两侧各留 16px。
+   全圆角胶囊属于移动端语言，桌面悬浮条用方角更稳。 */
 
 .island {
   display: flex;
@@ -56,15 +57,14 @@
   gap: 10px;
   width: 248px;
   height: 40px;
-  padding: 0 14px;
-  /* 用实色半透明背景替代 backdrop-filter，以提升 GPU 合成性能 */
+  padding: 0 12px;
+  /* 用实色背景替代 backdrop-filter，以提升 GPU 合成性能 */
   background: var(--overlay-surface-solid);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   border: 1px solid var(--overlay-border);
   color: var(--overlay-text);
   font-size: var(--text-sm);
-  font-weight: 500;
-  letter-spacing: 0.2px;
+  font-weight: var(--font-medium);
   box-shadow: var(--overlay-shadow);
   /* 把绘制/合成限制在实心岛内，避免阴影模糊渗入透明窗口背景。 */
   isolation: isolate;
@@ -77,11 +77,11 @@
    Recording Dot — 录音红点脉冲
    ============================================ */
 
-/* 8px 实心红点 + 向外扩散的环（只动 transform/opacity，合成层友好）。 */
+/* 7px 实心红点 + 向外扩散的环（只动 transform/opacity，合成层友好）。 */
 .dot {
   position: relative;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--color-red);
   flex: none;
@@ -92,18 +92,18 @@
   position: absolute;
   inset: -3px;
   border-radius: 50%;
-  border: 1.5px solid var(--color-red);
+  border: 1px solid var(--color-red);
   opacity: 0;
-  animation: overlay-dot-pulse-ring 1.6s ease-out infinite;
+  animation: overlay-dot-pulse-ring 1.8s ease-out infinite;
 }
 
 @keyframes overlay-dot-pulse-ring {
   0% {
     transform: scale(0.6);
-    opacity: 0.7;
+    opacity: 0.6;
   }
   70% {
-    transform: scale(1.9);
+    transform: scale(1.8);
     opacity: 0;
   }
   100% {
@@ -141,8 +141,8 @@
    ============================================ */
 
 .processing-ring {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border: 2px solid var(--overlay-processing-track);
   border-top-color: var(--color-amber);
   border-radius: 50%;
@@ -151,11 +151,11 @@
   flex: none;
 }
 
-/* 转写进度 — 使用 scaleX（仅合成层） */
+/* 转写进度 — 使用 scaleX（仅合成层）：一条扁平进度线，不做流光与发光 */
 .overlay-tx-progress-track {
   width: 158px;
   height: 3px;
-  border-radius: var(--radius-full);
+  border-radius: 2px;
   background: var(--overlay-processing-track);
   overflow: hidden;
   position: relative;
@@ -164,42 +164,16 @@
 
 .overlay-tx-progress-fill {
   height: 100%;
-  border-radius: var(--radius-full);
-  background: linear-gradient(
-    90deg,
-    var(--color-amber) 0%,
-    color-mix(in srgb, var(--color-amber) 72%, #ffffff) 50%,
-    var(--color-amber) 100%
-  );
-  background-size: 200% 100%;
-  box-shadow: 0 0 6px 0 var(--color-amber-glow);
+  border-radius: 2px;
+  background: var(--color-amber);
   /* 用 scaleX 而非 width — 不触发重排，纯 GPU 合成 */
   transform-origin: left center;
   transition: transform 0.35s var(--ease-out);
   will-change: transform;
-  animation: shimmer 1.8s linear infinite;
-}
-
-.overlay-tx-progress-fill::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.28) 45%,
-    rgba(255, 255, 255, 0.28) 55%,
-    transparent 100%
-  );
-  transform: skewX(-18deg) translateX(-150%);
-  animation: sheen 1.8s ease-in-out infinite;
 }
 
 .overlay-tx-progress-fill.indeterminate {
-  animation:
-    overlay-tx-progress-slide 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate,
-    shimmer 1.8s linear infinite,
-    sheen 1.8s ease-in-out infinite;
+  animation: overlay-tx-progress-slide 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
 }
 
 @keyframes overlay-tx-progress-slide {
@@ -211,50 +185,28 @@
   }
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-@keyframes sheen {
-  0% {
-    transform: skewX(-18deg) translateX(-150%);
-  }
-  100% {
-    transform: skewX(-18deg) translateX(250%);
-  }
-}
-
 /* ============================================
    完成指示器
    ============================================ */
 
 .done-indicator {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--color-green-bg);
   color: var(--color-green);
+  border: 1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
   border-radius: 50%;
   flex: none;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-green) 20%, transparent),
-    0 0 6px var(--color-green-glow);
 }
 
 /* 润色失败：✓ 圆盘转琥珀，与文本后的 ⚠ 一起提示已回退原文（悬停 ⚠ 看原因）。 */
 .done-indicator--failed {
   background: var(--color-amber-bg);
   color: var(--color-amber);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-amber) 20%, transparent),
-    0 0 6px var(--color-amber-glow);
+  border-color: color-mix(in srgb, var(--color-amber) 30%, transparent);
 }
 
 /* ============================================
@@ -268,8 +220,7 @@
   color: var(--overlay-result-text);
   font-size: var(--text-sm);
   line-height: 1.4;
-  font-weight: 400;
-  letter-spacing: 0.01em;
+  font-weight: var(--font-regular);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

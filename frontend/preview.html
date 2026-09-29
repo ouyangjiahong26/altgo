@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>altgo 界面预览</title>
+    <!--
+      改完样式后的唯一入口：一页看全各窗口的实际渲染。
+      直接加载 frontend/src/styles 下的真实样式表，改完刷新即可，不需要构建或截图。
+      需要逐项 token 与组件清单时，再去 style-review.html。
+
+      这里的窗口标记是按 src/pages、src/components 的真实 JSX 手抄的：改产品标记时
+      必须同步改本页，否则预览会与真机不符。图标用 lucide 的真实路径内联
+      （lucide-react 的 .lucide 基础样式给的是 width/height:24px，所以内联时必须显式写尺寸，
+      否则图标会比真机大一圈）。
+    -->
+    <!-- 字体与真实窗口一致：产品里由 index.html 引入 Inter，CSS 里只留回退栈 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="src/styles/global.css" />
+    <link rel="stylesheet" href="src/styles/layout.css" />
+    <link rel="stylesheet" href="src/styles/components/ui-primitives.css" />
+    <link rel="stylesheet" href="src/styles/pages/home.css" />
+    <link rel="stylesheet" href="src/styles/pages/settings.css" />
+    <link rel="stylesheet" href="src/styles/pages/history.css" />
+    <!--
+      这里刻意不引 overlay-base.css：那份样式里有 body{display:flex;height:100vh;overflow:hidden}
+      （为了让悬浮窗贴底），是给只装一个窗口的页面用的；预览页没有 #root，那条规则会直接
+      落到预览页 body 上，把整页压成居中的一行。悬浮条几何在 overlay.css 里，与它无关。
+    -->
+    <link rel="stylesheet" href="src/styles/motion.css" />
+    <link rel="stylesheet" href="src/overlay.css" />
+    <link rel="stylesheet" href="src/styles/pages/update-notes.css" />
+    <style>
+      /* 本页自身的框架样式：与产品样式隔离，全部用 pv- 前缀 */
+      html { background: var(--color-bg); }
+      /* 明确把 body 还原成普通文档流：产品样式里 body 是给单个窗口用的（overflow:hidden、
+         可能还有 flex），预览页要能滚动、要能正常排版 */
+      body {
+        margin: 0;
+        padding: 0 0 56px;
+        display: block;
+        overflow: auto;
+        user-select: text;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+      }
+      .pv-top {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-3) var(--space-5);
+        background: var(--color-bg);
+        border-bottom: 1px solid var(--color-border-subtle);
+      }
+      .pv-title { font-size: var(--text-base); font-weight: var(--font-semibold); }
+      .pv-title span { color: var(--color-text-muted); font-weight: var(--font-regular); }
+      .pv-actions { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); }
+      .pv-hint { font-size: var(--text-xs); color: var(--color-text-muted); }
+
+      .pv-body { padding: var(--space-5); }
+      .pv-group { margin-bottom: var(--space-8); }
+      .pv-group > h2 {
+        margin: 0 0 var(--space-3);
+        font-size: var(--text-xs);
+        font-weight: var(--font-semibold);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+      }
+      /* 窗口横排，放不下就换行 */
+      .pv-row { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; }
+      .pv-item { display: flex; flex-direction: column; gap: var(--space-2); }
+      .pv-item > figcaption { font-size: var(--text-xs); color: var(--color-text-muted); }
+      figure.pv-item { margin: 0; }
+
+      /* 窗口框：按产品真实窗口尺寸裁切 */
+      .pv-win {
+        position: relative;
+        width: 440px;
+        max-width: 100%;
+        height: 480px;
+        overflow: hidden;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-2xl);
+        background: var(--color-bg);
+      }
+      .pv-win .layout { height: 100%; }
+      .pv-win .layout-main { overflow-y: auto; }
+
+      /* 悬浮窗是 280×64 的透明窗，用棋盘底衬出边界 */
+      .pv-ov {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        width: 280px;
+        height: 64px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background-color: var(--color-surface-1);
+        background-image:
+          linear-gradient(45deg, var(--color-surface-3) 25%, transparent 25%, transparent 75%, var(--color-surface-3) 75%),
+          linear-gradient(45deg, var(--color-surface-3) 25%, transparent 25%, transparent 75%, var(--color-surface-3) 75%);
+        background-size: 12px 12px;
+        background-position: 0 0, 6px 6px;
+        overflow: hidden;
+      }
+
+      /* 更新说明窗是 340×400 的不透明窗 */
+      .pv-notes {
+        width: 340px;
+        height: 400px;
+        overflow: hidden;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        background: var(--color-bg);
+      }
+      .pv-notes .update-notes-window { height: 400px; }
+
+      /* 折叠区：SOP 里不常看的内容收在这里 */
+      details.pv-more {
+        border: 1px solid var(--color-border-subtle);
+        border-radius: var(--radius-lg);
+        background: var(--color-surface-1);
+        padding: var(--space-3) var(--space-4);
+        margin-bottom: var(--space-3);
+      }
+      details.pv-more > summary {
+        cursor: pointer;
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        color: var(--color-text-secondary);
+      }
+      details.pv-more[open] > summary { margin-bottom: var(--space-3); }
+
+      .pv-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--space-2); }
+      .pv-swatch {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-1) var(--space-2);
+        border: 1px solid var(--color-border-subtle);
+        border-radius: var(--radius-md);
+        background: var(--color-surface-0);
+      }
+      .pv-chip {
+        width: 22px;
+        height: 22px;
+        flex: none;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--color-border);
+      }
+      .pv-swatch code { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--color-text-muted); }
+
+      .pv-links { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+      .pv-links a {
+        display: inline-flex;
+        align-items: center;
+        height: var(--control-height);
+        padding: 0 var(--space-3);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-surface-2);
+        color: var(--color-text);
+        font-size: var(--text-xs);
+        text-decoration: none;
+      }
+      .pv-links a:hover { background: var(--color-surface-3); border-color: var(--color-border-strong); }
+    </style>
+  </head>
+  <body>
+    <header class="pv-top">
+      <div class="pv-title">altgo 界面预览 <span>· 改完样式刷新本页即可</span></div>
+      <div class="pv-actions">
+        <span class="pv-hint">配色</span>
+        <div class="segmented" role="group" aria-label="配色">
+          <button type="button" id="pv-dark">深色</button>
+          <button type="button" id="pv-light">浅色</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="pv-body">
+      <div class="pv-group">
+        <h2>主窗 440×480</h2>
+        <div class="pv-row">
+          <!-- 空态 -->
+          <figure class="pv-item">
+            <div class="pv-win">
+              <div class="layout">
+                <header class="layout-header">
+                  <div class="layout-header-left">
+                    <div class="layout-logo-wrapper">
+                      <img src="public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+                      <span class="layout-logo">altgo</span>
+                    </div>
+                    <span class="layout-subtitle">语音转文字</span>
+                  </div>
+                  <div class="layout-header-right">
+                    <nav class="layout-nav">
+                      <a class="layout-nav-link active" href="#pv">主页</a>
+                      <a class="layout-nav-link" href="#pv">设置</a>
+                    </nav>
+                  </div>
+                </header>
+                <main class="layout-main">
+                  <div class="home">
+                    <div class="home-idle">
+                      <div class="home-status-line">
+                        <span class="home-status-dot" style="background: var(--color-text-muted)"></span>
+                        <span class="home-status-text">等待说话</span>
+                      </div>
+                      <p class="home-trigger-hint">按住 <span class="kbd">右Alt</span> 说话，松开即得文字</p>
+                      <p class="home-key-backend">监听方式：X11 xinput</p>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+            <figcaption>主页 · 空态</figcaption>
+          </figure>
+
+          <!-- 结果 -->
+          <figure class="pv-item">
+            <div class="pv-win">
+              <div class="layout">
+                <header class="layout-header">
+                  <div class="layout-header-left">
+                    <div class="layout-logo-wrapper">
+                      <img src="public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+                      <span class="layout-logo">altgo</span>
+                    </div>
+                    <span class="layout-subtitle">语音转文字</span>
+                  </div>
+                  <div class="layout-header-right">
+                    <nav class="layout-nav">
+                      <a class="layout-nav-link active" href="#pv">主页</a>
+                      <a class="layout-nav-link" href="#pv">设置</a>
+                    </nav>
+                  </div>
+                </header>
+                <main class="layout-main">
+                  <div class="home">
+                    <div class="home-result">
+                      <span class="home-result-label">转写结果</span>
+                      <div class="home-result-card">
+                        <p class="home-result-text">这是最近一次转写结果，润色后写入了剪贴板。</p>
+                        <div class="home-result-foot">
+                          <span class="home-result-meta">刚刚</span>
+                          <button type="button" class="btn btn-sm btn-secondary home-copy-btn">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            <span>复制到剪贴板</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+            <figcaption>主页 · 转写结果</figcaption>
+          </figure>
+
+          <!-- 历史 -->
+          <figure class="pv-item">
+            <div class="pv-win">
+              <div class="layout">
+                <header class="layout-header">
+                  <div class="layout-header-left">
+                    <div class="layout-logo-wrapper">
+                      <img src="public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+                      <span class="layout-logo">altgo</span>
+                    </div>
+                    <span class="layout-subtitle">语音转文字</span>
+                  </div>
+                  <div class="layout-header-right">
+                    <nav class="layout-nav">
+                      <a class="layout-nav-link active" href="#pv">主页</a>
+                      <a class="layout-nav-link" href="#pv">设置</a>
+                    </nav>
+                  </div>
+                </header>
+                <main class="layout-main">
+                  <div class="home">
+                    <div class="history-page">
+                      <div class="history-page-header">
+                        <h1 class="history-page-title">转写历史</h1>
+                        <div class="history-toolbar">
+                          <label class="history-select-all"><input type="checkbox" /><span>全选</span></label>
+                          <button type="button" class="history-btn history-btn--danger" title="删除所选">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                            删除所选
+                          </button>
+                          <button type="button" class="history-btn history-btn--danger history-btn--outline" title="清空全部">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                            清空全部
+                          </button>
+                        </div>
+                      </div>
+                      <ul class="history-list">
+                        <li class="history-item">
+                          <label class="history-item-check"><input type="checkbox" /></label>
+                          <div class="history-item-body">
+                            <time class="history-item-time">2026/09/27 18:06</time>
+                            <p class="history-item-text">我希望把现在的悬浮窗优化一下，它有些太大了，需要精简一点，减少用户的认知负荷。</p>
+                            <div class="history-item-actions">
+                              <button type="button" class="history-btn history-btn--small" title="复制">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                复制
+                              </button>
+                              <button type="button" class="history-btn history-btn--small" title="复制原文">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                                复制原文
+                              </button>
+                              <button type="button" class="history-btn history-btn--small history-btn--accent" title="润色">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+                                润色
+                              </button>
+                              <button type="button" class="history-btn history-btn--small" title="按指令润色">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
+                                按指令润色
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                        <li class="history-item">
+                          <label class="history-item-check"><input type="checkbox" /></label>
+                          <div class="history-item-body">
+                            <time class="history-item-time">2026/09/27 17:41</time>
+                            <p class="history-item-text">明天上午十点把评审材料发到群里，另外提醒我下午去取快递。</p>
+                            <p class="history-item-raw"><span class="history-item-raw-label">原文</span>嗯明天上午十点吧把那个评审材料发到群里另外提醒我下午去取快递</p>
+                            <div class="history-item-actions">
+                              <button class="history-btn history-btn--small">复制</button>
+                              <button class="history-btn history-btn--small">复制原文</button>
+                              <button class="history-btn history-btn--small history-btn--accent">润色</button>
+                            </div>
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+            <figcaption>主页 · 历史列表</figcaption>
+          </figure>
+
+          <!-- 设置 -->
+          <figure class="pv-item">
+            <div class="pv-win">
+              <div class="layout">
+                <header class="layout-header">
+                  <div class="layout-header-left">
+                    <div class="layout-logo-wrapper">
+                      <img src="public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+                      <span class="layout-logo">altgo</span>
+                    </div>
+                    <span class="layout-subtitle">语音转文字</span>
+                  </div>
+                  <div class="layout-header-right">
+                    <nav class="layout-nav">
+                      <a class="layout-nav-link" href="#pv">主页</a>
+                      <a class="layout-nav-link active" href="#pv">设置</a>
+                    </nav>
+                  </div>
+                </header>
+                <main class="layout-main">
+                  <div class="settings-page">
+                    <div class="settings-form">
+                      <!-- 转写段：与 Settings.tsx 的 settings-section--transcription 一致 -->
+                      <section class="settings-section settings-section--primary settings-section--transcription">
+                        <h3 class="settings-section-title">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+                          转写
+                        </h3>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">语言</span>
+                          <div class="settings-field-control settings-field-control--narrow">
+                            <select class="select">
+                              <option>中文</option>
+                              <option>English</option>
+                              <option>自动检测</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">转写引擎</span>
+                          <div class="settings-field-control">
+                            <select class="select">
+                              <option>本地 SenseVoice</option>
+                              <option>在线识别（MiMo ASR）</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="settings-model-grid">
+                          <div class="settings-model-card is-active">
+                            <div class="settings-model-card-head">
+                              <span class="settings-model-card-name">sense-voice</span>
+                              <span class="settings-model-card-badge">使用中</span>
+                            </div>
+                            <p class="settings-model-card-desc">中英日韩粤自动检测，本地推理，速度快。</p>
+                            <p class="settings-model-card-meta">230 MB · model.int8.onnx</p>
+                            <div class="settings-model-card-actions">
+                              <button type="button" class="btn btn-sm btn-secondary" disabled>重新下载</button>
+                              <button type="button" class="btn btn-sm btn-danger">删除</button>
+                            </div>
+                          </div>
+                          <div class="settings-model-card">
+                            <div class="settings-model-card-head">
+                              <span class="settings-model-card-name">sense-voice-yue</span>
+                            </div>
+                            <p class="settings-model-card-desc">粤语增强模型。</p>
+                            <p class="settings-model-card-meta">232 MB · 未下载</p>
+                            <div class="settings-model-card-actions">
+                              <button type="button" class="btn btn-sm btn-primary">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                下载并启用
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <button type="button" class="settings-advanced-toggle">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                          高级：模型路径
+                        </button>
+                      </section>
+
+                      <!-- 录音段 -->
+                      <section class="settings-section settings-section--recording">
+                        <h3 class="settings-section-title">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                          录音
+                        </h3>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">触发键</span>
+                          <div class="settings-field-control settings-field-control--trigger-key">
+                            <select class="select"><option>右 Alt（Alt_R）</option></select>
+                          </div>
+                        </div>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">按键捕获</span>
+                          <div class="settings-field-control">
+                            <div class="settings-key-binding-readout">
+                              <code class="kbd">Alt_R</code>
+                              <button type="button" class="btn btn-sm btn-secondary">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.001"/><path d="M10 8h.001"/><path d="M14 8h.001"/><path d="M18 8h.001"/><path d="M8 12h.001"/><path d="M12 12h.001"/><path d="M16 12h.001"/><path d="M7 16h10"/></svg>
+                                重新捕获
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">自动输入到光标位置</span>
+                          <div class="settings-field-control">
+                            <label style="display: flex; align-items: center; cursor: pointer; gap: 6px">
+                              <input type="checkbox" />
+                            </label>
+                          </div>
+                        </div>
+                        <p class="settings-hint">仅 Windows 生效，默认关闭（ADR-0005）。</p>
+                      </section>
+
+                      <!-- 润色段：真实实现是可折叠的 settings-section-toggle -->
+                      <section class="settings-section settings-section--polishing settings-section--primary">
+                        <button type="button" class="settings-section-toggle">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+                          润色
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <div class="settings-section-body">
+                          <div class="settings-field">
+                            <span class="settings-field-label-text">润色档位</span>
+                            <div class="settings-field-control settings-field-control--narrow">
+                              <select class="select">
+                                <option>关闭</option>
+                                <option selected>轻度</option>
+                                <option>中度</option>
+                                <option>重度</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div class="settings-field">
+                            <span class="settings-field-label-text">API Key</span>
+                            <div class="settings-field-control">
+                              <input class="field" type="password" value="sk-xxxxxxxxxxxxxxxx" />
+                            </div>
+                          </div>
+                          <div class="settings-polish-actions">
+                            <button type="button" class="btn btn-sm btn-secondary">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                              测试连接
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger">清除已存密钥</button>
+                          </div>
+                        </div>
+                      </section>
+
+                      <!-- 外观段 -->
+                      <section class="settings-section settings-section--appearance">
+                        <h3 class="settings-section-title">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                          外观
+                        </h3>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">配色</span>
+                          <div class="settings-field-control">
+                            <select class="select">
+                              <option>跟随系统</option>
+                              <option>浅色</option>
+                              <option>深色</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">字体大小</span>
+                          <div class="settings-field-control">
+                            <select class="select">
+                              <option>小</option>
+                              <option selected>标准</option>
+                              <option>大</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">窗口大小</span>
+                          <div class="settings-field-control">
+                            <select class="select">
+                              <option>紧凑（400 × 600）</option>
+                              <option selected>标准（440 × 680）</option>
+                              <option>大（480 × 760）</option>
+                            </select>
+                          </div>
+                        </div>
+                      </section>
+
+                      <div class="settings-save-row">
+                        <button type="button" class="btn btn-primary">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+                          保存
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+            <figcaption>设置页</figcaption>
+          </figure>
+
+                    </figure>
+        </div>
+      </div>
+
+      <div class="pv-group">
+        <h2>悬浮窗 280×64 与更新说明窗 340×400</h2>
+        <div class="pv-row">
+          <figure class="pv-item">
+            <div class="pv-ov">
+              <div class="island-container island-enter">
+                <div class="island">
+                  <span class="dot" aria-hidden="true"></span>
+                  <div class="level-trace" aria-hidden="true">
+                    <!-- 高度由 traceBarHeight() 产生：2 + level×12，范围 2~14px -->
+                    <div class="trace-bar" style="height: 3.4px"></div>
+                    <div class="trace-bar" style="height: 6.8px"></div>
+                    <div class="trace-bar" style="height: 4.5px"></div>
+                    <div class="trace-bar" style="height: 9.2px"></div>
+                    <div class="trace-bar" style="height: 12.1px"></div>
+                    <div class="trace-bar" style="height: 7.6px"></div>
+                    <div class="trace-bar" style="height: 10.4px"></div>
+                    <div class="trace-bar" style="height: 5.2px"></div>
+                    <div class="trace-bar" style="height: 8.3px"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>悬浮窗 · 录音</figcaption>
+          </figure>
+
+          <figure class="pv-item">
+            <div class="pv-ov">
+              <div class="island-container island-enter">
+                <div class="island">
+                  <div class="processing-ring"></div>
+                  <div class="overlay-tx-progress-track">
+                    <div class="overlay-tx-progress-fill" style="transform: scaleX(0.42)"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>悬浮窗 · 转写中</figcaption>
+          </figure>
+
+          <figure class="pv-item">
+            <div class="pv-ov">
+              <div class="island-container island-enter">
+                <div class="island">
+                  <div class="done-indicator">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                  </div>
+                  <span class="result-text">这是转写并润色后的单行结果文本，超出会被省略号截断</span>
+                  <button class="btn-close" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                </div>
+              </div>
+            </div>
+            <figcaption>悬浮窗 · 完成</figcaption>
+          </figure>
+
+          <figure class="pv-item">
+            <div class="pv-notes">
+              <div class="update-notes-window">
+                <header class="update-notes-header">
+                  <span class="update-notes-title">更新说明</span>
+                  <button type="button" class="update-notes-close" aria-label="关闭"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                </header>
+                <div class="update-notes-summary">
+                  <div class="update-notes-headline">发现新版本 v2.6.21</div>
+                  <div class="update-notes-versions">
+                    <span class="update-notes-version">当前 2.6.20</span>
+                    <span class="update-notes-version update-notes-version--latest">最新 2.6.21</span>
+                    <span class="update-notes-date">2026-09-29</span>
+                  </div>
+                </div>
+                <div class="update-notes-body">
+                  <div class="release-notes">
+                    <h4 class="release-notes-heading">Changed</h4>
+                    <ul class="release-notes-list">
+                      <li class="release-notes-item"><strong>界面与图标重新设计</strong>，去掉渐变与发光</li>
+                      <li class="release-notes-item"><strong>历史条目支持复制原文与带指令重润</strong></li>
+                    </ul>
+                    <h4 class="release-notes-heading">Fixes</h4>
+                    <ul class="release-notes-list">
+                      <li class="release-notes-item"><strong>修复部分样式变量未定义</strong>导致控件观感不一致</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="update-notes-actions">
+                  <button type="button" class="update-notes-btn update-notes-btn--primary">立即更新并重启</button>
+                </div>
+              </div>
+            </div>
+            <figcaption>更新说明窗口</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <details class="pv-more">
+        <summary>设计 token 一览</summary>
+        <div class="pv-swatches" id="pv-tokens"></div>
+      </details>
+
+      <details class="pv-more">
+        <summary>更细的清单（逐项 token、组件、页面整体）</summary>
+        <div class="pv-links">
+          <a href="style-review.html">样式审查目录</a>
+          <a href="review/tokens.html">设计 token</a>
+          <a href="review/foundations.html">基础与组件</a>
+          <a href="review/screens.html">设置页与引导</a>
+          <a href="review/windows.html">窗口</a>
+          <a href="review/pages.html">页面整体</a>
+          <a href="review/figures.html">全部窗口状态</a>
+          <a href="review/brand-preview.html">品牌资产</a>
+        </div>
+      </details>
+    </div>
+
+    <script>
+      // token 色板：直接读计算值，保证显示的就是当前生效的颜色。
+      // 必须在切换主题之后重渲染，否则色板停留在上一次主题的取值。
+      const TOKENS = [
+        "--color-bg", "--color-surface-1", "--color-surface-2", "--color-surface-3",
+        "--color-border", "--color-border-strong",
+        "--color-text", "--color-text-muted", "--color-text-faint",
+        "--color-accent", "--color-green", "--color-amber", "--color-red",
+      ];
+      const host = document.getElementById("pv-tokens");
+      const renderTokens = () => {
+        const cs = getComputedStyle(document.documentElement);
+        host.innerHTML = TOKENS.map((name) => {
+          const value = cs.getPropertyValue(name).trim();
+          return `<div class="pv-swatch"><span class="pv-chip" style="background:${value}"></span><code>${name}</code></div>`;
+        }).join("");
+      };
+
+      // 配色切换：只改 data-theme，样式表由 CSS 变量自动跟进。
+      // 支持 ?theme=light 直接指定，便于截图核对。
+      const setTheme = (theme) => {
+        document.documentElement.dataset.theme = theme;
+        document.getElementById("pv-dark").classList.toggle("is-active", theme === "dark");
+        document.getElementById("pv-light").classList.toggle("is-active", theme === "light");
+        renderTokens();
+      };
+      document.getElementById("pv-dark").addEventListener("click", () => setTheme("dark"));
+      document.getElementById("pv-light").addEventListener("click", () => setTheme("light"));
+      setTheme(new URLSearchParams(location.search).get("theme") === "light" ? "light" : "dark");
+    </script>
+  </body>
+</html>

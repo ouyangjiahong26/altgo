@@ -230,7 +230,7 @@ export default function Settings() {
                 <span className="settings-field-label-text">{t("settings.language")}</span>
                 <div className="settings-field-control settings-field-control--narrow">
                   <select
-                    className="settings-select"
+                    className="select"
                     value={config.language}
                     onChange={(e) => update("language", e.target.value)}
                   >
@@ -252,7 +252,7 @@ export default function Settings() {
                 </span>
                 <div className="settings-field-control">
                   <select
-                    className="settings-select"
+                    className="select"
                     value={config.transcriberBackend === "online" ? "online" : "local"}
                     onChange={(e) => update("transcriberBackend", e.target.value)}
                   >
@@ -269,7 +269,7 @@ export default function Settings() {
                     <div className="settings-field-control">
                       <input
                         type="password"
-                        className="settings-input"
+                        className="field"
                         value={config.asrApiKey}
                         onChange={(e) => update("asrApiKey", e.target.value)}
                         placeholder={config.hasAsrApiKey ? "sk-***" : "sk-..."}
@@ -283,7 +283,7 @@ export default function Settings() {
                     <div className="settings-polish-actions">
                       <button
                         type="button"
-                        className="settings-btn settings-btn-sm settings-btn-secondary"
+                        className="btn btn-sm btn-secondary"
                         onClick={clearAsrApiKey}
                         disabled={clearingAsrKey}
                       >
@@ -306,7 +306,7 @@ export default function Settings() {
                         <div className="settings-field-control">
                           <input
                             type="text"
-                            className="settings-input"
+                            className="field"
                             value={config.asrModel}
                             onChange={(e) => update("asrModel", e.target.value)}
                             placeholder="mimo-v2.5-asr"
@@ -318,7 +318,7 @@ export default function Settings() {
                         <div className="settings-field-control">
                           <input
                             type="text"
-                            className="settings-input"
+                            className="field"
                             value={config.asrApiBaseUrl}
                             onChange={(e) => update("asrApiBaseUrl", e.target.value)}
                             placeholder="https://token-plan-cn.xiaomimimo.com/v1"
@@ -354,7 +354,7 @@ export default function Settings() {
                             <>
                               <button
                                 type="button"
-                                className="settings-btn settings-btn-sm settings-btn-secondary"
+                                className="btn btn-sm btn-secondary"
                                 onClick={() => applyLocalModel(m.name)}
                                 disabled={isActive || saving}
                               >
@@ -362,7 +362,7 @@ export default function Settings() {
                               </button>
                               <button
                                 type="button"
-                                className="settings-btn settings-btn-sm settings-btn-danger"
+                                className="btn btn-sm btn-danger"
                                 onClick={() => handleDelete(m.name)}
                               >
                                 <Trash2 size={11} />
@@ -383,7 +383,7 @@ export default function Settings() {
                           ) : (
                             <button
                               type="button"
-                              className="settings-btn settings-btn-sm settings-btn-primary"
+                              className="btn btn-sm btn-primary"
                               onClick={() => downloadAndUse(m.name)}
                               disabled={downloading !== null}
                             >
@@ -410,7 +410,7 @@ export default function Settings() {
                     <div className="settings-field-control">
                       <input
                         type="text"
-                        className="settings-input"
+                        className="field"
                         value={config.model}
                         onChange={(e) => update("model", e.target.value)}
                         placeholder={t("settings.custom_path_placeholder")}
@@ -444,7 +444,7 @@ export default function Settings() {
             <span className="settings-field-label-text">{t("settings.key_name")}</span>
             <div className="settings-field-control settings-field-control--trigger-key">
               <select
-                className="settings-select"
+                className="select"
                 value={presetSelectValue(config.keyName)}
                 onChange={(e) => {
                   if (e.target.value === "__custom__") return;
@@ -469,7 +469,7 @@ export default function Settings() {
               {!isPresetKeyName(config.keyName) && (
                 <div className="settings-key-binding-readout">
                   <span className="settings-muted">{t("settings.key_binding_active")}</span>
-                  <code className="settings-key-binding-code">{config.keyName}</code>
+                  <code className="kbd">{config.keyName}</code>
                 </div>
               )}
             </div>
@@ -480,7 +480,7 @@ export default function Settings() {
               <div className="settings-field-control">
                 <input
                   type="text"
-                  className="settings-input"
+                  className="field"
                   value={config.keyName}
                   onChange={(e) =>
                     setConfig((prev) =>
@@ -502,7 +502,7 @@ export default function Settings() {
             <div className="settings-field-control">
               <button
                 type="button"
-                className="settings-btn settings-btn-secondary"
+                className="btn btn-secondary"
                 onClick={() => void captureActivationKey()}
                 disabled={saving || keyCapturing}
               >
@@ -551,7 +551,7 @@ export default function Settings() {
                   </p>
                   <button
                     type="button"
-                    className="settings-btn settings-btn-sm settings-btn-secondary"
+                    className="btn btn-sm btn-secondary"
                     onClick={() => void loadOnlineCatalog()}
                     disabled={catalogLoading}
                   >
@@ -563,7 +563,7 @@ export default function Settings() {
                 <span className="settings-field-label-text">{t("settings.polish_level")}</span>
                 <div className="settings-field-control">
                   <select
-                    className="settings-select"
+                    className="select"
                     value={config.polishLevel}
                     onChange={(e) => update("polishLevel", e.target.value)}
                   >
@@ -584,7 +584,7 @@ export default function Settings() {
                 <div className="settings-field-control">
                   <input
                     type="password"
-                    className="settings-input"
+                    className="field"
                     value={config.polisherApiKey}
                     onChange={(e) => update("polisherApiKey", e.target.value)}
                     placeholder={config.hasPolisherApiKey ? "sk-***" : "sk-..."}
@@ -594,7 +594,7 @@ export default function Settings() {
               <div className="settings-polish-actions">
                 <button
                   type="button"
-                  className="settings-btn settings-btn-sm settings-btn-secondary"
+                  className="btn btn-sm btn-secondary"
                   onClick={runTestConnection}
                   disabled={testing}
                 >
@@ -603,7 +603,7 @@ export default function Settings() {
                 {config.hasPolisherApiKey && (
                   <button
                     type="button"
-                    className="settings-btn settings-btn-sm settings-btn-secondary"
+                    className="btn btn-sm btn-secondary"
                     onClick={clearApiKey}
                     disabled={clearingKey}
                   >
@@ -632,7 +632,7 @@ export default function Settings() {
                     <span className="settings-field-label-text">{t("settings.api_protocol")}</span>
                     <div className="settings-field-control">
                       <select
-                        className="settings-select"
+                        className="select"
                         value={config.polishProtocol === "anthropic" ? "anthropic" : "openai"}
                         onChange={(e) => update("polishProtocol", e.target.value)}
                       >
@@ -646,7 +646,7 @@ export default function Settings() {
                     <div className="settings-field-control">
                       <input
                         type="text"
-                        className="settings-input"
+                        className="field"
                         value={config.polishModel}
                         onChange={(e) => update("polishModel", e.target.value)}
                         placeholder="gpt-4o-mini"
@@ -658,7 +658,7 @@ export default function Settings() {
                     <div className="settings-field-control">
                       <input
                         type="text"
-                        className="settings-input"
+                        className="field"
                         value={config.polishApiBaseUrl}
                         onChange={(e) => update("polishApiBaseUrl", e.target.value)}
                         placeholder="https://api.openai.com"
@@ -669,7 +669,7 @@ export default function Settings() {
                     <span className="settings-field-label-text">{t("settings.thinking_level")}</span>
                     <div className="settings-field-control">
                       <select
-                        className="settings-select"
+                        className="select"
                         value={config.polishThinkingLevel}
                         onChange={(e) => update("polishThinkingLevel", e.target.value)}
                       >
@@ -697,7 +697,7 @@ export default function Settings() {
             <span className="settings-field-label-text">{t("settings.theme")}</span>
             <div className="settings-field-control">
               <select
-                className="settings-select"
+                className="select"
                 value={themePref}
                 onChange={(e) => setTheme(e.target.value as ThemePref)}
               >
@@ -711,7 +711,7 @@ export default function Settings() {
             <span className="settings-field-label-text">{t("settings.font_size")}</span>
             <div className="settings-field-control">
               <select
-                className="settings-select"
+                className="select"
                 value={fontSize}
                 onChange={(e) => {
                   const value = e.target.value as FontSizePref;
@@ -729,7 +729,7 @@ export default function Settings() {
             <span className="settings-field-label-text">{t("settings.window_size")}</span>
             <div className="settings-field-control">
               <select
-                className="settings-select"
+                className="select"
                 value={windowSize}
                 onChange={(e) => {
                   const value = e.target.value as WindowSizePref;
@@ -747,7 +747,7 @@ export default function Settings() {
             <span className="settings-field-label-text">{t("settings.overlay_position")}</span>
             <div className="settings-field-control">
               <select
-                className="settings-select"
+                className="select"
                 value={config.overlayPosition}
                 onChange={(e) => update("overlayPosition", e.target.value)}
               >
@@ -767,7 +767,7 @@ export default function Settings() {
             <span className="settings-field-label-text">{t("settings.gui_language")}</span>
             <div className="settings-field-control">
               <select
-                className="settings-select"
+                className="select"
                 value={config.guiLanguage}
                 onChange={(e) => update("guiLanguage", e.target.value)}
               >
@@ -793,7 +793,7 @@ export default function Settings() {
               <span className="settings-muted">{appVersion || "…"}</span>
               <button
                 type="button"
-                className="settings-btn settings-btn-secondary"
+                className="btn btn-secondary"
                 onClick={handleCheckUpdate}
                 disabled={checkingUpdate}
                 style={{ padding: "3px 8px", fontSize: "12px" }}
@@ -845,7 +845,7 @@ export default function Settings() {
               </span>
               <button
                 type="button"
-                className="settings-btn settings-btn-secondary settings-btn-sm"
+                className="btn btn-secondary btn-sm"
                 onClick={() => openUpdateNotes(updateInfo)}
               >
                 {t("settings.view_update_notes")}
@@ -865,7 +865,7 @@ export default function Settings() {
           )}
           <button
             type="button"
-            className="settings-btn settings-btn-primary"
+            className="btn btn-primary"
             onClick={save}
             disabled={saving}
           >

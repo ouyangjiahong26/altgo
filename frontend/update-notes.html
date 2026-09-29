@@ -18,6 +18,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo — 更新说明</title>
+    <!-- 字体走 HTML 引入而非 CSS @import：CSS 里的远程 @import 会在离线时挂起，
+         阻塞同一张样式表后续的 @import 解析（本地样式跟着不生效）。 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"
+    />
     <link rel="icon" href="/altgo-logo.svg" type="image/svg+xml" />
   </head>
   <body>

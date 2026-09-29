@@ -8,7 +8,7 @@
 端到端处理链：按键 → 录音 → 转写 → 润色 → 输出。由状态机驱动，运行时由 `PipelineController` 管理。
 
 **转写引擎（Transcription Engine）**
-把 WAV 音频转成文本的后端。当前唯一实现是本地 `SherpaTranscriber`（内嵌 sherpa-onnx 的 SenseVoice）。
+把 WAV 音频转成文本的后端，由 `[transcriber] backend` 选择。两个实现：本地 `SherpaTranscriber`（内嵌 sherpa-onnx 的 SenseVoice，离线可用，模型需先下载）与在线 `MimoAsr`（MiMo ASR 云服务，需配置 API Key）。
 
 **提供商预设（Provider Preset）**
 预配置的 API 提供商模板，包含名称、base URL、API 格式、推荐模型与分类。当前仅用于润色设置。存放在 `frontend/src/config/modelPresets.ts`。

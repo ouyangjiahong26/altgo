@@ -51,13 +51,22 @@ body {
   border-radius: 0;
 }
 
+h1,
+h2,
+h3,
+h4 {
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
 /* ============================================
    滚动条样式
    ============================================ */
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -66,11 +75,14 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
+  border: 3px solid transparent;
+  background-clip: padding-box;
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  background: var(--color-border-strong);
+  background-clip: padding-box;
 }
 
 /* ============================================
@@ -78,26 +90,31 @@ body {
    ============================================ */
 
 ::selection {
-  background: var(--color-accent);
-  color: white;
+  background: var(--color-accent-tint-border);
+  color: var(--color-text);
 }
 
 /* ============================================
    焦点样式
    ============================================ */
 
+/* 键盘焦点才画环；鼠标点击不画，避免桌面软件里到处都是蓝框。 */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--color-accent);
+  outline-offset: var(--focus-ring-offset);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* ============================================
    CJK 字距
    ============================================ */
 
-/* tracking-wide 是为英文大写小标题设计的；中文界面下字距松散，恢复正常字距 */
-:lang(zh) .layout-subtitle,
+/* tracking-caps 是为英文大写小标题设计的；中文界面下字距松散，恢复正常字距 */
 :lang(zh) .settings-section-title,
+:lang(zh) .layout-subtitle,
 :lang(zh) .settings-section-toggle,
 :lang(zh) .home-result-label,
 :lang(zh) .settings-model-card-badge {

@@ -154,7 +154,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 <span className="settings-field-label-text">{t("settings.key_name")}</span>
                 <div className="settings-field-control">
                   <select
-                    className="settings-select"
+                    className="select"
                     value={presetSelectValue(config.keyName)}
                     onChange={(e) => {
                       if (e.target.value === "__custom__") return;
@@ -180,7 +180,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                   <div className="settings-field-control">
                     <input
                       type="text"
-                      className="settings-input"
+                      className="field"
                       value={config.keyName}
                       onChange={(e) =>
                         setConfig((prev) =>
@@ -198,7 +198,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 <div className="settings-field-control">
                   <button
                     type="button"
-                    className="settings-btn settings-btn-secondary"
+                    className="btn btn-secondary"
                     onClick={() => void captureActivationKey()}
                     disabled={saving || keyCapturing}
                   >
@@ -251,7 +251,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                   <div className="settings-field-control">
                     <input
                       type="password"
-                      className="settings-input"
+                      className="field"
                       value={config.asrApiKey}
                       onChange={(e) => update("asrApiKey", e.target.value)}
                       placeholder={config.hasAsrApiKey ? "sk-***" : "sk-..."}
@@ -282,7 +282,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                         {m.downloaded ? (
                           <button
                             type="button"
-                            className="settings-btn settings-btn-sm settings-btn-secondary"
+                            className="btn btn-sm btn-secondary"
                             onClick={() => void applyLocalModel(m.name)}
                             disabled={isActive || saving}
                           >
@@ -302,7 +302,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                         ) : (
                           <button
                             type="button"
-                            className="settings-btn settings-btn-sm settings-btn-primary"
+                            className="btn btn-sm btn-primary"
                             onClick={() => void downloadAndUse(m.name)}
                             disabled={downloading !== null}
                           >
@@ -341,7 +341,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 <span className="settings-field-label-text">{t("settings.polish_level")}</span>
                 <div className="settings-field-control">
                   <select
-                    className="settings-select"
+                    className="select"
                     value={config.polishLevel}
                     onChange={(e) => update("polishLevel", e.target.value)}
                   >
@@ -357,7 +357,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 <div className="settings-field-control">
                   <input
                     type="password"
-                    className="settings-input"
+                    className="field"
                     value={config.polisherApiKey}
                     onChange={(e) => update("polisherApiKey", e.target.value)}
                     placeholder={config.hasPolisherApiKey ? "sk-***" : "sk-..."}
@@ -369,7 +369,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 <div className="settings-field-control">
                   <input
                     type="text"
-                    className="settings-input"
+                    className="field"
                     value={config.polishApiBaseUrl}
                     onChange={(e) => update("polishApiBaseUrl", e.target.value)}
                     placeholder="https://api.openai.com"
@@ -381,7 +381,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 <div className="settings-field-control">
                   <input
                     type="text"
-                    className="settings-input"
+                    className="field"
                     value={config.polishModel}
                     onChange={(e) => update("polishModel", e.target.value)}
                     placeholder="gpt-4o-mini"
@@ -446,7 +446,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
         </div>
         <button
           type="button"
-          className="settings-btn settings-btn-secondary"
+          className="btn btn-secondary"
           onClick={() => goto(stepIndex - 1)}
           disabled={saving}
           style={{ visibility: stepIndex === 0 ? "hidden" : "visible" }}
@@ -455,7 +455,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
         </button>
         <button
           type="button"
-          className="settings-btn settings-btn-primary"
+          className="btn btn-primary"
           onClick={handleNext}
           disabled={saving}
         >

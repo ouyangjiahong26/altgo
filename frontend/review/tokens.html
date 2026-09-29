@@ -85,7 +85,7 @@
               --font-mono 0123456789 Alt_R
             </p>
           </div>
-          <div class="sr-caption">logo 文字使用强调色渐变；中文标题不额外加字距。</div>
+          <div class="sr-caption">字标为实色文字，不再使用渐变；中文标题不额外加字距。</div>
         </section>
 
 <section class="sr-sec" id="space">
@@ -112,6 +112,7 @@ const TOKEN_GROUPS = [
           title: "背景与表面",
           tokens: [
             "--color-bg",
+            "--color-surface-0",
             "--color-surface-1",
             "--color-surface-2",
             "--color-surface-3",
@@ -127,8 +128,10 @@ const TOKEN_GROUPS = [
         {
           title: "强调色",
           tokens: [
+            "--color-primary",
             "--color-accent",
             "--color-accent-hover",
+            "--color-accent-active",
             "--color-accent-soft",
             "--color-accent-glow",
             "--color-accent-tint-bg",
@@ -274,7 +277,7 @@ function renderTokenGroups() {
       const MISC_TOKENS = [
         {
           name: "--font-sans",
-          preview: (t) => `<span style="font-family: var(${t}); font-size: var(--text-sm)">Plus Jakarta Sans / 系统回退</span>`,
+          preview: (t) => `<span style="font-family: var(${t}); font-size: var(--text-sm)">Inter / 系统 UI 回退</span>`,
         },
         {
           name: "--font-mono",
