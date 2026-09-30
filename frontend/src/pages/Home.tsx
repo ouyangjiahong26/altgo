@@ -5,7 +5,7 @@ import {
   useKeyListenerBackend,
   useTranscriptionProgress,
 } from "../hooks/useTauri";
-import { useTranslation } from "../i18n";
+import { tError, useTranslation } from "../i18n";
 import HistoryPanel from "../components/HistoryPanel";
 import { Copy, Check } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -85,7 +85,7 @@ export default function Home() {
       {error && (
         <div className="home-error">
           <span className="error-icon">⚠</span>
-          <p className="error-text">{error}</p>
+          <p className="error-text">{tError(error.code, error.params)}</p>
         </div>
       )}
       {!transcription ? (

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
+import type * as I18n from "../i18n";
 import { ONBOARDING_KEY } from "../onboarding";
 
 const { invokeMock, loadCatalogMock, listenerHandlers, savedPatches } = vi.hoisted(() => ({
@@ -67,11 +68,15 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ message: vi.fn() }));
 
 vi.mock("../config/catalog", () => ({ loadCatalog: loadCatalogMock }));
 
-vi.mock("../i18n", () => {
+vi.mock("../i18n", async (importOriginal) => {
   // t 保持稳定引用：useModelManager 的 refreshModels 以 t 为依赖，identity 变化会让
   // 取模型列表的 effect 每轮渲染重跑，形成无限循环。
   const t = (key: string) => key;
-  return { useTranslation: () => ({ t, lang: "zh", setLang: vi.fn() }) };
+  const actual = (await importOriginal()) as typeof I18n;
+  return {
+    ...actual,
+    useTranslation: () => ({ t, lang: "zh", setLang: vi.fn() }),
+  };
 });
 
 vi.mock("../ThemeContext", () => ({

@@ -103,7 +103,13 @@ export function useConfigForm({
 
   useEffect(() => {
     invoke<AppConfig>("get_config")
-      .then((c) => setConfig(normalizeConfig(c)))
+      .then((c) => {
+        const normalized = normalizeConfig(c);
+        setConfig(normalized);
+        // 把配置里的界面语言偏好（含空串 auto）写进 localStorage 并派发事件，
+        // 悬浮窗/更新说明窗经 storage 事件同步；解析统一在读侧 resolveUiLang。
+        setLang(normalized.guiLanguage);
+      })
       .catch((e) => setMessage(String(e)));
   }, []);
 

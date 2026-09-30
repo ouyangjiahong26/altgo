@@ -16,6 +16,7 @@ use tauri::Emitter;
 
 use crate::{
     config,
+    error::UserFacingError,
     overlay::seam::{OverlaySink, OverlayState},
     pipeline_controller::PipelineStatus,
     voice_pipeline::{PipelineSink, TranscriptionDispatch, TranscriptionResult},
@@ -28,9 +29,9 @@ use crate::{
 /// 测试环境注入 `MockEmitter` 即可断言事件内容与顺序。
 pub trait PipelineEventEmitter: Send + Sync + 'static {
     fn emit_pipeline_status(&self, status: &str);
-    fn emit_pipeline_error(&self, message: &str);
+    fn emit_pipeline_error(&self, error: &UserFacingError);
     fn emit_transcription_result(&self, text: &str);
-    fn emit_polish_failed(&self, message: &str);
+    fn emit_polish_failed(&self, error: &UserFacingError);
     fn emit_transcription_progress(&self, phase: &str, fraction: Option<f32>);
     fn emit_audio_level(&self, level: f32);
     fn emit_key_listener_backend(&self, backend: &str);
@@ -53,16 +54,16 @@ impl PipelineEventEmitter for TauriEventEmitter {
         let _ = self.app.emit("pipeline-status", status);
     }
 
-    fn emit_pipeline_error(&self, message: &str) {
-        let _ = self.app.emit("pipeline-error", message);
+    fn emit_pipeline_error(&self, error: &UserFacingError) {
+        let _ = self.app.emit("pipeline-error", error);
     }
 
     fn emit_transcription_result(&self, text: &str) {
         let _ = self.app.emit("transcription-result", text);
     }
 
-    fn emit_polish_failed(&self, message: &str) {
-        let _ = self.app.emit("polish-failed", message);
+    fn emit_polish_failed(&self, error: &UserFacingError) {
+        let _ = self.app.emit("polish-failed", error);
     }
 
     fn emit_transcription_progress(&self, phase: &str, fraction: Option<f32>) {
@@ -216,8 +217,8 @@ impl PipelineSink for TauriPipelineSink {
         self.overlay.set_state(overlay_state);
     }
 
-    fn on_error(&self, message: &str) {
-        self.emitter.emit_pipeline_error(message);
+    fn on_error(&self, error: &UserFacingError) {
+        self.emitter.emit_pipeline_error(error);
     }
 
     fn on_transcription_result(&self, output: &TranscriptionResult) {
@@ -245,14 +246,9 @@ impl PipelineSink for TauriPipelineSink {
                     emit_pipeline_status(&*emitter, &status, PipelineStatus::Done);
 
                     // 润色失败先于结果文本告知前端，让悬浮窗在 done 阶段能同时
-                    // 展示“已回退原文”提示。
-                    if output_clone.polish_failed {
-                        emitter.emit_polish_failed(
-                            output_clone
-                                .polish_error
-                                .as_deref()
-                                .unwrap_or("润色失败，已使用原文"),
-                        );
+                    // 展示“已回退原文”提示；文案由前端按错误码翻译。
+                    if let Some(err) = output_clone.polish_error.as_ref() {
+                        emitter.emit_polish_failed(err);
                     }
 
                     // 先送结果文本再切 done：前端收到 done 时若还没有结果，
@@ -293,6 +289,7 @@ mod tests {
     use super::*;
     use crate::overlay::seam::OverlayPhase;
     use crate::voice_pipeline::{DispatchOutcome, TranscriptionDispatch};
+    use std::collections::BTreeMap;
     use std::future::{ready, Future};
     use std::pin::Pin;
     use std::sync::Mutex;
@@ -343,9 +340,9 @@ mod tests {
     #[derive(Debug, Clone, PartialEq)]
     enum EmittedEvent {
         PipelineStatus(String),
-        PipelineError(String),
+        PipelineError(UserFacingError),
         TranscriptionResult(String),
-        PolishFailed(String),
+        PolishFailed(UserFacingError),
         TranscriptionProgress {
             phase: String,
             fraction: Option<f32>,
@@ -380,11 +377,11 @@ mod tests {
                 .push(EmittedEvent::PipelineStatus(status.into()));
         }
 
-        fn emit_pipeline_error(&self, message: &str) {
+        fn emit_pipeline_error(&self, error: &UserFacingError) {
             self.events
                 .lock()
                 .unwrap()
-                .push(EmittedEvent::PipelineError(message.into()));
+                .push(EmittedEvent::PipelineError(error.clone()));
         }
 
         fn emit_transcription_result(&self, text: &str) {
@@ -394,11 +391,11 @@ mod tests {
                 .push(EmittedEvent::TranscriptionResult(text.into()));
         }
 
-        fn emit_polish_failed(&self, message: &str) {
+        fn emit_polish_failed(&self, error: &UserFacingError) {
             self.events
                 .lock()
                 .unwrap()
-                .push(EmittedEvent::PolishFailed(message.into()));
+                .push(EmittedEvent::PolishFailed(error.clone()));
         }
 
         fn emit_transcription_progress(&self, phase: &str, fraction: Option<f32>) {
@@ -559,14 +556,26 @@ mod tests {
     #[test]
     fn on_error_emits_pipeline_error() {
         let fx = make_fixture(true, None);
-        fx.sink.on_error("something went wrong");
-        fx.sink.on_error("");
+        let with_params = UserFacingError {
+            code: "transcriber.api_error".into(),
+            params: Some(BTreeMap::from([
+                ("status".to_string(), "429".to_string()),
+                ("body".to_string(), "busy".to_string()),
+            ])),
+        };
+        let bare = UserFacingError {
+            code: "transcription.empty".into(),
+            params: None,
+        };
+        fx.sink.on_error(&with_params);
+        fx.sink.on_error(&bare);
 
+        // 事件 payload 携带完整错误码与参数，供前端字典翻译。
         assert_eq!(
             fx.emitter.recorded_events(),
             vec![
-                EmittedEvent::PipelineError("something went wrong".into()),
-                EmittedEvent::PipelineError("".into()),
+                EmittedEvent::PipelineError(with_params),
+                EmittedEvent::PipelineError(bare),
             ]
         );
     }
@@ -655,7 +664,13 @@ mod tests {
             text: "raw text".into(),
             raw_text: "raw text".into(),
             polish_failed: true,
-            polish_error: Some("LLM API 错误（HTTP 401）".into()),
+            polish_error: Some(UserFacingError {
+                code: "polisher.api_error".into(),
+                params: Some(BTreeMap::from([
+                    ("status".to_string(), "401".to_string()),
+                    ("body".to_string(), "unauthorized".to_string()),
+                ])),
+            }),
         });
 
         for _ in 0..100 {
@@ -671,7 +686,13 @@ mod tests {
             vec![
                 EmittedEvent::HistoryUpdated,
                 EmittedEvent::PipelineStatus("done".into()),
-                EmittedEvent::PolishFailed("LLM API 错误（HTTP 401）".into()),
+                EmittedEvent::PolishFailed(UserFacingError {
+                    code: "polisher.api_error".into(),
+                    params: Some(BTreeMap::from([
+                        ("status".to_string(), "401".to_string()),
+                        ("body".to_string(), "unauthorized".to_string()),
+                    ])),
+                }),
                 EmittedEvent::TranscriptionResult("raw text".into()),
             ]
         );

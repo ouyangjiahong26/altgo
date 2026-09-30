@@ -771,6 +771,7 @@ export default function Settings() {
                 value={config.guiLanguage}
                 onChange={(e) => update("guiLanguage", e.target.value)}
               >
+                <option value="">{t("settings.language_auto")}</option>
                 <option value="zh">中文</option>
                 <option value="en">English</option>
               </select>

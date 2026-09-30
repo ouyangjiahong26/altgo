@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { X, Check, TriangleAlert } from "lucide-react";
-import { useTranslation } from "./i18n";
+import { tError, useTranslation } from "./i18n";
+import type { PipelineErrorPayload } from "./hooks/useTauri";
 import { applyThemeToDocument, getThemePref, installThemeListeners } from "./theme";
 import "./styles/overlay-base.css";
 import "./styles/motion.css";
@@ -88,8 +89,8 @@ export function Overlay() {
   // 转写结果文本（done 阶段展示）。
   const [result, setResult] = useState<string | null>(null);
 
-  // 润色失败原因（done 阶段在文本下方提示已回退原文）。
-  const [polishError, setPolishError] = useState<string | null>(null);
+  // 润色失败原因（done 阶段在文本下方提示已回退原文；错误码结构，前端字典翻译）。
+  const [polishError, setPolishError] = useState<PipelineErrorPayload | null>(null);
 
   // processing 阶段的进度信息。
   const [txProgress, setTxProgress] = useState<{
@@ -211,7 +212,7 @@ export function Overlay() {
       setResult(event.payload);
     });
 
-    const unlistenPolishFailed = listen<string>("polish-failed", (event) => {
+    const unlistenPolishFailed = listen<PipelineErrorPayload>("polish-failed", (event) => {
       if (!active) return;
       setPolishError(event.payload);
     });
@@ -276,7 +277,7 @@ export function Overlay() {
           {polishError && (
             <span
               className="result-warn"
-              title={`${t("overlay.polish_failed")}：${polishError}`}
+              title={`${t("overlay.polish_failed")}：${tError(polishError.code, polishError.params)}`}
             >
               <TriangleAlert size={12} strokeWidth={2} aria-hidden />
             </span>

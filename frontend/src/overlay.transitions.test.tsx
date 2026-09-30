@@ -16,7 +16,11 @@ vi.mock("@tauri-apps/api/event", () => ({
   }),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("./i18n", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+// t 用词面 mock（断言 key 原样出现）；tError 保留真实实现，验证错误码插值。
+vi.mock("./i18n", async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof I18n;
+  return { ...actual, useTranslation: () => ({ t: (k: string) => k }) };
+});
 vi.mock("./theme", () => ({
   applyThemeToDocument: vi.fn(),
   getThemePref: vi.fn(),
@@ -24,6 +28,7 @@ vi.mock("./theme", () => ({
 }));
 
 import { Overlay } from "./overlay";
+import type * as I18n from "./i18n";
 
 function emitPhase(phase: "recording" | "processing" | "done" | "hidden") {
   act(() => handlers.get("overlay-state")!({ payload: { phase } }));
@@ -37,8 +42,8 @@ function emitAudioLevel(level: number) {
   act(() => handlers.get("audio-level")!({ payload: level }));
 }
 
-function emitPolishFailed(reason: string) {
-  act(() => handlers.get("polish-failed")!({ payload: reason }));
+function emitPolishFailed(err: { code: string; params?: Record<string, string> }) {
+  act(() => handlers.get("polish-failed")!({ payload: err }));
 }
 
 describe("Overlay 相位转换", () => {
@@ -172,7 +177,7 @@ describe("Overlay 相位转换", () => {
     const { container } = render(<Overlay />);
     emitPhase("processing");
     emitResult("你好，世界");
-    emitPolishFailed("连接超时");
+    emitPolishFailed({ code: "transcriber.http_error", params: { detail: "连接超时" } });
     emitPhase("done");
     act(() => {
       vi.advanceTimersByTime(250);
@@ -182,6 +187,7 @@ describe("Overlay 相位转换", () => {
     const warn = container.querySelector(".result-warn") as HTMLElement;
     expect(warn).not.toBeNull();
     expect(warn.title).toContain("overlay.polish_failed");
+    // 错误码经 tError 翻译插值，title 中出现参数文本。
     expect(warn.title).toContain("连接超时");
   });
 });

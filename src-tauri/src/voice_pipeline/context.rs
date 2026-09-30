@@ -1,7 +1,9 @@
 //! PipelineContext — 拥有所有组件并运行事件循环。
 
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
+use crate::error::UserFacingError;
 use crate::key_listener::KeyListener;
 use crate::polisher::{LLMFormatter, PolishLevel};
 use crate::recorder::Recorder;
@@ -45,7 +47,10 @@ impl PipelineContext {
         let mut listener: Box<dyn KeyListener> = match self.listener.lock().unwrap().take() {
             Some(l) => l,
             None => {
-                sink.on_error("pipeline context already used");
+                sink.on_error(&UserFacingError {
+                    code: "internal.context_already_used".into(),
+                    params: None,
+                });
                 return;
             }
         };
@@ -56,7 +61,11 @@ impl PipelineContext {
         ) = match listener.start() {
             Ok(pair) => pair,
             Err(e) => {
-                sink.on_error(&format!("key listener start: {}", e));
+                // 此处拿不到 backend 名，不构造 FatalError::KeyListenerFailed。
+                sink.on_error(&UserFacingError {
+                    code: "fatal.key_listener_start_failed".into(),
+                    params: Some(BTreeMap::from([("detail".to_string(), e.to_string())])),
+                });
                 return;
             }
         };
@@ -207,7 +216,7 @@ mod tests {
         struct MockSink;
         impl super::super::sink::PipelineSink for MockSink {
             fn on_status_change(&self, _: crate::pipeline_controller::PipelineStatus) {}
-            fn on_error(&self, _: &str) {}
+            fn on_error(&self, _: &UserFacingError) {}
             fn on_transcription_result(&self, _: &super::super::sink::TranscriptionResult) {}
             fn on_progress(&self, _: &str, _: Option<f32>) {}
             fn on_key_listener_backend(&self, _: &str) {}
