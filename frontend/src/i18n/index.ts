@@ -377,7 +377,7 @@ const translations: Record<string, Record<string, string>> = {
     "onboarding.start": "Start using altgo",
     "onboarding.prev": "Back",
     "onboarding.next": "Next",
-    // ---- Pipeline error codes: mirror src-tauri/src/error.rs user_error(); {name} placeholders are filled from params ----
+    // ---- 流水线错误码：与 src-tauri/src/error.rs 的 user_error() 码表对应，{name} 占位由 params 插值 ----
     "error.fatal.model_not_found":
       "Local model not found (configured value: {model}).\nSearched paths: {searched}\nDownload the model in the app settings, or set [transcriber] model to a downloaded model name (e.g. \"sense-voice\"), a directory containing model.int8.onnx and tokens.txt, or the path of model.int8.onnx.",
     "error.fatal.api_auth_failed": "{service} API authentication failed (HTTP {status}). Check your API key configuration.",

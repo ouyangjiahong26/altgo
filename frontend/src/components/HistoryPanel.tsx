@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useTranslation } from "../i18n";
+import { resolveUiLang, useTranslation } from "../i18n";
 import { copyToClipboard } from "../utils/clipboard";
 import {
   Trash2,
@@ -41,6 +41,8 @@ function formatTime(ms: number, locale: string): string {
 
 export default function HistoryPanel() {
   const { t, lang } = useTranslation();
+  // lang 可能是空串（auto，跟随系统语言），时间格式必须走解析后的语言。
+  const uiLang = resolveUiLang(lang);
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -267,7 +269,7 @@ export default function HistoryPanel() {
               </label>
               <div className="history-item-body">
                 <time className="history-item-time" dateTime={new Date(e.createdAtMs).toISOString()}>
-                  {formatTime(e.createdAtMs, lang)}
+                  {formatTime(e.createdAtMs, uiLang)}
                 </time>
                 <p className="history-item-text">{e.text}</p>
                 {e.rawText !== e.text && (
