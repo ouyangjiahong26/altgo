@@ -1,27 +1,38 @@
 /* ============================================
    altgo — 结构性令牌 + 浅色 / 深色配色
+
+   基调参照 Obsidian 这类桌面笔记工具：中性灰承担全部结构，颜色只用来表达
+   含义（成功 / 警告 / 危险），强调色只出现在主操作与当前选中态。界面不去
+   抢内容的戏，层次靠面色阶差、1px 边框与极其克制的投影表达。
    ============================================ */
 
 :root {
   /* ── 排版（深浅主题共用） ───────────────── */
-  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  --font-mono: "IBM Plex Mono", "JetBrains Mono", "SF Mono", Consolas, monospace;
+  /* UI 字体优先 Inter；离线时逐级回退到各平台系统 UI 字体，仍是同一类观感。 */
+  --font-sans: "Inter", "Plus Jakarta Sans", system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
 
-  --text-xs: 0.6875rem;
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
-  --text-base: 0.9375rem;
+  --text-base: 0.875rem;
+  --text-md: 0.9375rem;
   --text-lg: 1.0625rem;
   --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
 
+  --leading-tight: 1.3;
   --leading-normal: 1.5;
-  --leading-relaxed: 1.625;
+  --leading-relaxed: 1.65;
 
-  --tracking-tight: -0.025em;
-  --tracking-wide: 0.04em;
+  --tracking-tight: -0.018em;
+  --tracking-caps: 0.06em;
 
-  /* ── 间距 ────────────────────────────────── */
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+
+  /* ── 间距：桌面 UI 用 2px 递进，避免起步太大导致控件松散 ── */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -29,159 +40,179 @@
   --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
-  --space-10: 2.5rem;
 
-  /* ── 圆角 ─────────────────────────── */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
+  /* ── 圆角：控件 6px、面板 10px，桌面软件的方正感 ── */
+  --radius-xs: 0.1875rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
+  --radius-2xl: 0.875rem;
   --radius-full: 9999px;
 
+  /* ── 控件尺寸 ─────────────────────────────── */
+  --control-height: 28px;
+  --control-height-sm: 24px;
+  --control-height-lg: 32px;
+
   /* ── 动效 ────────────────────────────────── */
-  --duration-fast: 100ms;
-  --duration-normal: 180ms;
-  --duration-slow: 280ms;
+  --duration-fast: 90ms;
+  --duration-normal: 150ms;
+  --duration-slow: 240ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 1px;
 }
 
 /* ── 夜间（默认） ─────────────────────────── */
 :root,
 [data-theme="dark"] {
-  --color-bg: #09090b;
-  --color-surface-1: #121215;
-  --color-surface-2: #18181c;
-  --color-surface-3: #232329;
+  /* 面：四级从深到浅，接近黑但保留一点蓝灰，长时间看不发死 */
+  --color-bg: #191919;
+  --color-surface-0: #1e1e1e;
+  --color-surface-1: #222222;
+  --color-surface-2: #262626;
+  --color-surface-3: #2f2f2f;
 
-  --color-bg-card: var(--color-surface-2);
-  --color-bg-card-hover: var(--color-surface-3);
-  --color-bg-input: #141418;
-  --color-bg-input-focus: #1c1c21;
-  --color-bg-muted: var(--color-surface-3);
+  --color-bg-card: var(--color-surface-1);
+  --color-bg-card-hover: var(--color-surface-2);
+  --color-bg-input: #1b1b1b;
+  --color-bg-input-focus: #1b1b1b;
+  --color-bg-muted: var(--color-surface-2);
 
-  --color-text: #f4f4f5;
-  --color-text-secondary: #a1a1aa;
-  --color-text-muted: #71717a;
+  --color-text: #dadada;
+  --color-text-secondary: #a6a6a6;
+  --color-text-muted: #7d7d7d;
+  --color-text-faint: #5c5c5c;
 
-  --color-accent: #818cf8;
-  --color-accent-hover: #a5b4fc;
-  --color-accent-glow: rgba(129, 140, 248, 0.22);
-  --color-accent-soft: #c4b5fd;
-  --color-accent-tint-bg: rgba(129, 140, 248, 0.14);
-  --color-accent-tint-border: rgba(129, 140, 248, 0.38);
-  --color-accent-tint-shadow: rgba(129, 140, 248, 0.12);
+  /* 强调：靛蓝，用于主操作与选中态 */
+  --color-primary: #7b7ff0;
+  --color-accent: #7b7ff0;
+  --color-accent-hover: #8f92f5;
+  --color-accent-active: #6a6ee0;
+  --color-accent-soft: #9a9df6;
+  --color-accent-contrast: #ffffff;
+  --color-accent-glow: rgba(123, 127, 240, 0.3);
+  --color-accent-tint-bg: rgba(123, 127, 240, 0.14);
+  --color-accent-tint-border: rgba(123, 127, 240, 0.45);
+  --color-accent-tint-shadow: rgba(123, 127, 240, 0.1);
 
-  --color-green: #34d399;
-  --color-green-bg: rgba(52, 211, 153, 0.12);
-  --color-green-glow: rgba(52, 211, 153, 0.28);
-  --color-red: #fb7185;
-  --color-red-bg: rgba(251, 113, 133, 0.12);
-  --color-red-glow: rgba(251, 113, 133, 0.28);
-  --color-amber: #fbbf24;
-  --color-amber-bg: rgba(251, 191, 36, 0.12);
-  --color-amber-glow: rgba(251, 191, 36, 0.28);
+  /* 语义色：偏灰调，不用高饱和的霓虹色 */
+  --color-green: #63b381;
+  --color-green-bg: rgba(99, 179, 129, 0.14);
+  --color-green-glow: rgba(99, 179, 129, 0.22);
+  --color-red: #e06c75;
+  --color-red-bg: rgba(224, 108, 117, 0.14);
+  --color-red-glow: rgba(224, 108, 117, 0.22);
+  --color-amber: #d2a24c;
+  --color-amber-bg: rgba(210, 162, 76, 0.14);
+  --color-amber-glow: rgba(210, 162, 76, 0.22);
 
-  --color-border: rgba(255, 255, 255, 0.09);
-  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border: #343434;
+  --color-border-subtle: #2b2b2b;
+  --color-border-strong: #454545;
   --color-border-focus: var(--color-accent);
-  --color-border-strong: rgba(255, 255, 255, 0.14);
 
-  --color-hover-surface: rgba(255, 255, 255, 0.07);
+  --color-hover-surface: rgba(255, 255, 255, 0.05);
+  --color-active-surface: rgba(255, 255, 255, 0.08);
   --color-on-primary: #ffffff;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.65);
-  --shadow-glow-accent: 0 0 0 1px var(--color-accent), 0 0 22px var(--color-accent-glow);
-  --shadow-glow-green: 0 0 20px var(--color-green-glow);
-  --shadow-glow-red: 0 0 20px var(--color-red-glow);
-  --shadow-glow-amber: 0 0 20px var(--color-amber-glow);
+  /* 投影极克制：只让浮层离开平面，不做光晕 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 3px 10px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.44);
+  --shadow-focus: 0 0 0 1px var(--color-accent);
+  --shadow-glow-accent: 0 0 0 1px var(--color-accent);
+  --shadow-glow-green: 0 0 0 1px color-mix(in srgb, var(--color-green) 45%, transparent);
+  --shadow-glow-red: 0 0 0 1px color-mix(in srgb, var(--color-red) 45%, transparent);
+  --shadow-glow-amber: 0 0 0 1px color-mix(in srgb, var(--color-amber) 45%, transparent);
 
-  /* 实色（完全不透明）变体 — 避免与窗口阴影做 alpha 叠加合成，
-     该合成在部分 Linux 合成器上会产生黑色边缘。 */
-  --overlay-surface-solid: rgb(22, 22, 28);
-  --overlay-border: rgba(255, 255, 255, 0.12);
-  --overlay-text: rgba(244, 244, 245, 0.94);
-  --overlay-result-text: #e4e4e7;
-  --overlay-muted: rgba(255, 255, 255, 0.55);
-  --overlay-processing-track: rgba(255, 255, 255, 0.14);
-  /* 不用 box-shadow：半透明阴影叠在透明窗口上，部分 Linux 合成器会把它
-     预乘成黑影（2026-07 在 mutter/X11 实测复现）。层次靠实色 surface +
-     细 border 表达。 */
+  /* 悬浮窗用实色：半透明阴影叠在透明窗口上，部分 Linux 合成器会预乘成黑影
+     （2026-07 在 mutter/X11 实测复现），层次靠实色面 + 细边框表达。 */
+  --overlay-surface-solid: #222222;
+  --overlay-border: #3a3a3a;
+  --overlay-text: #dadada;
+  --overlay-result-text: #c8c8c8;
+  --overlay-muted: #8a8a8a;
+  --overlay-processing-track: rgba(255, 255, 255, 0.16);
   --overlay-shadow: none;
 
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237d7d7d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 
-  --danger-border: rgba(251, 113, 133, 0.35);
-  --danger-hover-bg: rgba(251, 113, 133, 0.2);
+  --danger-border: rgba(224, 108, 117, 0.4);
+  --danger-hover-bg: rgba(224, 108, 117, 0.16);
 }
 
 /* ── 日间 ───────────────────────────────────── */
 [data-theme="light"] {
-  --color-bg: #eceef2;
+  --color-bg: #fbfbfa;
+  --color-surface-0: #ffffff;
   --color-surface-1: #ffffff;
-  --color-surface-2: #f4f5f8;
-  --color-surface-3: #e8eaef;
+  --color-surface-2: #f5f5f4;
+  --color-surface-3: #ededec;
 
   --color-bg-card: #ffffff;
-  --color-bg-card-hover: #f4f5f8;
+  --color-bg-card-hover: #f5f5f4;
   --color-bg-input: #ffffff;
-  --color-bg-input-focus: #fafbfc;
-  --color-bg-muted: var(--color-surface-3);
+  --color-bg-input-focus: #ffffff;
+  --color-bg-muted: var(--color-surface-2);
 
-  --color-text: #18181b;
-  --color-text-secondary: #52525b;
-  --color-text-muted: #71717a;
+  --color-text: #1f1f1f;
+  --color-text-secondary: #5c5c5c;
+  --color-text-muted: #858585;
+  --color-text-faint: #a8a8a8;
 
-  --color-accent: #4f46e5;
-  --color-accent-hover: #4338ca;
-  --color-accent-glow: rgba(79, 70, 229, 0.2);
-  --color-accent-soft: #7c3aed;
-  --color-accent-tint-bg: rgba(79, 70, 229, 0.1);
-  --color-accent-tint-border: rgba(79, 70, 229, 0.35);
-  --color-accent-tint-shadow: rgba(79, 70, 229, 0.08);
+  --color-primary: #5a5fd8;
+  --color-accent: #5a5fd8;
+  --color-accent-hover: #4b50c9;
+  --color-accent-active: #4045b5;
+  --color-accent-soft: #7b7ff0;
+  --color-accent-contrast: #ffffff;
+  --color-accent-glow: rgba(90, 95, 216, 0.24);
+  --color-accent-tint-bg: rgba(90, 95, 216, 0.09);
+  --color-accent-tint-border: rgba(90, 95, 216, 0.4);
+  --color-accent-tint-shadow: rgba(90, 95, 216, 0.07);
 
-  --color-green: #059669;
-  --color-green-bg: rgba(5, 150, 105, 0.1);
-  --color-green-glow: rgba(5, 150, 105, 0.2);
-  --color-red: #e11d48;
-  --color-red-bg: rgba(225, 29, 72, 0.08);
-  --color-red-glow: rgba(225, 29, 72, 0.2);
-  --color-amber: #d97706;
-  --color-amber-bg: rgba(217, 119, 6, 0.1);
-  --color-amber-glow: rgba(217, 119, 6, 0.22);
+  --color-green: #3f8f5e;
+  --color-green-bg: rgba(63, 143, 94, 0.1);
+  --color-green-glow: rgba(63, 143, 94, 0.2);
+  --color-red: #c0454f;
+  --color-red-bg: rgba(192, 69, 79, 0.09);
+  --color-red-glow: rgba(192, 69, 79, 0.2);
+  --color-amber: #9a7020;
+  --color-amber-bg: rgba(154, 112, 32, 0.1);
+  --color-amber-glow: rgba(154, 112, 32, 0.2);
 
-  --color-border: rgba(24, 24, 27, 0.1);
-  --color-border-subtle: rgba(24, 24, 27, 0.06);
+  --color-border: #e0e0de;
+  --color-border-subtle: #eaeae8;
+  --color-border-strong: #cfcfcc;
   --color-border-focus: var(--color-accent);
-  --color-border-strong: rgba(24, 24, 27, 0.14);
 
-  --color-hover-surface: rgba(24, 24, 27, 0.06);
+  --color-hover-surface: rgba(31, 31, 31, 0.045);
+  --color-active-surface: rgba(31, 31, 31, 0.08);
   --color-on-primary: #ffffff;
 
-  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.06);
-  --shadow-md: 0 6px 20px rgba(24, 24, 27, 0.1);
-  --shadow-lg: 0 12px 36px rgba(24, 24, 27, 0.12);
-  --shadow-glow-accent: 0 0 0 1px var(--color-accent), 0 0 20px var(--color-accent-glow);
-  --shadow-glow-green: 0 0 18px var(--color-green-glow);
-  --shadow-glow-red: 0 0 18px var(--color-red-glow);
-  --shadow-glow-amber: 0 0 18px var(--color-amber-glow);
+  --shadow-sm: 0 1px 2px rgba(31, 31, 31, 0.06);
+  --shadow-md: 0 3px 10px rgba(31, 31, 31, 0.08);
+  --shadow-lg: 0 12px 32px rgba(31, 31, 31, 0.12);
+  --shadow-focus: 0 0 0 1px var(--color-accent);
+  --shadow-glow-accent: 0 0 0 1px var(--color-accent);
+  --shadow-glow-green: 0 0 0 1px color-mix(in srgb, var(--color-green) 40%, transparent);
+  --shadow-glow-red: 0 0 0 1px color-mix(in srgb, var(--color-red) 40%, transparent);
+  --shadow-glow-amber: 0 0 0 1px color-mix(in srgb, var(--color-amber) 40%, transparent);
 
-  --overlay-surface-solid: rgb(248, 248, 250);
-  --overlay-border: rgba(24, 24, 27, 0.12);
-  --overlay-text: rgba(24, 24, 27, 0.92);
-  --overlay-result-text: #27272a;
-  --overlay-muted: rgba(24, 24, 27, 0.55);
-  --overlay-processing-track: rgba(24, 24, 27, 0.12);
-  /* 不用 box-shadow：原因见 dark 主题同名变量的注释。 */
+  --overlay-surface-solid: #ffffff;
+  --overlay-border: #dcdcda;
+  --overlay-text: #1f1f1f;
+  --overlay-result-text: #3d3d3d;
+  --overlay-muted: #858585;
+  --overlay-processing-track: rgba(31, 31, 31, 0.14);
   --overlay-shadow: none;
 
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2352525b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23858585' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 
-  --danger-border: rgba(225, 29, 72, 0.3);
-  --danger-hover-bg: rgba(225, 29, 72, 0.14);
+  --danger-border: rgba(192, 69, 79, 0.35);
+  --danger-hover-bg: rgba(192, 69, 79, 0.12);
 }

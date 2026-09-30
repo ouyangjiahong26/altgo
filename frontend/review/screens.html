@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo 样式审查 · 界面</title>
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
+    <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" />
     <link rel="stylesheet" href="../src/styles/global.css" />
     <link rel="stylesheet" href="../src/styles/layout.css" />
     <link rel="stylesheet" href="../src/styles/components/ui-primitives.css" />
@@ -76,7 +80,7 @@
                 <div class="settings-field">
                   <span class="settings-field-label-text">语言</span>
                   <div class="settings-field-control settings-field-control--narrow">
-                    <select class="settings-select">
+                    <select class="select">
                       <option>中文</option>
                       <option>English</option>
                       <option>自动检测</option>
@@ -87,17 +91,17 @@
                 <div class="settings-field">
                   <span class="settings-field-label-text">转写引擎</span>
                   <div class="settings-field-control">
-                    <div class="settings-engine-switch">
-                      <button class="settings-engine-btn active">本地 SenseVoice</button>
-                      <button class="settings-engine-btn">在线识别（MiMo ASR）</button>
-                    </div>
+                    <select class="select">
+                      <option>本地 SenseVoice</option>
+                      <option>在线识别（MiMo ASR）</option>
+                    </select>
                   </div>
                 </div>
 
                 <div class="settings-field">
                   <span class="settings-field-label-text">API Key</span>
                   <div class="settings-field-control">
-                    <input class="settings-input" type="password" value="sk-xxxxxxxx" />
+                    <input class="field" type="password" value="sk-xxxxxxxx" />
                   </div>
                 </div>
 
@@ -109,8 +113,8 @@
                 </div>
 
                 <div class="settings-polish-actions">
-                  <button class="settings-btn settings-btn-sm settings-btn-secondary">测试连接</button>
-                  <button class="settings-btn settings-btn-sm settings-btn-danger">清除已存密钥</button>
+                  <button class="btn-sm btn-secondary">测试连接</button>
+                  <button class="btn-sm btn-danger">清除已存密钥</button>
                 </div>
 
                 <button class="settings-advanced-toggle">
@@ -121,13 +125,13 @@
                   <div class="settings-field settings-field--nested">
                     <span class="settings-field-label-text">模型</span>
                     <div class="settings-field-control">
-                      <input class="settings-input" value="mimo-v2.5-asr" />
+                      <input class="field" value="mimo-v2.5-asr" />
                     </div>
                   </div>
                   <div class="settings-field settings-field--nested">
                     <span class="settings-field-label-text">接口地址</span>
                     <div class="settings-field-control">
-                      <input class="settings-input" value="https://token-plan-cn.xiaomimimo.com/v1" />
+                      <input class="field" value="https://token-plan-cn.xiaomimimo.com/v1" />
                     </div>
                   </div>
                 </div>
@@ -141,8 +145,8 @@
                     <p class="settings-model-card-desc">SenseVoice（中英日韩粤自动检测，速度快）</p>
                     <p class="settings-model-card-meta">230 MB · 已下载</p>
                     <div class="settings-model-card-actions">
-                      <button class="settings-btn settings-btn-sm settings-btn-secondary">重新下载</button>
-                      <button class="settings-btn settings-btn-sm settings-btn-danger">删除</button>
+                      <button class="btn-sm btn-secondary">重新下载</button>
+                      <button class="btn-sm btn-danger">删除</button>
                     </div>
                   </div>
                   <div class="settings-model-card">
@@ -152,7 +156,7 @@
                     <p class="settings-model-card-desc">粤语增强模型</p>
                     <p class="settings-model-card-meta">232 MB · 未下载</p>
                     <div class="settings-model-card-actions">
-                      <button class="settings-btn settings-btn-sm settings-btn-primary">下载并启用</button>
+                      <button class="btn-sm btn-primary">下载并启用</button>
                     </div>
                   </div>
                   <div class="settings-model-card" style="grid-column: 1 / -1">
@@ -175,7 +179,7 @@
                 <div class="settings-field">
                   <span class="settings-field-label-text">触发键</span>
                   <div class="settings-field-control settings-field-control--trigger-key">
-                    <select class="settings-select">
+                    <select class="select">
                       <option>右 Alt（Alt_R）</option>
                       <option>自定义…</option>
                     </select>
@@ -185,8 +189,8 @@
                   <span class="settings-field-label-text">按键捕获</span>
                   <div class="settings-field-control">
                     <div class="settings-key-binding-readout">
-                      <code class="settings-key-binding-code">Alt_R</code>
-                      <button class="settings-btn settings-btn-sm settings-btn-secondary">重新捕获</button>
+                      <code class="kbd">Alt_R</code>
+                      <button class="btn-sm btn-secondary">重新捕获</button>
                     </div>
                   </div>
                 </div>
@@ -242,7 +246,7 @@
               </div>
               <div class="onboarding-foot">
                 <span class="onboarding-step-label">第 1 步 / 共 3 步</span>
-                <button class="settings-btn settings-btn-primary">下一步</button>
+                <button class="btn-primary">下一步</button>
               </div>
             </div>
           </div>

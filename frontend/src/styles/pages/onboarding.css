@@ -1,8 +1,9 @@
 /* ============================================
    首次运行引导样式
+
+   覆盖整窗的全屏向导：无导航、无侧边栏，只有拖拽条 + 内容 + 底部按钮。
    ============================================ */
 
-/* 覆盖整窗的全屏向导：无导航、无侧边栏，只有拖拽条 + 内容 + 底部按钮。 */
 .onboarding {
   position: fixed;
   inset: 0;
@@ -16,7 +17,7 @@
 /* 窗口无系统装饰，引导期间靠这条拖拽区移动窗口（同 Layout header 的做法）。 */
 .onboarding-drag {
   flex: none;
-  height: 34px;
+  height: 26px;
   -webkit-app-region: drag;
 }
 
@@ -24,7 +25,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-2) var(--space-6) var(--space-5);
+  padding: var(--space-1) var(--space-5) var(--space-5);
   display: flex;
   flex-direction: column;
 }
@@ -38,23 +39,27 @@
 
 .onboarding-logo {
   display: block;
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-2);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-1);
 }
 
+/* 步骤序号是流程信息，用中性小字；强调色只留给用户当前操作 */
 .onboarding-step-label {
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-caps);
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+:lang(zh) .onboarding-step-label {
+  letter-spacing: normal;
 }
 
 .onboarding-title {
   margin: 0;
   font-size: var(--text-xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: var(--font-semibold);
   color: var(--color-text);
 }
 
@@ -66,33 +71,37 @@
 }
 
 .onboarding-card {
-  background: var(--color-surface-1);
+  padding: var(--space-3);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-xl);
-  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
 }
 
 /* 引擎单选卡 */
 .onboarding-choice {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-3);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-1);
   cursor: pointer;
   transition:
-    border-color var(--duration-normal) var(--ease-out),
-    background-color var(--duration-normal) var(--ease-out);
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
 
 .onboarding-choice + .onboarding-choice {
   margin-top: var(--space-2);
 }
 
+.onboarding-choice:hover {
+  border-color: var(--color-border-strong);
+}
+
 .onboarding-choice input {
-  margin-top: 3px;
-  accent-color: var(--color-accent);
+  margin-top: 2px;
 }
 
 .onboarding-choice.is-active {
@@ -103,19 +112,19 @@
 .onboarding-choice-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
 .onboarding-choice-title {
-  font-size: var(--text-base);
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   color: var(--color-text);
 }
 
 .onboarding-choice-desc {
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   line-height: var(--leading-relaxed);
 }
 
@@ -123,7 +132,7 @@
 .onboarding-summary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .onboarding-summary-value {
@@ -135,40 +144,44 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
   border-radius: var(--radius-full);
-  color: var(--color-green);
   background: var(--color-green-bg);
-  border: 1px solid color-mix(in srgb, var(--color-green) 35%, transparent);
+  color: var(--color-green);
 }
 
 .onboarding-foot {
   flex: none;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-6) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-1);
+  background: var(--color-surface-0);
 }
 
+/* 进度点：当前步一根短横线，其余小圆点 */
 .onboarding-dots {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: var(--space-1);
+  gap: 5px;
 }
 
 .onboarding-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: var(--radius-full);
-  background: var(--color-surface-3);
-  transition: width var(--duration-normal) var(--ease-out);
+  background: var(--color-border-strong);
+  transition:
+    width var(--duration-normal) var(--ease-out),
+    background-color var(--duration-normal) var(--ease-out);
 }
 
 .onboarding-dot.on {
-  width: 18px;
+  width: 14px;
+  border-radius: var(--radius-full);
   background: var(--color-accent);
 }

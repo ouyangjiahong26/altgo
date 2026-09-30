@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 40" width="440" height="40" font-family="system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif">
+  <!--
+    悬浮窗相位：转写中（松开触发键后）。
+    几何与配色 1:1 复刻 frontend/src/overlay.css 与 src/styles/design-tokens.css（dark 主题）：
+    悬浮条 248×40 圆角 6、旋转环 13px、进度线 158×3。改动这些值时要同步本文件。
+  -->
+  <style>
+    .spin {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .slide {
+      animation: slide 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+    }
+    @keyframes slide {
+      from { transform: translateX(0); }
+      to   { transform: translateX(88px); }
+    }
+  </style>
+
+  <defs>
+    <!-- 13px 旋转环：轨道 + 1/4 琥珀弧（复刻 .processing-ring） -->
+    <g id="spin-ring">
+      <circle r="6.5" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
+      <circle class="spin" r="6.5" fill="none" stroke="#d2a24c" stroke-width="2"
+              stroke-linecap="round" stroke-dasharray="10 31"/>
+    </g>
+  </defs>
+
+  <rect x="96" y="0" width="248" height="40" rx="6" fill="#222222" stroke="#3a3a3a"/>
+  <use href="#spin-ring" x="136" y="20"/>
+  <!-- 进度线 158×3：轨道 + 滑块（复刻 .overlay-tx-progress-track / -fill） -->
+  <rect x="153" y="18.5" width="158" height="3" rx="2" fill="rgba(255,255,255,0.16)"/>
+  <rect class="slide" x="153" y="18.5" width="63" height="3" rx="2" fill="#d2a24c"/>
+</svg>

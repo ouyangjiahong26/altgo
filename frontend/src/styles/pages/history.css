@@ -1,26 +1,28 @@
 /* ============================================
-   历史页样式
-   ============================================ */
+   历史面板样式
 
-/* ── 历史页 ─────────────────────────────── */
+   历史列表曾是独立页面，并入主页后类名沿用 history-*；布局按“面板”而非
+   “页面”处理：单列列表、行间只靠细分隔线，行本身不抬高。
+   ============================================ */
 
 .history-page {
   max-width: 640px;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-5) var(--space-10);
+  padding: 0;
 }
 
 .history-page-header {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .history-page-title {
   margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 700;
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
   color: var(--color-text);
 }
 
@@ -28,45 +30,43 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .history-select-all {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
   cursor: pointer;
   user-select: none;
 }
 
-.history-select-all input {
-  accent-color: var(--color-accent);
-}
-
+/* 工具条按钮：默认幽灵态，危险态加红描边，强调态用 accent 描边而非填充 */
 .history-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-1);
+  height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  border: 1px solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  white-space: nowrap;
   cursor: pointer;
   transition:
-    background var(--duration-normal) var(--ease-out),
-    border-color var(--duration-normal) var(--ease-out),
-    color var(--duration-normal) var(--ease-out),
-    opacity var(--duration-normal) var(--ease-out);
-  background: transparent;
-  color: var(--color-text-secondary);
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .history-btn:hover:not(:disabled) {
   background: var(--color-hover-surface);
-  border-color: var(--color-border);
   color: var(--color-text);
 }
 
@@ -76,38 +76,41 @@
 }
 
 .history-btn--small {
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
+  height: 22px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-2xs);
 }
 
 .history-btn--danger {
-  background: var(--color-red-bg);
-  border-color: color-mix(in srgb, var(--color-red) 35%, transparent);
-  color: var(--color-text);
+  border-color: var(--danger-border);
+  color: var(--color-red);
 }
 
 .history-btn--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-red) 18%, transparent);
+  background: var(--danger-hover-bg);
+  border-color: var(--color-red);
+  color: var(--color-red);
 }
 
 .history-btn--outline {
-  background: transparent;
-  border-color: var(--color-border-subtle);
+  border-color: var(--color-border);
 }
 
 .history-btn--accent {
-  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  border-color: var(--color-accent-tint-border);
   color: var(--color-accent);
 }
 
 .history-btn--accent:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  background: var(--color-accent-tint-bg);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .history-btn.history-btn--copied {
   border-color: color-mix(in srgb, var(--color-green) 40%, transparent);
-  color: var(--color-green);
   background: var(--color-green-bg);
+  color: var(--color-green);
 }
 
 .history-btn.history-btn--copied:hover:not(:disabled) {
@@ -118,57 +121,57 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  padding: var(--space-3);
-  margin-bottom: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--danger-border);
   border-radius: var(--radius-md);
   background: var(--color-red-bg);
-  border: 1px solid color-mix(in srgb, var(--color-red) 28%, transparent);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--color-text);
 }
 
 .history-muted,
 .history-empty {
-  font-size: var(--text-sm);
+  margin: 0;
+  padding: var(--space-6) var(--space-4);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
-  margin: var(--space-4) 0;
-  padding: var(--space-10) 0;
   text-align: center;
+  line-height: var(--leading-relaxed);
 }
 
+/* 列表：整块一块表面，行之间用细分隔线；悬停只换底色，不加阴影与位移 */
 .history-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
+  overflow: hidden;
 }
 
 .history-item {
   display: flex;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-border-subtle);
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.history-item:last-child {
+  border-bottom: none;
 }
 
 .history-item:hover {
   background: var(--color-surface-2);
-  border-color: var(--color-border);
 }
 
 .history-item-check {
   flex-shrink: 0;
-  padding-top: 2px;
-}
-
-.history-item-check input {
-  accent-color: var(--color-accent);
+  padding-top: 1px;
 }
 
 .history-item-body {
@@ -178,10 +181,10 @@
 
 .history-item-time {
   display: block;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+  font-size: var(--text-2xs);
+  color: var(--color-text-faint);
   font-variant-numeric: tabular-nums;
-  margin-bottom: var(--space-2);
 }
 
 .history-item-text {
@@ -194,29 +197,32 @@
 }
 
 .history-item-raw {
-  margin: var(--space-3) 0 0;
-  padding: var(--space-2) var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-bg);
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   line-height: var(--leading-relaxed);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .history-item-raw-label {
+  /* 块级：raw 是 pre-wrap，行内标签会被源码里的换行算作内容而多出一行 */
   display: block;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
+  margin-bottom: 2px;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-medium);
+  color: var(--color-text-faint);
 }
 
 .history-item-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
+  gap: var(--space-1);
+  margin-top: var(--space-2);
 }
 
 .history-item-instruction {
@@ -229,19 +235,25 @@
 
 .history-instruction-input {
   flex: 1;
-  min-width: 200px;
-  padding: var(--space-1) var(--space-3);
-  background: var(--color-bg-input);
+  min-width: 180px;
+  height: var(--control-height-sm);
+  padding: 0 var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-bg-input);
   color: var(--color-text);
-  font-size: var(--text-sm);
   font-family: inherit;
+  font-size: var(--text-xs);
+}
+
+.history-instruction-input::placeholder {
+  color: var(--color-text-faint);
 }
 
 .history-instruction-input:focus {
   outline: none;
-  border-color: var(--color-border-focus);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
 .history-instruction-input:disabled {

@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>altgo 窗口状态预览</title>
+    <!--
+      窗口状态的单页预览：每个状态按真实窗口尺寸渲染，可在浏览器里直接看，
+      也可由 ?fig=<id> 单独显示一个（贴到别处核对时用）、?probe=<id> 额外打印
+      关键控件的计算值。与 review/ 其它分页一样直接加载产品真实样式表。
+    -->
+    <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="../src/styles/global.css" />
+    <link rel="stylesheet" href="../src/styles/layout.css" />
+    <link rel="stylesheet" href="../src/styles/components/ui-primitives.css" />
+    <link rel="stylesheet" href="../src/styles/pages/home.css" />
+    <link rel="stylesheet" href="../src/styles/pages/settings.css" />
+    <link rel="stylesheet" href="../src/styles/pages/history.css" />
+    <link rel="stylesheet" href="../src/styles/pages/onboarding.css" />
+    <link rel="stylesheet" href="../src/overlay.css" />
+    <link rel="stylesheet" href="../src/styles/pages/update-notes.css" />
+    <style>
+      /* 生成页自身：不留页边距，隐藏未选中的状态，保证截出来的就是窗口本身 */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: transparent;
+      }
+      [data-fig] {
+        display: none;
+      }
+      [data-fig].is-shown {
+        display: block;
+      }
+      /* 主窗是 440×480 的无边框窗：内容区刚好铺满，去掉审查页的还原样式 */
+      .fig-main {
+        width: 440px;
+        height: 480px;
+        overflow: hidden;
+        background: var(--color-bg);
+      }
+      .fig-main .layout {
+        height: 100%;
+      }
+      .fig-main .layout-main {
+        overflow-y: auto;
+      }
+      /* 悬浮窗是 280×64 的透明窗 */
+      .fig-overlay {
+        width: 280px;
+        height: 64px;
+        background: transparent;
+      }
+      /* 更新说明窗是 340×400 的不透明窗 */
+      .fig-notes {
+        width: 340px;
+        height: 400px;
+        overflow: hidden;
+        background: var(--color-bg);
+      }
+      .fig-notes .update-notes-window {
+        height: 400px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ═══════════ 主窗 · 空态 ═══════════ -->
+    <div data-fig="home-idle" class="fig-main">
+      <div class="layout">
+        <header class="layout-header">
+          <div class="layout-header-left">
+            <div class="layout-logo-wrapper">
+              <img src="../public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+              <span class="layout-logo">altgo</span>
+            </div>
+            <span class="layout-subtitle">语音转文字</span>
+          </div>
+          <div class="layout-header-right">
+            <nav class="layout-nav">
+              <a class="layout-nav-link active" href="#">主页</a>
+              <a class="layout-nav-link" href="#">设置</a>
+            </nav>
+          </div>
+        </header>
+        <main class="layout-main">
+          <div class="home">
+            <div class="home-idle">
+              <div class="home-status-line">
+                <span class="home-status-dot" style="background: var(--color-text-muted)"></span>
+                <span class="home-status-text" style="color: var(--color-text-muted)">等待说话</span>
+              </div>
+              <p class="home-trigger-hint">按住 <span class="kbd">右Alt</span> 说话，松开即得文字</p>
+              <p class="home-key-backend">监听方式：X11 xinput</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ═══════════ 主窗 · 转写中 ═══════════ -->
+    <div data-fig="home-transcribing" class="fig-main">
+      <div class="layout">
+        <header class="layout-header">
+          <div class="layout-header-left">
+            <div class="layout-logo-wrapper">
+              <img src="../public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+              <span class="layout-logo">altgo</span>
+            </div>
+            <span class="layout-subtitle">语音转文字</span>
+          </div>
+          <div class="layout-header-right">
+            <nav class="layout-nav">
+              <a class="layout-nav-link active" href="#">主页</a>
+              <a class="layout-nav-link" href="#">设置</a>
+            </nav>
+          </div>
+        </header>
+        <main class="layout-main">
+          <div class="home">
+            <div class="home-idle">
+              <div class="home-status-line">
+                <span class="home-status-dot" style="background: var(--color-amber)"></span>
+                <span class="home-status-text" style="color: var(--color-amber)">正在转写...</span>
+              </div>
+              <div class="home-tx-progress-wrap">
+                <div class="home-tx-progress-phase">转写中...</div>
+                <div class="home-tx-progress-bar"><div class="home-tx-progress-fill" style="width: 45%"></div></div>
+              </div>
+              <p class="home-key-backend">监听方式：X11 xinput</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ═══════════ 主窗 · 结果 ═══════════ -->
+    <div data-fig="home-result" class="fig-main">
+      <div class="layout">
+        <header class="layout-header">
+          <div class="layout-header-left">
+            <div class="layout-logo-wrapper">
+              <img src="../public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+              <span class="layout-logo">altgo</span>
+            </div>
+            <span class="layout-subtitle">语音转文字</span>
+          </div>
+          <div class="layout-header-right">
+            <nav class="layout-nav">
+              <a class="layout-nav-link active" href="#">主页</a>
+              <a class="layout-nav-link" href="#">设置</a>
+            </nav>
+          </div>
+        </header>
+        <main class="layout-main">
+          <div class="home">
+            <div class="home-result">
+              <span class="home-result-label">转写结果</span>
+              <div class="home-result-card">
+                <p class="home-result-text">这是最近一次转写结果，润色后写入了剪贴板。</p>
+                <div class="home-result-foot">
+                  <span class="home-result-meta">刚刚</span>
+                  <button class="btn-sm btn-secondary">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                    复制到剪贴板
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ═══════════ 主窗 · 历史 ═══════════ -->
+    <div data-fig="history" class="fig-main">
+      <div class="layout">
+        <header class="layout-header">
+          <div class="layout-header-left">
+            <div class="layout-logo-wrapper">
+              <img src="../public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+              <span class="layout-logo">altgo</span>
+            </div>
+            <span class="layout-subtitle">语音转文字</span>
+          </div>
+          <div class="layout-header-right">
+            <nav class="layout-nav">
+              <a class="layout-nav-link active" href="#">主页</a>
+              <a class="layout-nav-link" href="#">设置</a>
+            </nav>
+          </div>
+        </header>
+        <main class="layout-main">
+          <div class="home">
+            <div class="history-page">
+              <div class="history-page-header">
+                <h1 class="history-page-title">转写历史</h1>
+                <div class="history-toolbar">
+                  <label class="history-select-all"><input type="checkbox" /><span>全选</span></label>
+                  <button class="history-btn history-btn--danger">删除所选</button>
+                  <button class="history-btn history-btn--outline">清空全部</button>
+                </div>
+              </div>
+              <ul class="history-list">
+                <li class="history-item">
+                  <label class="history-item-check"><input type="checkbox" /></label>
+                  <div class="history-item-body">
+                    <time class="history-item-time">2026/09/27 18:06</time>
+                    <p class="history-item-text">我希望把现在的悬浮窗优化一下，它有些太大了，需要精简一点，减少用户的认知负荷。</p>
+                    <div class="history-item-actions">
+                      <button class="history-btn history-btn--small">复制</button>
+                      <button class="history-btn history-btn--small">复制原文</button>
+                      <button class="history-btn history-btn--small history-btn--accent">润色</button>
+                      <button class="history-btn history-btn--small">按指令润色</button>
+                    </div>
+                  </div>
+                </li>
+                <li class="history-item">
+                  <label class="history-item-check"><input type="checkbox" /></label>
+                  <div class="history-item-body">
+                    <time class="history-item-time">2026/09/27 17:41</time>
+                    <p class="history-item-text">明天上午十点把评审材料发到群里，另外提醒我下午去取快递。</p>
+                    <p class="history-item-raw">
+                      <span class="history-item-raw-label">原文</span>
+                      嗯明天上午十点吧把那个评审材料发到群里另外提醒我下午去取快递
+                    </p>
+                    <div class="history-item-actions">
+                      <button class="history-btn history-btn--small">复制</button>
+                      <button class="history-btn history-btn--small">复制原文</button>
+                      <button class="history-btn history-btn--small history-btn--accent">润色</button>
+                      <button class="history-btn history-btn--small">按指令润色</button>
+                    </div>
+                  </div>
+                </li>
+                <li class="history-item">
+                  <label class="history-item-check"><input type="checkbox" /></label>
+                  <div class="history-item-body">
+                    <time class="history-item-time">2026/09/27 16:12</time>
+                    <p class="history-item-text">把这段会议纪要按行动项、负责人、截止时间三列整理成表格。</p>
+                    <div class="history-item-actions">
+                      <button class="history-btn history-btn--small">复制</button>
+                      <button class="history-btn history-btn--small">复制原文</button>
+                      <button class="history-btn history-btn--small history-btn--accent">润色</button>
+                      <button class="history-btn history-btn--small">按指令润色</button>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ═══════════ 主窗 · 设置 ═══════════ -->
+    <div data-fig="settings" class="fig-main">
+      <div class="layout">
+        <header class="layout-header">
+          <div class="layout-header-left">
+            <div class="layout-logo-wrapper">
+              <img src="../public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+              <span class="layout-logo">altgo</span>
+            </div>
+            <span class="layout-subtitle">语音转文字</span>
+          </div>
+          <div class="layout-header-right">
+            <nav class="layout-nav">
+              <a class="layout-nav-link" href="#">主页</a>
+              <a class="layout-nav-link active" href="#">设置</a>
+            </nav>
+          </div>
+        </header>
+        <main class="layout-main">
+          <div class="settings-page">
+            <div class="settings-form">
+              <section class="settings-section settings-section--primary">
+                <h3 class="settings-section-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+                  转写
+                </h3>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">转写引擎</span>
+                  <div class="settings-field-control">
+                    <select class="select">
+                      <option>本地 SenseVoice</option>
+                      <option>在线识别（MiMo ASR）</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">语言</span>
+                  <div class="settings-field-control settings-field-control--narrow">
+                    <select class="select">
+                      <option>中文</option>
+                      <option>English</option>
+                      <option>自动检测</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">触发键</span>
+                  <div class="settings-field-control settings-field-control--trigger-key">
+                    <select class="select">
+                      <option>右 Alt</option>
+                      <option>左 Alt</option>
+                      <option>右 Ctrl</option>
+                    </select>
+                    <div class="settings-key-binding-readout">
+                      <span class="settings-field-label-hint">当前设备键码</span>
+                      <code class="kbd">Alt_R</code>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-model-grid">
+                  <div class="settings-model-card is-active">
+                    <div class="settings-model-card-head">
+                      <span class="settings-model-card-name">sense-voice</span>
+                      <span class="settings-model-card-badge">使用中</span>
+                    </div>
+                    <p class="settings-model-card-desc">中英日韩粤自动检测，本地推理，速度快。</p>
+                    <p class="settings-model-card-meta">230 MB · 已下载</p>
+                    <div class="settings-model-card-actions">
+                      <button class="btn-sm btn-secondary">重新下载</button>
+                      <button class="btn-sm btn-danger">删除</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+              <section class="settings-section">
+                <h3 class="settings-section-title">润色</h3>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">润色档位</span>
+                  <div class="settings-field-control settings-field-control--narrow">
+                    <select class="select">
+                      <option>关闭</option>
+                      <option selected>轻度</option>
+                      <option>中度</option>
+                      <option>重度</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">供应商</span>
+                  <div class="settings-field-control">
+                    <span class="settings-field-label-hint">DeepSeek · openai 兼容 · deepseek-chat</span>
+                  </div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">API Key</span>
+                  <div class="settings-field-control">
+                    <input class="field" type="password" value="sk-xxxxxxxxxxxxxxxx" />
+                  </div>
+                </div>
+                <div class="settings-polish-actions">
+                  <button class="btn-sm btn-secondary">测试连接</button>
+                  <button class="btn-sm btn-danger">清除已存密钥</button>
+                </div>
+              </section>
+              <section class="settings-section">
+                <button class="settings-section-toggle">
+                  <span>关于</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+              </section>
+              <div class="settings-save-row">
+                <button class="btn btn-primary">保存</button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ═══════════ 主窗 · 首次引导 ═══════════ -->
+    <div data-fig="onboarding" class="fig-main">
+      <div class="onboarding">
+        <div class="onboarding-drag"></div>
+        <div class="onboarding-body">
+          <div class="onboarding-step">
+            <span class="onboarding-step-label">第 1 步 / 共 3 步</span>
+            <h2 class="onboarding-title">选择转写引擎</h2>
+            <p class="onboarding-text">本地引擎离线可用、不联网；在线引擎无需下载模型，但需要网络与 API Key。之后可在设置页随时切换。</p>
+            <label class="onboarding-choice is-active">
+              <input type="radio" name="engine" checked />
+              <span class="onboarding-choice-body">
+                <span class="onboarding-choice-title">本地 SenseVoice</span>
+                <span class="onboarding-choice-desc">模型约 230 MB，首次使用需下载；推理在本机完成，音频不外传。</span>
+              </span>
+            </label>
+            <label class="onboarding-choice">
+              <input type="radio" name="engine" />
+              <span class="onboarding-choice-body">
+                <span class="onboarding-choice-title">在线 MiMo ASR</span>
+                <span class="onboarding-choice-desc">无需下载模型，需要填写 API Key。</span>
+              </span>
+            </label>
+          </div>
+        </div>
+        <div class="onboarding-foot">
+          <div class="onboarding-dots">
+            <span class="onboarding-dot on"></span>
+            <span class="onboarding-dot"></span>
+            <span class="onboarding-dot"></span>
+          </div>
+          <button class="btn-secondary">上一步</button>
+          <button class="btn btn-primary">下一步</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ 悬浮窗 ═══════════ -->
+    <div data-fig="overlay" class="fig-overlay">
+      <div class="island-container island-enter">
+        <div class="island">
+          <span class="dot" aria-hidden="true"></span>
+          <div class="level-trace" aria-hidden="true">
+            <div class="trace-bar" style="height: 6px"></div>
+            <div class="trace-bar" style="height: 18px"></div>
+            <div class="trace-bar" style="height: 11px"></div>
+            <div class="trace-bar" style="height: 24px"></div>
+            <div class="trace-bar" style="height: 14px"></div>
+            <div class="trace-bar" style="height: 20px"></div>
+            <div class="trace-bar" style="height: 8px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div data-fig="overlay-transcribing" class="fig-overlay">
+      <div class="island-container island-enter">
+        <div class="island">
+          <div class="processing-ring"></div>
+          <div class="overlay-tx-progress-track">
+            <div class="overlay-tx-progress-fill" style="transform: scaleX(0.42)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div data-fig="overlay-result" class="fig-overlay">
+      <div class="island-container island-enter">
+        <div class="island">
+          <div class="done-indicator">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <span class="result-text">这是转写并润色后的单行结果文本，超出会被省略号截断</span>
+          <button class="btn-close" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ 更新说明窗口 ═══════════ -->
+    <div data-fig="update-notes" class="fig-notes">
+      <div class="update-notes-window">
+        <header class="update-notes-header">
+          <span class="update-notes-title">更新说明</span>
+          <button type="button" class="update-notes-close" aria-label="关闭"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </header>
+        <div class="update-notes-summary">
+          <div class="update-notes-headline">发现新版本 v2.6.21</div>
+          <div class="update-notes-versions">
+            <span class="update-notes-version">当前 2.6.20</span>
+            <span class="update-notes-version update-notes-version--latest">最新 2.6.21</span>
+            <span class="update-notes-date">2026-09-29</span>
+          </div>
+        </div>
+        <div class="update-notes-body">
+          <div class="release-notes">
+            <h4 class="release-notes-heading">Changed</h4>
+            <ul class="release-notes-list">
+              <li class="release-notes-item"><strong>界面与图标重新设计</strong>，去掉渐变与发光，改为克制的工程工具观感</li>
+              <li class="release-notes-item"><strong>历史条目支持复制原文与带指令重润</strong></li>
+            </ul>
+            <h4 class="release-notes-heading">Fixes</h4>
+            <ul class="release-notes-list">
+              <li class="release-notes-item"><strong>修复部分样式变量未定义</strong>导致控件观感不一致的问题</li>
+            </ul>
+          </div>
+        </div>
+        <div class="update-notes-actions">
+          <button type="button" class="update-notes-btn update-notes-btn--primary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            立即更新并重启
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 生成页的三种模式：
+      //   无参数   → 全部状态平铺（人工预览用）
+      //   ?fig=id  → 只显示一个状态（截图用）
+      //   ?probe=id→ 显示该状态并把关键控件的计算值打在页面上（核对样式用）
+      const params = new URLSearchParams(location.search);
+      const id = params.get("fig") || params.get("probe");
+      const all = [...document.querySelectorAll("[data-fig]")];
+      if (params.has("list")) {
+        document.body.textContent = all.map((el) => el.dataset.fig).join("\n");
+      } else if (id) {
+        const target = all.find((el) => el.dataset.fig === id);
+        if (target) target.classList.add("is-shown");
+        document.documentElement.dataset.theme = params.get("theme") || "dark";
+        document.documentElement.style.fontSize = "17px";
+
+        if (params.has("probe")) {
+          const report = () => {
+            const rows = [];
+            const describe = (label, el) => {
+              if (!el) return rows.push(`${label}: 不存在`);
+              const s = getComputedStyle(el);
+              const r = el.getBoundingClientRect();
+              rows.push(
+                `${label}: 宽=${Math.round(r.width)} 高=${Math.round(r.height)} 圆角=${s.borderRadius} 背景=${s.backgroundColor}`,
+              );
+            };
+            describe(".settings-field-label-text", document.querySelector(".settings-field-label-text"));
+            describe(".settings-field-control", document.querySelector(".settings-field-control"));
+            describe(".select", document.querySelector(".select"));
+            describe(".btn.btn-primary", document.querySelector(".btn.btn-primary"));
+            describe(".home-trigger-hint .kbd", document.querySelector(".home-trigger-hint .kbd"));
+            document.body.insertAdjacentHTML(
+              "beforeend",
+              `<pre style="position:fixed;left:0;bottom:0;z-index:99;margin:0;padding:8px;font:11px/1.6 monospace;background:#000;color:#0f0;white-space:pre-wrap">${rows.join("\n")}</pre>`,
+            );
+          };
+          if (document.readyState === "complete") requestAnimationFrame(report);
+          else window.addEventListener("load", () => requestAnimationFrame(report));
+        }
+      } else {
+        all.forEach((el) => el.classList.add("is-shown"));
+      }
+    </script>
+  </body>
+</html>

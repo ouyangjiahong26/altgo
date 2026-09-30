@@ -1,0 +1,56 @@
+{
+  "model": "gpt-image-2.5-sunburst",
+  "comment": "品牌视觉资产。要求：极简、扁平、克制，禁止发光/渐变/3D/粒子/文字。",
+  "items": [
+    {
+      "id": "icon-a-mic",
+      "size": "1024x1024",
+      "prompt": "Flat vector app icon on a square canvas. A single deep indigo (#4F46E5) rounded square with a plain white geometric microphone: a vertical rounded capsule, a thin arc under it, and a short stem below. Uniform stroke weight, centered, generous even padding, no gradient, no glow, no shadow, no texture, no 3D, no text, no letters. Swiss graphic design, reads clearly at 32 pixels, flat solid colors only."
+    },
+    {
+      "id": "icon-b-wave",
+      "size": "1024x1024",
+      "prompt": "Flat vector app icon on a square canvas. Deep indigo (#4F46E5) rounded square with a white abstract mark made of five vertical rounded bars of different heights forming a compact sound wave, centered, generous padding, uniform bar width, no gradient, no glow, no shadow, no 3D, no text, no letters. Minimal swiss design, crisp at 32 pixels."
+    },
+    {
+      "id": "icon-c-keycap",
+      "size": "1024x1024",
+      "prompt": "Flat vector app icon on a square canvas. Deep indigo (#4F46E5) rounded square containing a white outline of a keyboard key cap with a small downward arrow inside it, drawn with uniform 6px stroke, centered, generous padding, no gradient, no glow, no shadow, no 3D, no text, no letters. Minimal, professional desktop utility icon, crisp at 32 pixels."
+    },
+    {
+      "id": "banner-a-line",
+      "size": "1536x1024",
+      "prompt": "Minimal software banner, wide canvas, flat vector, very dark charcoal background. Left: small deep indigo rounded square with a plain white microphone glyph. Right: one thin straight grey line that briefly becomes a low waveform and continues straight, with a single indigo segment. Vast empty space, no text, no letters, no glow, no gradients, no particles, no 3D. Calm professional engineering product."
+    },
+    {
+      "id": "banner-b-split",
+      "size": "1536x1024",
+      "prompt": "Minimal software banner, wide canvas, flat vector. Left two thirds very dark charcoal background with a small deep indigo rounded square logo containing a white microphone glyph and three short grey placeholder bars beneath it. Right third is a slightly lighter dark grey panel with a thin indigo left edge. No text, no letters, no glow, no gradients, no 3D. Restrained, editorial, professional."
+    },
+    {
+      "id": "banner-c-grille",
+      "size": "1536x1024",
+      "prompt": "Minimal dark software banner, wide canvas, flat vector. Centred-left: a large but simple white microphone outline drawn with thin uniform line weight on very dark charcoal background, and beside it a single thin indigo vertical level line. Large empty space, no text, no letters, no glow, no gradients, no particles, no 3D. Technical and restrained."
+    },
+    {
+      "id": "og-a-card",
+      "size": "1536x1024",
+      "prompt": "Minimal dark social preview card, wide canvas, flat vector. Very dark charcoal background with a faint 1px grid. Centered small deep indigo rounded square with a plain white microphone glyph, beneath it two short light grey horizontal bars of different lengths standing in for a title and subtitle. No real text, no letters, no numbers, no glow, no gradients, no 3D. Plenty of empty space."
+    },
+    {
+      "id": "og-b-orbit",
+      "size": "1536x1024",
+      "prompt": "Minimal dark social preview card, wide canvas, flat vector. Very dark charcoal background. Centered deep indigo rounded square with a plain white microphone glyph, surrounded by one thin large grey circle outline at low opacity that passes behind it. Two short grey bars below. No text, no letters, no numbers, no glow, no gradients, no 3D. Restrained and professional."
+    },
+    {
+      "id": "ui-a-home",
+      "size": "1024x1024",
+      "prompt": "Flat vector illustration of a small desktop application window, dark theme, straight-on. Near black background, one panel in dark grey with a 1px muted border and 6px corner radius. Inside: a short status row of a small green dot plus two grey text placeholder bars, then a bordered list with four rows separated by thin dividers. One small indigo button. No gradients, no glass, no glow, no shadows, no real text, no letters. Dense precise spacing like a serious engineering tool."
+    },
+    {
+      "id": "ui-b-settings",
+      "size": "1024x1024",
+      "prompt": "Flat vector illustration of a desktop settings panel, dark theme, straight-on. Near black background, stacked grey panels each with a 1px muted border and 6px corner radius, uniform row heights, thin divider lines, grey label bars on the left and a small toggle or dropdown on the right of each row. One indigo primary button at the bottom. No gradients, no glass, no glow, no shadows, no real text, no letters. Restrained engineering tool aesthetic."
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 /* ============================================
-   布局样式
-   ============================================ */
+   布局样式：窗口标题栏与导航
 
-/* ── 布局 ─────────────────────────────────── */
+   标题栏按桌面工具的习惯做得紧凑（38px），字号压到 13px，视觉让位给内容。
+   ============================================ */
 
 .layout {
   height: 100vh;
@@ -15,9 +15,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-5);
+  gap: var(--space-4);
+  min-height: 38px;
+  padding: 0 var(--space-3) 0 var(--space-4);
   border-bottom: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-1);
+  background: var(--color-surface-0);
   -webkit-app-region: drag;
 }
 
@@ -25,77 +27,81 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .layout-logo-wrapper {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 7px;
+  flex-shrink: 0;
 }
 
 .layout-logo {
-  font-size: var(--text-base);
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-soft) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text);
   letter-spacing: var(--tracking-tight);
 }
 
 .layout-logo-mark {
   display: block;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
 }
 
 .layout-subtitle {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  color: var(--color-text-faint);
   padding-left: var(--space-3);
   border-left: 1px solid var(--color-border);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  line-height: 1.4;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layout-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .layout-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 2px;
   -webkit-app-region: no-drag;
 }
 
+/* 导航项做成朴素的分段标签：不选时纯文字，选中时浅底 */
 .layout-nav-link {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: 6px;
+  height: var(--control-height-sm);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--color-text-muted);
   text-decoration: none;
   white-space: nowrap;
   flex-shrink: 0;
   transition:
-    color var(--duration-normal) var(--ease-out),
-    background var(--duration-normal) var(--ease-out),
-    box-shadow var(--duration-normal) var(--ease-out);
-  color: var(--color-text-secondary);
-  background: transparent;
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .layout-nav-link:hover {
+  background: var(--color-hover-surface);
   color: var(--color-text);
-  background: var(--color-bg-card-hover);
 }
 
 .layout-nav-link.active {
+  background: var(--color-surface-3);
   color: var(--color-text);
-  background: var(--color-surface-2);
-  box-shadow: 0 0 0 1px var(--color-border-subtle);
 }
 
 .layout-main {
@@ -103,16 +109,14 @@
   overflow-y: auto;
 }
 
-.layout-header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
+/* ── 窗口控制按钮 ────────────────────────────── */
 
+/* 三个按钮贴合桌面惯例：默认无底色，悬停才浮现；关闭按钮悬停转红。 */
 .window-controls {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
+  margin-left: var(--space-1);
   -webkit-app-region: no-drag;
 }
 
@@ -120,9 +124,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
+  width: 26px;
+  height: 24px;
+  border-radius: var(--radius-sm);
   border: none;
   background: transparent;
   color: var(--color-text-muted);
@@ -138,23 +142,22 @@
 }
 
 .window-control-close:hover {
-  background: var(--color-red-bg);
-  color: var(--color-red);
+  background: var(--color-red);
+  color: #ffffff;
 }
 
 /* 窄长窗（三档预设宽度 400/440/480 均命中）：收紧标题栏并隐藏副标题，
    让导航与窗口按钮保持单行。 */
 @media (max-width: 520px) {
   .layout-header {
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-3);
+    padding: 0 var(--space-2) 0 var(--space-3);
   }
 
   .layout-subtitle {
     display: none;
   }
 
-  .layout-nav-link {
-    padding: var(--space-2);
+  .window-controls {
+    margin-left: 0;
   }
 }

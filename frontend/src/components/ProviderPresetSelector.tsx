@@ -127,7 +127,7 @@ export function ProviderPresetSelector({
         <button
           type="button"
           ref={addProviderButtonRef}
-          className="settings-btn settings-btn-sm settings-btn-secondary provider-preset-add"
+          className="btn btn-sm btn-secondary provider-preset-add"
           onClick={() => setPickerOpen(true)}
         >
           <Plus size={13} />
@@ -271,7 +271,7 @@ export function ProviderPresetSelector({
                           </div>
                           <button
                             type="button"
-                            className="settings-btn settings-btn-sm settings-btn-primary provider-preset-use"
+                            className="btn btn-sm btn-primary provider-preset-use"
                             onClick={() => selectPreset(preset)}
                           >
                             {t("settings.use_provider")}

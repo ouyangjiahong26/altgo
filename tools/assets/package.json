@@ -1,0 +1,16 @@
+{
+  "name": "altgo-assets",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "altgo 品牌资产生成工具：GPT 出图 + SVG 光栅化",
+  "scripts": {
+    "gen": "node gen.mjs",
+    "icon": "node build-icon.mjs"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "pngjs": "^7.0.0"
+  }
+}
