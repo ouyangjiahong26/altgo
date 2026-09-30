@@ -124,3 +124,16 @@ _Avoid_: capture mode、key capture mode。
 
 **安装包（Installer）**
 供人下载安装的发布产物：Windows 唯一形态是 NSIS 安装器，Linux 为 deb、rpm 与 AppImage。_Avoid_: 安装程序。
+## 语言
+
+**界面语言（UI Language）**
+三个窗口（主窗、悬浮窗、更新说明）界面显示所用的语言，由 `gui.language` 决定：`"zh"`、`"en"`，或空串表示自动。
+_Avoid_: 显示语言、应用语言。
+
+**语言自动检测（Language Auto-detection）**
+界面语言为自动时每次启动跟随系统语言的行为：中文环境用中文，其余回退英文；检测结果不写入配置，显式选择后不再检测。
+_Avoid_: 首启检测落盘。
+
+**识别语言（Transcription Language）**
+转写引擎期望的语音语言（`transcriber.language`，默认 `zh`），只影响识别准确率，与界面语言相互独立。
+_Avoid_: 与界面语言混用。
