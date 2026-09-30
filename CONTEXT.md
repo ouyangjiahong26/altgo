@@ -109,7 +109,18 @@ _Avoid_: capture mode、key capture mode。
 **更新说明（Release Notes）**
 手动检查发现新版本时弹出的独立窗口（label `update-notes`），展示该版本的分类变更条目，并就地提供更新操作（就地更新或打开下载页）。内容取自 CHANGELOG.md 当前版本小节，经 latest.json 的 `notes` 字段随检查结果到达前端；`## vX.Y.Z` 版本行与末尾的对比样板行不渲染，版本信息由窗口头部展示。_Avoid_: 更新内容弹窗、changelog 窗口。
 
+**更新产物（Updater Artifact）**
+应用更新器在 InPlace 平台自动下载并校验的发布产物：Linux 直接使用 AppImage 本体，Windows 使用 NSIS 安装器的 zip 形态；minisign 签名内嵌于 latest.json，不依赖产物旁的独立签名文件。_Avoid_: 签名包、更新包。
+
 **更新支持级别（Update Support Tier）**
 不同平台及打包分发方式下的更新能力分级：
 - `InPlace`（就地更新）：Windows（NSIS）与 Linux（AppImage），支持由更新器自动下载差量/全量包并就地替换重启。
 - `External`（外部引导）：Linux 传统包管理分发（deb、rpm、AUR），因需要系统提权或由系统包管理器托管，更新器提示新版本变更并提供一键打开下载页或包管理器更新命令。
+
+## 发布
+
+**发布产物（Release Asset）**
+挂在 GitHub Release 上对外提供的文件：安装包、更新产物、更新器元数据（latest.json）、AUR 打包文件与校验和清单。每个发布产物都必须有明确消费者（终端用户、更新器或 AUR 打包者），无消费者的构建中间物不上传。
+
+**安装包（Installer）**
+供人下载安装的发布产物：Windows 唯一形态是 NSIS 安装器，Linux 为 deb、rpm 与 AppImage。_Avoid_: 安装程序。

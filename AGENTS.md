@@ -73,7 +73,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 提交前检查（`CONTRIBUTING.md`）：fmt + clippy + `cargo test --lib` + `cd frontend && npm test` + `npm run build`。
 
-发版：push tag `v*` 触发 `release.yml`——先 `packaging/scripts/validate-release.sh` 校验 tag 与 `src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`frontend/package.json`、`frontend/package-lock.json`（顶层与 `packages[""]` 两个 version 字段，共五处）及 `CHANGELOG.md` 小节对齐，再双架构构建 deb/rpm/AppImage 与 NSIS/MSI、生成 AUR 与 updater `latest.json`。CI 里 Tauri CLI 走 `npm --prefix frontend exec -- tauri build`。
+发版：push tag `v*` 触发 `release.yml`——先 `packaging/scripts/validate-release.sh` 校验 tag 与 `src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`、`frontend/package.json`、`frontend/package-lock.json`（顶层与 `packages[""]` 两个 version 字段，共五处）及 `CHANGELOG.md` 小节对齐，再双架构构建 deb/rpm/AppImage 与 NSIS、生成 AUR 与 updater `latest.json`。CI 里 Tauri CLI 走 `npm --prefix frontend exec -- tauri build`。
 
 ## Code Conventions & Common Patterns
 
@@ -94,7 +94,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - `src-tauri/src/cmd.rs` — 全部 IPC 命令；`tauri_sink.rs` — 事件映射 + 浮窗状态切换。
 - `src-tauri/src/error.rs` — 全部错误枚举；`state_machine.rs` — 按键状态机。
 - `src-tauri/src/config.rs` + `config_store.rs` — 配置模型、补丁与持久化；`history.rs` — 历史 JSON。
-- `src-tauri/tauri.conf.json` — 三窗口（主窗 / 悬浮窗 / 更新说明）、bundle targets（deb/rpm/appimage/nsis/msi）、updater 端点。
+- `src-tauri/tauri.conf.json` — 三窗口（主窗 / 悬浮窗 / 更新说明）、bundle targets（deb/rpm/appimage/nsis）、updater 端点。
 - `configs/altgo.toml` — 全部配置字段模板（`[key_listener]`/`[recorder]`/`[transcriber]`/`[polisher]`/`[output]`/`[logging]`）。
 - `CONTEXT.md`、`docs/architecture.md`、`docs/testing.md`、`docs/adr/` — 术语、架构、测试策略、决策记录。
 

@@ -123,9 +123,7 @@ jobs:
             src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/rpm/*.rpm
             src-tauri/target/release/bundle/appimage/*.AppImage
-            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz*
             src-tauri/target/release/bundle/appimage/*.AppImage.sig
-            src-tauri/target/release/bundle/appimage/latest.json
           if-no-files-found: warn
 
   build-windows:
@@ -184,8 +182,8 @@ jobs:
         if: matrix.arch == 'arm64'
         run: cargo check --manifest-path=src-tauri/Cargo.toml --target ${{ matrix.target }}
 
-      - name: 构建 NSIS 安装包与 MSI
-        run: npm --prefix frontend exec -- tauri build --target ${{ matrix.target }} --bundles nsis,msi
+      - name: 构建 NSIS 安装包
+        run: npm --prefix frontend exec -- tauri build --target ${{ matrix.target }} --bundles nsis
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -197,11 +195,7 @@ jobs:
           name: altgo-windows-${{ matrix.arch }}-packages
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
-            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe.sig
             src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.nsis.zip*
-            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/latest.json
-            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
-            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi.zip*
           if-no-files-found: warn
 
   gen-aur:
@@ -282,9 +276,8 @@ jobs:
           mapfile -t rpms < <(find release-assets -type f -name '*.rpm' | sort)
           mapfile -t appimages < <(find release-assets -type f -name '*.AppImage' | sort)
           mapfile -t exes < <(find release-assets -type f -name '*-setup.exe' | sort)
-          mapfile -t msis < <(find release-assets -type f -name '*.msi' | sort)
-          if [[ "${#debs[@]}" -ne 2 || "${#rpms[@]}" -ne 2 || "${#appimages[@]}" -ne 2 || "${#exes[@]}" -ne 2 || "${#msis[@]}" -ne 2 ]]; then
-            echo "错误：预期两份 deb、两份 rpm、两份 AppImage、两份 exe 和两份 msi（Windows x64 与 arm64 各一份），实际为 ${#debs[@]} 份 deb、${#rpms[@]} 份 rpm、${#appimages[@]} 份 AppImage、${#exes[@]} 份 exe、${#msis[@]} 份 msi" >&2
+          if [[ "${#debs[@]}" -ne 2 || "${#rpms[@]}" -ne 2 || "${#appimages[@]}" -ne 2 || "${#exes[@]}" -ne 2 ]]; then
+            echo "错误：预期两份 deb、两份 rpm、两份 AppImage、两份 exe（Windows x64 与 arm64 各一份），实际为 ${#debs[@]} 份 deb、${#rpms[@]} 份 rpm、${#appimages[@]} 份 AppImage、${#exes[@]} 份 exe" >&2
             find release-assets -type f | sort >&2
             exit 1
           fi
@@ -293,7 +286,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd release-assets
-          find . -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*-setup.exe' -o -name '*.msi' \) -print0 | sort -z | xargs -0 sha256sum > ../checksums.txt
+          find . -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*-setup.exe' \) -print0 | sort -z | xargs -0 sha256sum > ../checksums.txt
           cd ..
           cat checksums.txt
 
@@ -310,16 +303,10 @@ jobs:
             release-assets/**/*.deb
             release-assets/**/*.rpm
             release-assets/**/*.AppImage
-            release-assets/**/*.AppImage.tar.gz
-            release-assets/**/*.AppImage.tar.gz.sig
             release-assets/**/*.AppImage.sig
             release-assets/**/*-setup.exe
-            release-assets/**/*-setup.exe.sig
             release-assets/**/*-setup.nsis.zip
             release-assets/**/*-setup.nsis.zip.sig
-            release-assets/**/*.msi
-            release-assets/**/*.msi.zip
-            release-assets/**/*.msi.zip.sig
             release-assets/latest.json
             release-assets/PKGBUILD
             release-assets/.SRCINFO

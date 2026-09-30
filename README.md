@@ -81,7 +81,6 @@ sudo usermod -aG input "$USER"
 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载安装包：
 
 - `*-setup.exe`（NSIS 安装器）：双击安装，适合多数用户。
-- `*.msi`：面向需要 MSI 部署的企业环境。
 
 x64 与 arm64 按设备架构选择对应包。安装后从开始菜单启动 altgo，在设置页完成转写配置。
 
