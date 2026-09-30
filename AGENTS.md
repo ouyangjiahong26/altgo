@@ -1,6 +1,6 @@
 # AGENTS.md
 
-altgo：Rust + Tauri 桌面语音转文字工具。**始终用中文交流；代码、commit message、PR 描述等技术输出也用中文。**
+altgo：Rust + Tauri 桌面语音转文字工具。
 
 ## Project Overview
 
