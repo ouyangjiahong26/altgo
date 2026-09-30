@@ -1,5 +1,6 @@
 //! 管道事件接收器接口与共享类型。
 
+use crate::error::UserFacingError;
 use crate::pipeline_controller::PipelineStatus;
 
 /// 转写结果。
@@ -11,9 +12,9 @@ pub struct TranscriptionResult {
     pub raw_text: String,
     /// 润色是否失败
     pub polish_failed: bool,
-    /// 润色失败时的错误信息（用于前端提示）
+    /// 润色失败时的错误码（经事件通道传给前端字典翻译）
     #[serde(default)]
-    pub polish_error: Option<String>,
+    pub polish_error: Option<UserFacingError>,
 }
 
 /// 管道事件接收器。
@@ -24,8 +25,8 @@ pub trait PipelineSink: Send + Sync + 'static {
     /// 管道状态变化（idle / recording / processing / done / stopped）。
     fn on_status_change(&self, status: PipelineStatus);
 
-    /// 管道错误。
-    fn on_error(&self, message: &str);
+    /// 管道错误（结构化错误码，由前端字典翻译）。
+    fn on_error(&self, error: &UserFacingError);
 
     /// 转写+润色完成，输出结果。
     fn on_transcription_result(&self, output: &TranscriptionResult);

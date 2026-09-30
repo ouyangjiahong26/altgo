@@ -200,16 +200,17 @@ mod tests {
     // 故障点属于 builder（构建上下文），因此下沉到本模块。
     #[tokio::test]
     async fn run_reports_error_when_context_build_fails() {
+        use crate::error::UserFacingError;
         use crate::voice_pipeline::sink::TranscriptionResult;
         use std::sync::Mutex;
 
         struct ErrorSink {
-            errors: Arc<Mutex<Vec<String>>>,
+            errors: Arc<Mutex<Vec<UserFacingError>>>,
         }
         impl crate::voice_pipeline::sink::PipelineSink for ErrorSink {
             fn on_status_change(&self, _: crate::pipeline_controller::PipelineStatus) {}
-            fn on_error(&self, msg: &str) {
-                self.errors.lock().unwrap().push(msg.to_string());
+            fn on_error(&self, error: &UserFacingError) {
+                self.errors.lock().unwrap().push(error.clone());
             }
             fn on_transcription_result(&self, _: &TranscriptionResult) {}
             fn on_progress(&self, _: &str, _: Option<f32>) {}

@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 
+use crate::error::UserFacingError;
 use crate::history::HistoryStore;
 use crate::output::Output;
 use crate::polisher::{LLMFormatter, PolishLevel};
@@ -63,9 +64,8 @@ pub async fn handle_stop_record(
         Ok(r) => r,
         Err(e) => {
             tracing::error!(error = %e, "transcription failed");
-            // 用 message() 而非 Display：转写错误的中文用户文案在 message() 里，
-            // Display 只有英文，悬浮窗会显示英文（在线后端失败尤其明显）。
-            sink.on_error(&e.message());
+            // 错误码化：把稳定错误码与参数交给前端字典翻译，Rust 不再发中文文案。
+            sink.on_error(&e.user_error());
             sink.on_status_change(PipelineStatus::Idle);
             return;
         }
@@ -88,14 +88,14 @@ pub async fn handle_stop_record(
     sink.on_progress("polish", None);
 
     let mut polish_failed = false;
-    let mut polish_error: Option<String> = None;
+    let mut polish_error: Option<UserFacingError> = None;
     let raw_text = result.text.clone();
     let polished = match formatter.polish(&raw_text, polish_level).await {
         Ok(p) => p,
         Err(e) => {
             tracing::warn!(error = %e, "polish failed, using raw text");
             polish_failed = true;
-            polish_error = Some(e.to_string());
+            polish_error = Some(e.user_error());
             raw_text.clone()
         }
     };
@@ -245,7 +245,14 @@ mod tests {
     fn test_output(raw: &str, polished: &str, polish_failed: bool) -> TranscriptionResult {
         TranscriptionResult {
             polish_error: if polish_failed {
-                Some("test error".to_string())
+                Some(UserFacingError {
+                    code: "polisher.api_error".to_string(),
+                    params: Some(
+                        [("status".to_string(), "500".to_string())]
+                            .into_iter()
+                            .collect(),
+                    ),
+                })
             } else {
                 None
             },
@@ -574,8 +581,9 @@ mod tests {
         let err = TranscriberError::ModelLoadFailed {
             reason: "server error".to_string(),
         };
-        // 上报文本必须等于该错误的 message()（中文用户文案），而不是 Display 的英文前缀。
-        let expected_message = err.message();
+        // 上报的是稳定错误码结构（含 reason 参数），前端按字典翻译。
+        let expected_code = "transcriber.model_load_failed";
+        let expected_reason = "server error";
         let transcriber = super::super::test_doubles::FakeTranscriber::new(Err(err));
         let formatter = failing_formatter();
         let sink = super::super::test_doubles::MockSink::new();
@@ -599,7 +607,11 @@ mod tests {
             vec![PipelineStatus::Processing, PipelineStatus::Idle]
         );
         assert!(!sink.errors().is_empty());
-        assert_eq!(sink.errors()[0], expected_message);
+        assert_eq!(sink.errors()[0].code, expected_code);
+        assert_eq!(
+            sink.errors()[0].params.as_ref().unwrap().get("reason"),
+            Some(&expected_reason.to_string())
+        );
         assert!(sink.results().is_empty());
     }
 

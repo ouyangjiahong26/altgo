@@ -237,7 +237,7 @@ impl Default for OutputConfig {
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct GuiConfig {
-    /// 界面语言：`"zh"` 或 `"en"`
+    /// 界面语言：`"zh"`、`"en"` 或空串（自动检测，跟随系统语言，默认）
     pub language: String,
     /// 悬浮窗位置：`"bottom_center"`（默认）或 `"top_center"`
     pub overlay_position: String,
@@ -248,7 +248,7 @@ pub struct GuiConfig {
 impl Default for GuiConfig {
     fn default() -> Self {
         Self {
-            language: "zh".to_string(),
+            language: String::new(),
             overlay_position: "bottom_center".to_string(),
             auto_check_update: true,
         }

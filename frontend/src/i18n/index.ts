@@ -2,6 +2,13 @@ import { useState, useEffect } from "react";
 
 const LANG_KEY = "altgo-lang";
 
+// 解析界面语言：显式偏好（"zh"/"en"）优先；空串或未设置时跟随系统语言（前缀 zh 判中文，否则英文）。
+export function resolveUiLang(pref: string | null | undefined): "zh" | "en" {
+  if (pref === "zh") return "zh";
+  if (pref === "en") return "en";
+  return (navigator.language ?? "").toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
 const translations: Record<string, Record<string, string>> = {
   zh: {
     "title.subtitle": "语音转文字",
@@ -170,6 +177,36 @@ const translations: Record<string, Record<string, string>> = {
     "onboarding.start": "开始使用",
     "onboarding.prev": "上一步",
     "onboarding.next": "下一步",
+    // ---- 流水线错误码：与 src-tauri/src/error.rs 的 user_error() 码表一一对应，占位符 {name} 由 params 插值 ----
+    "error.fatal.model_not_found":
+      "本地模型未找到（配置值: {model}）。\n搜索路径: {searched}\n请在 GUI 设置中下载模型，或将 [transcriber] model 设为已下载模型的名称（如 \"sense-voice\"）、包含 model.int8.onnx 与 tokens.txt 的目录，或 model.int8.onnx 文件路径。",
+    "error.fatal.api_auth_failed": "{service} API 认证失败（HTTP {status}）。请检查 API 密钥配置。",
+    "error.fatal.key_listener_failed": "按键监听器启动失败（{backend}）: {reason}",
+    "error.fatal.key_listener_start_failed": "按键监听器启动失败: {detail}",
+    "error.internal.context_already_used": "内部错误：流水线上下文已被使用。",
+    "error.transcription.empty": "转写结果为空，请重试。",
+    "error.transcriber.empty_audio": "音频数据为空，请重新录音。",
+    "error.transcriber.model_load_failed": "本地模型加载失败: {reason}",
+    "error.transcriber.wav_decode_failed": "音频解码失败: {reason}",
+    "error.transcriber.invalid_base_url":
+      "在线识别 API 地址无效：'{url}'。请填写完整 URL（如 https://token-plan-cn.xiaomimimo.com/v1）。",
+    "error.transcriber.api_error": "在线识别 API 错误（HTTP {status}）: {body}",
+    "error.transcriber.http_error": "在线识别请求失败: {detail}",
+    "error.transcriber.json_error": "在线识别响应解析失败: {detail}",
+    "error.polisher.unknown_protocol": "未知的润色协议: '{protocol}'。请使用 'openai' 或 'anthropic'。",
+    "error.polisher.invalid_base_url":
+      "润色 API 地址无效：'{url}'。请填写完整的 URL（如 https://api.deepseek.com）。",
+    "error.polisher.missing_api_key": "润色 API 密钥未配置。请在设置中添加 API 密钥。",
+    "error.polisher.rate_limited": "API 请求频率受限，请稍后重试。",
+    "error.polisher.api_error": "LLM API 错误（HTTP {status}）: {body}",
+    "error.polisher.empty_response": "LLM 返回空响应。",
+    "error.polisher.http_error": "HTTP 请求失败: {detail}",
+    "error.polisher.json_error": "JSON 解析失败: {detail}",
+    "error.polisher.retries_exhausted": "所有重试尝试均失败。",
+    "error.recorder.start_failed": "启动录音失败: {detail}",
+    "error.recorder.stop_failed": "停止录音失败: {detail}",
+    "error.recorder.capture_failed": "音频捕获错误: {detail}",
+    "error.recorder.empty_recording": "录音为空，请重试。",
   },
   en: {
     "title.subtitle": "Voice to Text",
@@ -340,6 +377,36 @@ const translations: Record<string, Record<string, string>> = {
     "onboarding.start": "Start using altgo",
     "onboarding.prev": "Back",
     "onboarding.next": "Next",
+    // ---- Pipeline error codes: mirror src-tauri/src/error.rs user_error(); {name} placeholders are filled from params ----
+    "error.fatal.model_not_found":
+      "Local model not found (configured value: {model}).\nSearched paths: {searched}\nDownload the model in the app settings, or set [transcriber] model to a downloaded model name (e.g. \"sense-voice\"), a directory containing model.int8.onnx and tokens.txt, or the path of model.int8.onnx.",
+    "error.fatal.api_auth_failed": "{service} API authentication failed (HTTP {status}). Check your API key configuration.",
+    "error.fatal.key_listener_failed": "Key listener failed to start ({backend}): {reason}",
+    "error.fatal.key_listener_start_failed": "Key listener failed to start: {detail}",
+    "error.internal.context_already_used": "Internal error: pipeline context already used.",
+    "error.transcription.empty": "Transcription result is empty, please try again.",
+    "error.transcriber.empty_audio": "Audio data is empty, please record again.",
+    "error.transcriber.model_load_failed": "Failed to load local model: {reason}",
+    "error.transcriber.wav_decode_failed": "Failed to decode audio: {reason}",
+    "error.transcriber.invalid_base_url":
+      "Invalid ASR API base URL: '{url}'. Enter a full URL (e.g. https://token-plan-cn.xiaomimimo.com/v1).",
+    "error.transcriber.api_error": "ASR API error (HTTP {status}): {body}",
+    "error.transcriber.http_error": "ASR request failed: {detail}",
+    "error.transcriber.json_error": "Failed to parse ASR response: {detail}",
+    "error.polisher.unknown_protocol": "Unknown polish protocol: '{protocol}'. Use 'openai' or 'anthropic'.",
+    "error.polisher.invalid_base_url":
+      "Invalid polish API base URL: '{url}'. Enter a full URL (e.g. https://api.deepseek.com).",
+    "error.polisher.missing_api_key": "Polish API key is not configured. Add an API key in settings.",
+    "error.polisher.rate_limited": "API rate limited, please try again later.",
+    "error.polisher.api_error": "LLM API error (HTTP {status}): {body}",
+    "error.polisher.empty_response": "LLM returned an empty response.",
+    "error.polisher.http_error": "HTTP request failed: {detail}",
+    "error.polisher.json_error": "Failed to parse JSON: {detail}",
+    "error.polisher.retries_exhausted": "All retry attempts failed.",
+    "error.recorder.start_failed": "Failed to start recording: {detail}",
+    "error.recorder.stop_failed": "Failed to stop recording: {detail}",
+    "error.recorder.capture_failed": "Audio capture error: {detail}",
+    "error.recorder.empty_recording": "Recording is empty, please try again.",
   },
 };
 
@@ -347,19 +414,33 @@ export function translateStatic(lang: string, key: string): string {
   return translations[lang]?.[key] ?? translations["zh"]?.[key] ?? key;
 }
 
+// 错误码翻译：模板取 error.<code>，回退链为当前语言字典 → zh 字典 → 原样返回
+// "error." + code；模板中的 {name} 占位用 params 逐个替换，缺失的占位符原样保留。
+export function tError(code: string, params?: Record<string, string>): string {
+  const lang = resolveUiLang(localStorage.getItem(LANG_KEY));
+  const template =
+    translations[lang]?.[`error.${code}`] ??
+    translations["zh"]?.[`error.${code}`] ??
+    `error.${code}`;
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+    Object.prototype.hasOwnProperty.call(params, name) ? params[name] : match
+  );
+}
+
 export function useTranslation() {
   const [lang, setLangState] = useState<string>(
-    () => localStorage.getItem(LANG_KEY) || "zh"
+    () => localStorage.getItem(LANG_KEY) ?? ""
   );
 
   useEffect(() => {
-    document.documentElement.lang = lang === "en" ? "en" : "zh";
+    document.documentElement.lang = resolveUiLang(lang);
   }, [lang]);
 
   // 经 storage 事件同步其他同源窗口（如 overlay）的语言设置。
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === LANG_KEY && e.newValue) {
+      if (e.key === LANG_KEY && e.newValue !== null) {
         setLangState(e.newValue);
       }
     };
@@ -370,7 +451,7 @@ export function useTranslation() {
   // 经 CustomEvent 在同一窗口内同步语言（与 theme.ts 相同的做法）。
   useEffect(() => {
     const onLangChanged = () => {
-      const v = localStorage.getItem(LANG_KEY) || "zh";
+      const v = localStorage.getItem(LANG_KEY) ?? "";
       setLangState(v);
     };
     window.addEventListener("altgo-lang-changed", onLangChanged);
@@ -384,7 +465,7 @@ export function useTranslation() {
   };
 
   const t = (key: string): string => {
-    return translateStatic(lang, key);
+    return translateStatic(resolveUiLang(lang), key);
   };
 
   return { t, lang, setLang };

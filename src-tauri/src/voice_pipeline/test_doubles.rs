@@ -7,7 +7,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
-use crate::error::{KeyListenerError, OutputError};
+use crate::error::{KeyListenerError, OutputError, UserFacingError};
 use crate::key_listener::{KeyEvent, KeyListener};
 use crate::output::Output;
 use crate::pipeline_controller::PipelineStatus;
@@ -252,7 +252,7 @@ impl Transcriber for std::sync::Arc<FakeTranscriber> {
 #[derive(Clone)]
 pub(super) struct MockSink {
     status_changes: Arc<Mutex<Vec<PipelineStatus>>>,
-    errors: Arc<Mutex<Vec<String>>>,
+    errors: Arc<Mutex<Vec<UserFacingError>>>,
     results: Arc<Mutex<Vec<TranscriptionResult>>>,
     progress: ProgressEvents,
 }
@@ -271,7 +271,7 @@ impl MockSink {
         self.status_changes.lock().unwrap().clone()
     }
 
-    pub(super) fn errors(&self) -> Vec<String> {
+    pub(super) fn errors(&self) -> Vec<UserFacingError> {
         self.errors.lock().unwrap().clone()
     }
 
@@ -288,8 +288,8 @@ impl PipelineSink for MockSink {
     fn on_status_change(&self, status: PipelineStatus) {
         self.status_changes.lock().unwrap().push(status);
     }
-    fn on_error(&self, message: &str) {
-        self.errors.lock().unwrap().push(message.to_string());
+    fn on_error(&self, error: &UserFacingError) {
+        self.errors.lock().unwrap().push(error.clone());
     }
     fn on_transcription_result(&self, output: &TranscriptionResult) {
         self.results.lock().unwrap().push(output.clone());

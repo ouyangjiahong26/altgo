@@ -50,7 +50,7 @@ pub async fn run(
         Ok(ctx) => ctx,
         Err(e) => {
             tracing::error!(error = %e, "failed to build pipeline context");
-            sink.on_error(&e.message());
+            sink.on_error(&e.user_error());
             return;
         }
     };

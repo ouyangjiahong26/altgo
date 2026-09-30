@@ -57,8 +57,17 @@ export function useLatestTranscription(): string | null {
   return text;
 }
 
-export function usePipelineError(): string | null {
-  return useTauriEvent<string | null>("pipeline-error", null);
+/**
+ * 事件通道传来的错误码结构：`code` 对应前端字典 `error.<code>` 词条，
+ * `params` 供模板占位符插值（与 Rust `UserFacingError` 的 camelCase 序列化对齐）。
+ */
+export interface PipelineErrorPayload {
+  code: string;
+  params?: Record<string, string>;
+}
+
+export function usePipelineError(): PipelineErrorPayload | null {
+  return useTauriEvent<PipelineErrorPayload | null>("pipeline-error", null);
 }
 
 export function useKeyListenerBackend(): string | null {

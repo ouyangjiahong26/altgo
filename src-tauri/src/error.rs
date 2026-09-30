@@ -1,8 +1,40 @@
 //! altgo 流水线的结构化错误类型。
 //!
-//! 提供面向用户的错误消息（中文），并区分致命错误（停管道）与可恢复错误（降级继续）。
+//! 区分致命错误（停管道）与可恢复错误（降级继续）。`user_error()` 把错误映射为
+//! 稳定错误码（`UserFacingError`），经事件通道交给前端字典翻译，Rust 不再向事件
+//! 通道发中文文案；`message()` 的中文文案仅剩润色连接测试（`describe_test_error`）
+//! 与测试消费。
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
+
+/// 经事件通道传给前端的用户可见错误：`code` 是稳定错误码，前端字典按语言翻译；
+/// `params` 供模板占位符（如 `{reason}`）插值。
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserFacingError {
+    pub code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub params: Option<BTreeMap<String, String>>,
+}
+
+impl UserFacingError {
+    /// 无参数错误码的便捷构造。
+    fn bare(code: &str) -> Self {
+        Self {
+            code: code.to_string(),
+            params: None,
+        }
+    }
+
+    /// 带单参数错误码的便捷构造。
+    fn with(code: &str, key: &str, value: impl Into<String>) -> Self {
+        Self {
+            code: code.to_string(),
+            params: Some(BTreeMap::from([(key.to_string(), value.into())])),
+        }
+    }
+}
 
 /// 顶层流水线错误，区分致命 / 可恢复两类。
 #[derive(Debug, thiserror::Error)]
@@ -40,6 +72,14 @@ impl PipelineError {
         match self {
             Self::Fatal(e) => e.message(),
             Self::Recoverable(e) => e.message(),
+        }
+    }
+
+    /// 映射为前端可翻译的错误码，分发到子枚举。
+    pub fn user_error(&self) -> UserFacingError {
+        match self {
+            Self::Fatal(e) => e.user_error(),
+            Self::Recoverable(e) => e.user_error(),
         }
     }
 }
@@ -92,6 +132,43 @@ impl FatalError {
             Self::RecorderInitFailed(e) => e.message(),
         }
     }
+
+    /// 映射为前端可翻译的错误码；包装变体透传内层错误的码。
+    pub fn user_error(&self) -> UserFacingError {
+        match self {
+            Self::ModelNotFound { model, searched } => UserFacingError {
+                code: "fatal.model_not_found".into(),
+                params: Some(BTreeMap::from([
+                    ("model".to_string(), model.clone()),
+                    (
+                        "searched".to_string(),
+                        searched
+                            .iter()
+                            .map(|p| p.display().to_string())
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    ),
+                ])),
+            },
+            Self::ApiAuthFailed { service, status } => UserFacingError {
+                code: "fatal.api_auth_failed".into(),
+                params: Some(BTreeMap::from([
+                    ("service".to_string(), service.to_string()),
+                    ("status".to_string(), status.to_string()),
+                ])),
+            },
+            Self::KeyListenerFailed { backend, reason } => UserFacingError {
+                code: "fatal.key_listener_failed".into(),
+                params: Some(BTreeMap::from([
+                    ("backend".to_string(), backend.clone()),
+                    ("reason".to_string(), reason.clone()),
+                ])),
+            },
+            Self::TranscriberInitFailed(e) => e.user_error(),
+            Self::PolisherInitFailed(e) => e.user_error(),
+            Self::RecorderInitFailed(e) => e.user_error(),
+        }
+    }
 }
 
 /// 允许优雅降级的可恢复错误。
@@ -117,6 +194,16 @@ impl RecoverableError {
             Self::PolishingFailed(e) => e.message(),
             Self::RecordingFailed(e) => e.message(),
             Self::EmptyTranscription => "转写结果为空，请重试。".to_string(),
+        }
+    }
+
+    /// 映射为前端可翻译的错误码；包装变体透传内层错误的码。
+    pub fn user_error(&self) -> UserFacingError {
+        match self {
+            Self::TranscriptionFailed(e) => e.user_error(),
+            Self::PolishingFailed(e) => e.user_error(),
+            Self::RecordingFailed(e) => e.user_error(),
+            Self::EmptyTranscription => UserFacingError::bare("transcription.empty"),
         }
     }
 }
@@ -163,6 +250,35 @@ impl TranscriberError {
             }
             Self::HttpError(msg) => format!("在线识别请求失败: {}", msg),
             Self::JsonError(msg) => format!("在线识别响应解析失败: {}", msg),
+        }
+    }
+
+    /// 映射为前端可翻译的错误码。
+    pub fn user_error(&self) -> UserFacingError {
+        match self {
+            Self::EmptyAudio => UserFacingError::bare("transcriber.empty_audio"),
+            Self::ModelLoadFailed { reason } => {
+                UserFacingError::with("transcriber.model_load_failed", "reason", reason.clone())
+            }
+            Self::WavDecodeFailed(msg) => {
+                UserFacingError::with("transcriber.wav_decode_failed", "reason", *msg)
+            }
+            Self::InvalidBaseUrl(url) => {
+                UserFacingError::with("transcriber.invalid_base_url", "url", url.clone())
+            }
+            Self::ApiError { status, body } => UserFacingError {
+                code: "transcriber.api_error".into(),
+                params: Some(BTreeMap::from([
+                    ("status".to_string(), status.to_string()),
+                    ("body".to_string(), body.clone()),
+                ])),
+            },
+            Self::HttpError(msg) => {
+                UserFacingError::with("transcriber.http_error", "detail", msg.clone())
+            }
+            Self::JsonError(msg) => {
+                UserFacingError::with("transcriber.json_error", "detail", msg.clone())
+            }
         }
     }
 }
@@ -223,6 +339,35 @@ impl PolisherError {
             Self::RetriesExhausted => "所有重试尝试均失败。".to_string(),
         }
     }
+
+    /// 映射为前端可翻译的错误码。
+    pub fn user_error(&self) -> UserFacingError {
+        match self {
+            Self::UnknownProtocol { protocol } => {
+                UserFacingError::with("polisher.unknown_protocol", "protocol", protocol.clone())
+            }
+            Self::InvalidBaseUrl(url) => {
+                UserFacingError::with("polisher.invalid_base_url", "url", url.clone())
+            }
+            Self::MissingApiKey => UserFacingError::bare("polisher.missing_api_key"),
+            Self::RateLimited => UserFacingError::bare("polisher.rate_limited"),
+            Self::ApiError { status, body } => UserFacingError {
+                code: "polisher.api_error".into(),
+                params: Some(BTreeMap::from([
+                    ("status".to_string(), status.to_string()),
+                    ("body".to_string(), body.clone()),
+                ])),
+            },
+            Self::EmptyResponse => UserFacingError::bare("polisher.empty_response"),
+            Self::HttpError(msg) => {
+                UserFacingError::with("polisher.http_error", "detail", msg.clone())
+            }
+            Self::JsonError(msg) => {
+                UserFacingError::with("polisher.json_error", "detail", msg.clone())
+            }
+            Self::RetriesExhausted => UserFacingError::bare("polisher.retries_exhausted"),
+        }
+    }
 }
 
 /// 录音器专属错误。
@@ -248,6 +393,22 @@ impl RecorderError {
             Self::StopFailed(msg) => format!("停止录音失败: {}", msg),
             Self::CaptureFailed(msg) => format!("音频捕获错误: {}", msg),
             Self::EmptyRecording => "录音为空，请重试。".to_string(),
+        }
+    }
+
+    /// 映射为前端可翻译的错误码。
+    pub fn user_error(&self) -> UserFacingError {
+        match self {
+            Self::StartFailed(msg) => {
+                UserFacingError::with("recorder.start_failed", "detail", msg.clone())
+            }
+            Self::StopFailed(msg) => {
+                UserFacingError::with("recorder.stop_failed", "detail", msg.clone())
+            }
+            Self::CaptureFailed(msg) => {
+                UserFacingError::with("recorder.capture_failed", "detail", msg.clone())
+            }
+            Self::EmptyRecording => UserFacingError::bare("recorder.empty_recording"),
         }
     }
 }
@@ -374,5 +535,109 @@ mod tests {
     fn test_polisher_error_messages() {
         let err = PolisherError::RateLimited;
         assert!(err.message().contains("频率受限"));
+    }
+
+    #[test]
+    fn test_user_error_fatal_codes() {
+        let ue = FatalError::ModelNotFound {
+            model: "sense-voice".to_string(),
+            searched: vec![PathBuf::from("/models/a"), PathBuf::from("/models/b")],
+        }
+        .user_error();
+        assert_eq!(ue.code, "fatal.model_not_found");
+        let params = ue.params.unwrap();
+        assert_eq!(params.get("model").unwrap(), "sense-voice");
+        assert_eq!(params.get("searched").unwrap(), "/models/a\n/models/b");
+
+        let ue = FatalError::ApiAuthFailed {
+            service: "MiMo",
+            status: 401,
+        }
+        .user_error();
+        assert_eq!(ue.code, "fatal.api_auth_failed");
+        let params = ue.params.unwrap();
+        assert_eq!(params.get("service").unwrap(), "MiMo");
+        assert_eq!(params.get("status").unwrap(), "401");
+
+        let ue = FatalError::KeyListenerFailed {
+            backend: "xinput".to_string(),
+            reason: "boom".to_string(),
+        }
+        .user_error();
+        assert_eq!(ue.code, "fatal.key_listener_failed");
+        let params = ue.params.unwrap();
+        assert_eq!(params.get("backend").unwrap(), "xinput");
+        assert_eq!(params.get("reason").unwrap(), "boom");
+
+        // 包装变体透传内层错误码。
+        let ue = FatalError::TranscriberInitFailed(TranscriberError::EmptyAudio).user_error();
+        assert_eq!(ue.code, "transcriber.empty_audio");
+    }
+
+    #[test]
+    fn test_user_error_recoverable_codes() {
+        let ue = RecoverableError::PolishingFailed(PolisherError::RateLimited).user_error();
+        assert_eq!(ue.code, "polisher.rate_limited");
+        assert!(ue.params.is_none());
+
+        assert_eq!(
+            RecoverableError::EmptyTranscription.user_error(),
+            UserFacingError::bare("transcription.empty")
+        );
+    }
+
+    #[test]
+    fn test_user_error_domain_codes() {
+        let ue = TranscriberError::ApiError {
+            status: 429,
+            body: "busy".to_string(),
+        }
+        .user_error();
+        assert_eq!(ue.code, "transcriber.api_error");
+        let params = ue.params.unwrap();
+        assert_eq!(params.get("status").unwrap(), "429");
+        assert_eq!(params.get("body").unwrap(), "busy");
+
+        let ue = TranscriberError::WavDecodeFailed("bad header").user_error();
+        assert_eq!(ue.code, "transcriber.wav_decode_failed");
+        assert_eq!(ue.params.unwrap().get("reason").unwrap(), "bad header");
+
+        assert_eq!(
+            PolisherError::RetriesExhausted.user_error(),
+            UserFacingError::bare("polisher.retries_exhausted")
+        );
+
+        let ue = RecorderError::StartFailed("no device".to_string()).user_error();
+        assert_eq!(ue.code, "recorder.start_failed");
+        assert_eq!(ue.params.unwrap().get("detail").unwrap(), "no device");
+
+        assert_eq!(
+            RecorderError::EmptyRecording.user_error(),
+            UserFacingError::bare("recorder.empty_recording")
+        );
+    }
+
+    #[test]
+    fn test_user_error_pipeline_dispatch_and_serialization() {
+        let ue = PipelineError::Fatal(FatalError::ApiAuthFailed {
+            service: "LLM",
+            status: 403,
+        })
+        .user_error();
+        assert_eq!(ue.code, "fatal.api_auth_failed");
+
+        let ue = PipelineError::Recoverable(RecoverableError::EmptyTranscription).user_error();
+        assert_eq!(ue.code, "transcription.empty");
+
+        // 无参错误码序列化时不携带 params 字段；有参时为 camelCase 的 params 对象。
+        assert_eq!(
+            serde_json::to_string(&PolisherError::RateLimited.user_error()).unwrap(),
+            r#"{"code":"polisher.rate_limited"}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&TranscriberError::JsonError("bad".to_string()).user_error())
+                .unwrap(),
+            r#"{"code":"transcriber.json_error","params":{"detail":"bad"}}"#
+        );
     }
 }
