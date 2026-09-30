@@ -14,6 +14,6 @@ v2.6.22 的 Release 挂了 32 个发布产物，其中约三分之一是重复�
 ## 后果
 
 - latest.json 的 Linux 条目 URL 改指 `.AppImage`；已发布版本的 latest.json 不回改，旧客户端按各自版本的 URL 更新不受影响。
-- 发布产物从 32 个降到 20 个（含 GitHub 自动生成的两个源码包），每版体积减少约 230 MB。
+- 发布产物从 32 个降到 18 个（含 GitHub 自动生成的两个源码包），每版体积减少约 230 MB。
 - 已用 MSI 安装的用户不受影响：其更新器本就下载 NSIS 更新包就地升级，不依赖 MSI 继续发布。
-- 勘误（随 v2.7.0 发布修正）：初版决策误以为 `createUpdaterArtifacts: true` 下 Windows 仍生成 `.nsis.zip`——实际该形态仅 `v1Compatible` 模式生成，v2 原生的 updater 产物是签名安装包本体。`merge-updater-json.sh` 的匹配规则与工作流的上传、发布清单已随 v2.7.0 修正，`*-setup.exe.sig` 恢复上传。
+- 勘误（随 v2.7.0 发布修正）：初版决策误以为 `createUpdaterArtifacts: true` 下 Windows 仍生成 `.nsis.zip`——实际该形态仅 `v1Compatible` 模式生成，v2 原生的 updater 产物是签名安装包本体。`merge-updater-json.sh` 的匹配规则与工作流的上传、发布清单已随 v2.7.0 修正，`*-setup.exe.sig` 恢复上传。产物计数按实际发布核对为 18 个：`.nsis.zip` 及其签名各二被两份 `*-setup.exe.sig` 取代，初版按 zip 形态预估的 20 个不作数。
