@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo 样式审查 · 设计 token</title>
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
+    <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" />
     <link rel="stylesheet" href="../src/styles/global.css" />
     <link rel="stylesheet" href="../src/styles/layout.css" />
     <link rel="stylesheet" href="../src/styles/components/ui-primitives.css" />
@@ -173,12 +177,12 @@ const TOKEN_GROUPS = [
       ];
 
       const REM_TOKENS = [
-        { group: "字号 --text-*", tokens: ["--text-xs", "--text-sm", "--text-base", "--text-lg", "--text-xl", "--text-2xl"] },
+        { group: "字号 --text-*", tokens: ["--text-2xs", "--text-xs", "--text-sm", "--text-base", "--text-md", "--text-lg", "--text-xl"] },
         {
           group: "间距 --space-*",
-          tokens: ["--space-1", "--space-2", "--space-3", "--space-4", "--space-5", "--space-6", "--space-8", "--space-10"],
+          tokens: ["--space-1", "--space-2", "--space-3", "--space-4", "--space-5", "--space-6", "--space-8"],
         },
-        { group: "圆角 --radius-*", tokens: ["--radius-sm", "--radius-md", "--radius-lg", "--radius-xl", "--radius-2xl", "--radius-full"] },
+        { group: "圆角 --radius-*", tokens: ["--radius-xs", "--radius-sm", "--radius-md", "--radius-lg", "--radius-2xl", "--radius-full"] },
       ];
 
       
@@ -239,7 +243,7 @@ function renderTokenGroups() {
       }
 
       function renderShadows() {
-        const list = ["--shadow-sm", "--shadow-md", "--shadow-lg", "--shadow-glow-accent", "--shadow-glow-green", "--shadow-glow-red", "--shadow-glow-amber"];
+        const list = ["--shadow-sm", "--shadow-md", "--shadow-lg", "--shadow-focus", "--shadow-glow-accent", "--shadow-glow-green", "--shadow-glow-red", "--shadow-glow-amber"];
         document.getElementById("shadow-scale").innerHTML = list
           .map(
             (t) => `<div class="sr-shadow-demo" style="box-shadow: var(${t}); min-width: 150px">${t}</div>`,
@@ -296,8 +300,36 @@ function renderTokenGroups() {
           preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">tracking tight</span>`,
         },
         {
-          name: "--tracking-wide",
-          preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">TRACKING WIDE</span>`,
+          name: "--tracking-caps",
+          preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">TRACKING CAPS</span>`,
+        },
+        {
+          name: "--font-regular",
+          preview: (t) => `<span style="font-weight: var(${t}); font-size: var(--text-sm)">常规 400</span>`,
+        },
+        {
+          name: "--font-medium",
+          preview: (t) => `<span style="font-weight: var(${t}); font-size: var(--text-sm)">中等 500</span>`,
+        },
+        {
+          name: "--font-semibold",
+          preview: (t) => `<span style="font-weight: var(${t}); font-size: var(--text-sm)">半粗 600</span>`,
+        },
+        {
+          name: "--control-height",
+          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: var(${t}); border-radius: var(--radius-sm)"></span>`,
+        },
+        {
+          name: "--control-height-sm",
+          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: var(${t}); border-radius: var(--radius-sm)"></span>`,
+        },
+        {
+          name: "--control-height-lg",
+          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: var(${t}); border-radius: var(--radius-sm)"></span>`,
+        },
+        {
+          name: "--focus-ring-width",
+          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: 22px; border-radius: var(--radius-sm); outline: var(--focus-ring-width) solid var(--color-accent); outline-offset: var(--focus-ring-offset)"></span>`,
         },
         {
           name: "--overlay-shadow",

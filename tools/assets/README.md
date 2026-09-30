@@ -10,7 +10,7 @@
 | `altgo-icon.svg` | **应用图标母版**（带靛蓝底方块）。位图全部由它光栅化而来 |
 | `altgo-mark.svg` | **桌面快捷方式标记母版**（透明底裸标记，不画底色） |
 | `altgo-mark-mono.svg` | 上面的单色变体（`currentColor`），供界面内按上下文着色 |
-| `banner.svg` | README 横幅母版（1536×512） |
+| `banner.svg` | README 横幅母版（1536×400） |
 | `og-image.svg` | 社交分享图母版（1536×1024） |
 | `overlay-phase-recording.svg` | README 功能清单用图：悬浮窗录音相位（红点与电平轨迹） |
 | `overlay-phase-transcribing.svg` | 同上：转写中相位（旋转环与进度线） |

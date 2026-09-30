@@ -1,5 +1,5 @@
 // 用 GPT 图像模型批量生成品牌视觉资产（Node 18+ 内置 fetch，无第三方依赖）。
-// 用法：node tools/assets/gen.mjs [--prompts tools/assets/prompts.json] [--out tools/assets/out]
+// 用法：node tools/assets/gen.mjs [--prompts tools/assets/prompts.brand.json] [--out tools/assets/out]
 //       [--concurrency 8] [--only id1,id2] [--filter 前缀]
 // 密钥来源：环境变量 ALTGO_IMAGE_API_KEY，或 tools/assets/.env 里的同名一行（该文件不进版本库）。
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
@@ -35,17 +35,20 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const promptPath = path.resolve(here, '..', '..', arg('prompts', 'tools/assets/prompts.json'));
+const promptPath = path.resolve(here, '..', '..', arg('prompts', 'tools/assets/prompts.brand.json'));
 const outRoot = path.resolve(here, '..', '..', arg('out', 'tools/assets/out'));
 const concurrency = Math.max(1, Number(arg('concurrency', '6')));
 const only = arg('only', '');
+const filter = arg('filter', '');
 
 const spec = JSON.parse(await readFile(promptPath, 'utf8'));
 const model = spec.model;
 const modelDir = path.join(outRoot, model.replace(/[^A-Za-z0-9._-]/g, '_'));
 await mkdir(modelDir, { recursive: true });
 
-const wanted = spec.items.filter((it) => !only || only.split(',').includes(it.id));
+const wanted = spec.items.filter(
+  (it) => (!only || only.split(',').includes(it.id)) && (!filter || it.id.startsWith(filter)),
+);
 console.log(`模型 ${model}，待生成 ${wanted.length} 张，并发 ${concurrency} → ${modelDir}`);
 
 const manifestPath = path.join(modelDir, 'index.json');
@@ -83,7 +86,9 @@ async function generate(item) {
           return { ok: true, file, seconds: (Date.now() - started) / 1000 };
         }
         if (first?.url) {
+          // 签名 URL 会过期：非 2xx 时把错误页字节写成 png 会以假图混进清单，按失败重试。
           const img = await fetch(first.url, { signal: AbortSignal.timeout(300_000) });
+          if (!img.ok) throw new Error(`图片 URL 下载失败：HTTP ${img.status}`);
           await writeFile(file, Buffer.from(await img.arrayBuffer()));
           return { ok: true, file, seconds: (Date.now() - started) / 1000 };
         }

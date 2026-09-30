@@ -87,7 +87,7 @@
         position: relative;
         width: 440px;
         max-width: 100%;
-        height: 480px;
+        height: 680px;
         overflow: hidden;
         border: 1px solid var(--color-border);
         border-radius: var(--radius-2xl);
@@ -190,7 +190,7 @@
 
     <div class="pv-body">
       <div class="pv-group">
-        <h2>主窗 440×480</h2>
+        <h2>主窗 440×680</h2>
         <div class="pv-row">
           <!-- 空态 -->
           <figure class="pv-item">
@@ -431,6 +431,14 @@
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
                           高级：模型路径
                         </button>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">自动输入到光标位置</span>
+                          <div class="settings-field-control">
+                            <label style="display: flex; align-items: center; cursor: pointer; gap: 6px">
+                              <input type="checkbox" />
+                            </label>
+                          </div>
+                        </div>
                       </section>
 
                       <!-- 录音段 -->
@@ -457,15 +465,6 @@
                             </div>
                           </div>
                         </div>
-                        <div class="settings-field">
-                          <span class="settings-field-label-text">自动输入到光标位置</span>
-                          <div class="settings-field-control">
-                            <label style="display: flex; align-items: center; cursor: pointer; gap: 6px">
-                              <input type="checkbox" />
-                            </label>
-                          </div>
-                        </div>
-                        <p class="settings-hint">仅 Windows 生效，默认关闭（ADR-0005）。</p>
                       </section>
 
                       <!-- 润色段：真实实现是可折叠的 settings-section-toggle -->
