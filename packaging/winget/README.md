@@ -1,7 +1,7 @@
 # winget 清单（microsoft/winget-pkgs 提交流程）
 
 本目录存放提交到 [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) 的清单，
-基于 GitHub Release 已发布的 MSI / NSIS 安装包。
+基于 GitHub Release 已发布的 NSIS 安装包。
 
 ## 提交流程
 
@@ -24,6 +24,5 @@
 ## 注意
 
 - winget 要求首个提交的包先通过人工审核，之后的版本更新可走自动化。
-- MSI 的 `ProductCode` 每次构建都会变（Tauri 未固定），如改用 MSI 清单需逐版本更新。
 - 目前 Release 仅有 x64 安装包；待 Windows arm64 构建（#131）落地后，在
   installer 清单中追加 `Architecture: arm64` 条目即可。

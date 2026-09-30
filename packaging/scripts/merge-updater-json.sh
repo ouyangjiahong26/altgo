@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 由各平台 updater 签名产物（.AppImage.tar.gz / *-setup.nsis.zip 及其 .sig）
+# 由各平台 updater 签名产物（裸 .AppImage / *-setup.nsis.zip 及其 .sig）
 # 合成 updater 元数据 latest.json。
 # 背景：tauri build 只产出签名包，不生成 latest.json（那是 tauri-action 的职责），
 # 本脚本在 release 流程中承担这一职责。
@@ -41,11 +41,11 @@ function walk(dir) {
 }
 
 // updater 产物文件名后缀 → updater 平台键（{os}-{arch}，见 tauri-plugin-updater）。
-// Linux 用 .AppImage.tar.gz、Windows 用 .nsis.zip（createUpdaterArtifacts 为
-// v1Compatible 时的 updater 包；原始安装包不进 latest.json）。
+// Linux 用裸 .AppImage、Windows 用 .nsis.zip（createUpdaterArtifacts 为
+// true 时的更新产物；原始安装包不进 latest.json）。
 const RULES = [
-  [/_amd64\.AppImage\.tar\.gz$/, "linux-x86_64"],
-  [/_aarch64\.AppImage\.tar\.gz$/, "linux-aarch64"],
+  [/_amd64\.AppImage$/, "linux-x86_64"],
+  [/_aarch64\.AppImage$/, "linux-aarch64"],
   [/_x64-setup\.nsis\.zip$/, "windows-x86_64"],
   [/_arm64-setup\.nsis\.zip$/, "windows-aarch64"],
 ];
