@@ -195,7 +195,7 @@ jobs:
           name: altgo-windows-${{ matrix.arch }}-packages
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
-            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.nsis.zip*
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe.sig
           if-no-files-found: warn
 
   gen-aur:
@@ -305,8 +305,7 @@ jobs:
             release-assets/**/*.AppImage
             release-assets/**/*.AppImage.sig
             release-assets/**/*-setup.exe
-            release-assets/**/*-setup.nsis.zip
-            release-assets/**/*-setup.nsis.zip.sig
+            release-assets/**/*-setup.exe.sig
             release-assets/latest.json
             release-assets/PKGBUILD
             release-assets/.SRCINFO
