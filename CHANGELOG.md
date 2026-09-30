@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.7.0 (2026-09-30)
+
+### Added
+
+- **界面语言自动检测**：界面语言新增“自动检测”档并设为默认，启动时跟随系统语言——中文环境显示中文、其余显示英文，检测结果不写入配置；设置中显式选择的语言仍然优先（#187）。
+
+### Changed
+
+- **错误提示错误码化**：流水线错误不再以内部错误文本直达界面，改为传输稳定错误码、由前端字典翻译成本地化文案，浮窗与主页共用同一套翻译（#187）。
+- **更新产物切 v2 原生更新器**：发布与自动更新切换到 Tauri v2 原生 updater 产物（latest.json 与 .sig 签名），并移除 Windows MSI，Windows 唯一安装形态为 NSIS 安装器（#188）。
+
+### Fixes
+
+- **修复 AppImage 内悬空符号链接**：随 @tauri-apps/cli 升至 2.12.0（tauri-bundler 2.9.4），AppImage 内 `.DirIcon` 与 `altgo.desktop` 不再是指向构建机绝对路径的悬空符号链接（AppImage/appimage.github.io#7520）。
+
 ## v2.6.22 (2026-09-30)
 
 ### Changed
