@@ -1,4 +1,5 @@
 import { Download, X } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "../i18n";
 import ReleaseNotes, { parseReleaseNotes } from "./ReleaseNotes";
 import { RELEASES_URL, type UpdateInfo } from "../updateNotes";
@@ -91,7 +92,7 @@ export default function UpdateNotesView({
           <button
             type="button"
             className="update-notes-btn update-notes-btn--primary"
-            onClick={() => window.open(RELEASES_URL, "_blank")}
+            onClick={() => void openUrl(RELEASES_URL)}
           >
             {t("settings.update_open_release")}
           </button>

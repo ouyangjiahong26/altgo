@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **外部引导档“打开下载页面”按钮恢复可用**：WebView 对 `window.open` / `target="_blank"` 一律静默拦截（未注册新窗口处理器），deb/rpm/AUR 安装下检查到更新后点击“打开下载页面”毫无反应，设置页供应商的“获取 API Key”外链同样点不开。两处改为经 tauri-plugin-opener 调系统默认浏览器打开。
+
 ## v2.7.1 (2026-10-01)
 
 ### Added
