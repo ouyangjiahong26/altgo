@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, Plus, Search, X, Star, Heart } from "lucide-react";
 import type {
   ProviderPreset,
@@ -214,6 +215,10 @@ export function ProviderPresetSelector({
                           <a
                             href={preset.websiteUrl}
                             target="_blank"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              void openUrl(preset.websiteUrl!);
+                            }}
                             rel="noopener noreferrer"
                             className="provider-preset-link"
                             aria-label={preset.name}
@@ -232,6 +237,10 @@ export function ProviderPresetSelector({
                             <a
                               href={preset.apiKeyUrl}
                               target="_blank"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                void openUrl(preset.apiKeyUrl!);
+                              }}
                               rel="noopener noreferrer"
                               className="provider-preset-apikey-link"
                             >

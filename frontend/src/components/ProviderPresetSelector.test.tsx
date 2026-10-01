@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { ProviderPresetSelector } from "./ProviderPresetSelector";
 import type { ProviderPreset } from "../config/modelPresets";
 
+const openUrlMock = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: (url: string) => openUrlMock(url),
+}));
+
 const preset: ProviderPreset = {
   name: "Example Provider",
   websiteUrl: "https://example.com",
@@ -62,5 +67,16 @@ describe("ProviderPresetSelector", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(trigger);
+  });
+
+  it("外链点击经 opener 打开，不交给 webview 原生新窗口导航", () => {
+    render(<ProviderPresetSelector {...baseProps} />);
+
+    fireEvent.click(screen.getByText("settings.add_provider"));
+    fireEvent.click(screen.getByText("Example Provider"));
+    fireEvent.click(screen.getByText("settings.get_api_key"));
+
+    // target=_blank 在 WebView 里走 create 信号被静默吞掉，必须走 opener。
+    expect(openUrlMock).toHaveBeenCalledWith("https://example.com/key");
   });
 });
