@@ -142,27 +142,35 @@ impl PipelineContext {
                         }
                     }
                 }
-                Step::Retry => match pending_store.take_wav() {
-                    Some(wav) => {
-                        tracing::info!("retrying pending transcription");
-                        let ok = transcribe_and_dispatch(
-                            &wav,
-                            &*transcriber,
-                            &formatter,
-                            polish_level,
-                            &pending_store,
-                            sink.clone(),
-                        )
-                        .await;
-                        if ok {
-                            // 槽位已消费，告知前端横幅可以撤下。
-                            sink.on_pending_recording(None);
+                Step::Retry => {
+                    if machine.is_recording() {
+                        // 录音优先：此刻转写会把录音中的悬浮窗切成转写中再隐藏，
+                        // 音量事件流也会被掐断。请求丢弃，用户空闲后再点即可。
+                        tracing::warn!("retry requested during recording, ignored until idle");
+                    } else {
+                        match pending_store.take_wav() {
+                            Some(wav) => {
+                                tracing::info!("retrying pending transcription");
+                                let ok = transcribe_and_dispatch(
+                                    &wav,
+                                    &*transcriber,
+                                    &formatter,
+                                    polish_level,
+                                    &pending_store,
+                                    sink.clone(),
+                                )
+                                .await;
+                                if ok {
+                                    // 槽位已消费，告知前端横幅可以撤下。
+                                    sink.on_pending_recording(None);
+                                }
+                            }
+                            None => {
+                                tracing::warn!("retry requested but no pending recording");
+                            }
                         }
                     }
-                    None => {
-                        tracing::warn!("retry requested but no pending recording");
-                    }
-                },
+                }
             }
             deadline = machine.next_deadline().map(|d| d.into());
         }
@@ -622,6 +630,57 @@ mod tests {
             Some(&None),
             "前端应收到撤下横幅事件"
         );
+    }
+
+    #[tokio::test]
+    async fn retry_request_during_recording_is_ignored() {
+        let (listener, handle) = FakeListener::new("fake");
+        let recorder = Arc::new(FakeRecorder::new(make_test_wav()));
+        let transcriber = Arc::new(FakeTranscriber::new(Err(
+            crate::error::TranscriberError::HttpError("service unavailable".to_string()),
+        )));
+        let pending_store = PendingRecordingStore::default();
+        let (retry_tx, retry_rx) = tokio::sync::mpsc::unbounded_channel();
+        let ctx = make_test_context_with_retry(
+            Box::new(listener),
+            Box::new(Arc::clone(&recorder)),
+            Box::new(Arc::clone(&transcriber)),
+            PolishLevel::None,
+            pending_store.clone(),
+            retry_rx,
+        );
+        let sink = MockSink::new();
+        let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+
+        let run_handle = tokio::spawn(ctx.run(stop_rx, sink.clone()));
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+
+        // 第一次录音失败，录音进待重试槽位。
+        handle.send(KeyEvent { pressed: true });
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        handle.send(KeyEvent { pressed: false });
+        for _ in 0..100 {
+            if pending_store.peek_info().is_some() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        assert!(pending_store.peek_info().is_some(), "前置：录音已保留");
+
+        // 开始新一轮录音并在录音中发重试请求：必须被忽略。
+        handle.send(KeyEvent { pressed: true });
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        assert!(recorder.is_recording(), "前置：处于录音中");
+
+        retry_tx.send(()).unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+
+        assert_eq!(transcriber.call_count(), 1, "录音中的重试请求不得触发转写");
+        assert!(sink.results().is_empty());
+        assert!(pending_store.peek_info().is_some(), "录音本体仍留在槽位");
+
+        let _ = stop_tx.send(());
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(2), run_handle).await;
     }
 
     #[tokio::test]

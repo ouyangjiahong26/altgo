@@ -196,6 +196,15 @@ impl Machine {
     }
 }
 
+impl Machine {
+    /// 是否处于录音中状态（长按录音或双击连续录音）。
+    ///
+    /// 供主循环判断能否安全执行与录音互斥的后台工作（如重试转写）。
+    pub fn is_recording(&self) -> bool {
+        matches!(self.state, State::Recording | State::ContinuousRecording)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
