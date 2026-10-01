@@ -1,5 +1,5 @@
 {
-    "version": "2.6.5",
+    "version": "2.7.0",
     "description": "桌面语音转文字工具：按住触发键说话，松开后自动转写并写入剪贴板",
     "homepage": "https://github.com/ouyangjiahong26/altgo",
     "license": "MIT",
@@ -8,12 +8,12 @@
     },
     "architecture": {
         "64bit": {
-            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.6.5/altgo_2.6.5_x64-setup.exe#/dl.7z",
-            "hash": "2a54654bc4f2456c2d53450433bd5c53125f73e62a437b7084797b7965d75590"
+            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.7.0/altgo_2.7.0_x64-setup.exe#/dl.7z",
+            "hash": "d73c632ab78e97e39557003f40d44147dc8635ee59c60a23271ff66eae88488a"
         },
         "arm64": {
-            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.6.5/altgo_2.6.5_arm64-setup.exe#/dl.7z",
-            "hash": "5216eaa74cb8aea9c6f2f00cf281b4fc41a73414241f8ba6d7506ef017632a13"
+            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.7.0/altgo_2.7.0_arm64-setup.exe#/dl.7z",
+            "hash": "13f1b193cfc1f1b280a243563705c22c6768294296d73b8e64d879a9215cd95f"
         }
     },
     "pre_install": [
@@ -42,7 +42,7 @@
         },
         "hash": {
             "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v$version/checksums.txt",
-            "regex": "(?m)^([a-f0-9]{64})\\s+\\./nsis/$basename$"
+            "regex": "(?m)^([a-f0-9]{64})\\s+\\./$basename$"
         }
     }
 }
