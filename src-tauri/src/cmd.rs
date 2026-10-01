@@ -186,6 +186,53 @@ pub async fn hide_overlay(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// 查看待重试录音元信息（无音频本体）。主窗横幅的初始状态来源。
+#[tauri::command]
+pub async fn get_pending_recording(
+    store: State<'_, voice_pipeline::PendingRecordingStore>,
+) -> Result<Option<voice_pipeline::PendingRecordingInfo>, String> {
+    Ok(store.peek_info())
+}
+
+/// 请求重新识别待重试录音。转写在流水线主循环内串行执行（ADR-0003）。
+#[tauri::command]
+pub async fn retry_pending_transcription(
+    store: State<'_, voice_pipeline::PendingRecordingStore>,
+    retry: State<'_, voice_pipeline::RetryRequestHandle>,
+) -> Result<(), String> {
+    retry_pending_transcription_core(&store, &retry)
+}
+
+/// 可测试核心：槽位为空报错；流水线未运行报错；否则投递重试请求。
+pub(crate) fn retry_pending_transcription_core(
+    store: &voice_pipeline::PendingRecordingStore,
+    retry: &voice_pipeline::RetryRequestHandle,
+) -> Result<(), String> {
+    if store.peek_info().is_none() {
+        return Err("no pending recording".to_string());
+    }
+    if !retry.send() {
+        return Err("pipeline not running".to_string());
+    }
+    Ok(())
+}
+
+/// 放弃待重试录音：清空槽位并告知前端撤下横幅。
+#[tauri::command]
+pub async fn discard_pending_recording(
+    app: AppHandle,
+    store: State<'_, voice_pipeline::PendingRecordingStore>,
+) -> Result<(), String> {
+    if store.clear() {
+        app.emit(
+            voice_pipeline::pending::PENDING_RECORDING_EVENT,
+            serde_json::Value::Null,
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn list_models() -> Result<Vec<crate::model::ModelEntry>, String> {
     Ok(crate::model::list_all_with_status())
@@ -937,5 +984,38 @@ mod tests {
 
         assert_eq!(updated.text, "润色后的文本");
         mock.assert_async().await;
+    }
+
+    #[test]
+    fn retry_pending_transcription_core_validates_slot_and_pipeline() {
+        use crate::error::UserFacingError;
+        use crate::voice_pipeline::{PendingRecordingStore, RetryRequestHandle};
+
+        let store = PendingRecordingStore::default();
+        let retry = RetryRequestHandle::default();
+
+        // 槽位为空：直接报错，不触碰流水线。
+        assert_eq!(
+            retry_pending_transcription_core(&store, &retry),
+            Err("no pending recording".to_string())
+        );
+
+        store.retain(
+            vec![0u8; 100],
+            UserFacingError {
+                code: "transcriber.http_error".to_string(),
+                params: None,
+            },
+        );
+        // 流水线未运行：请求投递失败。
+        assert_eq!(
+            retry_pending_transcription_core(&store, &retry),
+            Err("pipeline not running".to_string())
+        );
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        retry.set(tx);
+        assert!(retry_pending_transcription_core(&store, &retry).is_ok());
+        assert_eq!(rx.try_recv(), Ok(()));
     }
 }

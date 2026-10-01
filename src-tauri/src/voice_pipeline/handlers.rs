@@ -1,19 +1,26 @@
 //! 命令处理器与结果处理。
 //!
 //! `handle_start_record` / `handle_stop_record` 是按状态机命令调用的纯业务逻辑。
+//! `transcribe_and_dispatch` 是停止录音与重试待重试录音共用的转写收尾；
 //! `process_transcription_result` 处理转写完成后的剪贴板写入和历史追加。
 
 use std::sync::Arc;
 
-use crate::error::UserFacingError;
+use crate::error::{TranscriberError, UserFacingError};
 use crate::history::HistoryStore;
 use crate::output::Output;
 use crate::polisher::{LLMFormatter, PolishLevel};
 use crate::recorder::Recorder;
 use crate::transcriber::Transcriber;
 
+use super::pending::PendingRecordingStore;
 use super::sink::{DispatchOutcome, PipelineSink, TranscriptionResult};
 use crate::pipeline_controller::PipelineStatus;
+
+/// 最短有效录音时长（毫秒）。低于此值视为误触：长按阈值刚过就松开的意外
+/// 按压只能录到一瞬音频，不该触发一次转写回合（在线后端还要为此付一次
+/// 网络往返，服务异常时浮窗会转圈到超时）。
+pub(crate) const MIN_RECORDING_DURATION_MS: u64 = 300;
 
 /// 处理 StartRecord 命令：开始录音并通知 sink。
 pub fn handle_start_record(
@@ -31,17 +38,16 @@ pub fn handle_start_record(
     Ok(())
 }
 
-/// 处理 StopRecord 命令：停止录音、处理音频并通知 sink。
+/// 处理 StopRecord 命令：停止录音，过短的误触录音就地丢弃，其余进入转写收尾。
 pub async fn handle_stop_record(
     recorder: &mut dyn Recorder,
     transcriber: &dyn Transcriber,
     formatter: &LLMFormatter,
     polish_level: PolishLevel,
+    pending: &PendingRecordingStore,
     sink: Arc<dyn PipelineSink>,
 ) {
     tracing::info!("recording stopped, processing...");
-    sink.on_status_change(PipelineStatus::Processing);
-
     let wav_data: Vec<u8> = match recorder.stop_recording() {
         Ok(data) => data,
         Err(e) => {
@@ -51,6 +57,45 @@ pub async fn handle_stop_record(
         }
     };
 
+    if audio_too_short(&wav_data) {
+        tracing::info!(
+            "recording below {}ms, discarding as accidental press",
+            MIN_RECORDING_DURATION_MS
+        );
+        sink.on_status_change(PipelineStatus::Idle);
+        return;
+    }
+
+    transcribe_and_dispatch(
+        &wav_data,
+        transcriber,
+        formatter,
+        polish_level,
+        pending,
+        sink,
+    )
+    .await;
+}
+
+/// 误触判定：时长解析失败（非 WAV）或低于最短有效时长。
+fn audio_too_short(wav_data: &[u8]) -> bool {
+    crate::audio::wav_duration_ms(wav_data).is_none_or(|ms| ms < MIN_RECORDING_DURATION_MS)
+}
+
+/// 转写 + 润色 + 结果分发的共享收尾，停止录音与重试待重试录音共用。
+///
+/// 返回 `true` 表示产出了转写结果；`false` 表示识别失败，此时录音本体已
+/// 保留进 `pending` 供用户重新识别（ADR-0003：调用方保证串行调用）。
+pub(crate) async fn transcribe_and_dispatch(
+    wav_data: &[u8],
+    transcriber: &dyn Transcriber,
+    formatter: &LLMFormatter,
+    polish_level: PolishLevel,
+    pending: &PendingRecordingStore,
+    sink: Arc<dyn PipelineSink>,
+) -> bool {
+    sink.on_status_change(PipelineStatus::Processing);
+
     sink.on_progress("transcribe", None);
 
     // 进度回调是同步的，直接转发给 sink。
@@ -59,30 +104,26 @@ pub async fn handle_stop_record(
         progress_sink.on_progress("transcribe", Some(fr));
     });
 
-    let transcribe_result = transcriber.transcribe(&wav_data, progress_cb).await;
+    let transcribe_result = transcriber.transcribe(wav_data, progress_cb).await;
     let result = match transcribe_result {
         Ok(r) => r,
         Err(e) => {
-            tracing::error!(error = %e, "transcription failed");
-            // 错误码化：把稳定错误码与参数交给前端字典翻译，Rust 不再发中文文案。
-            sink.on_error(&e.user_error());
-            sink.on_status_change(PipelineStatus::Idle);
-            return;
+            let user_error = e.user_error();
+            tracing::error!(error = %e, "transcription failed, retaining audio for retry");
+            retain_failed_recording(wav_data, user_error, pending, &sink);
+            return false;
         }
     };
 
     tracing::info!(text = %result.text, "transcribed");
 
     if result.text.is_empty() {
-        tracing::warn!("empty transcription, skipping");
-        sink.on_progress("done", Some(1.0));
-        sink.on_transcription_result(&TranscriptionResult {
-            text: String::new(),
-            raw_text: String::new(),
-            polish_failed: false,
-            polish_error: None,
-        });
-        return;
+        // 有效长度的录音识别出空文本多半是服务端异常——保留录音供重试，
+        // 而不是静默吞掉用户刚说完的话。
+        let user_error = TranscriberError::EmptyResult.user_error();
+        tracing::warn!("empty transcription result, retaining audio for retry");
+        retain_failed_recording(wav_data, user_error, pending, &sink);
+        return false;
     }
 
     sink.on_progress("polish", None);
@@ -111,6 +152,21 @@ pub async fn handle_stop_record(
         polish_error,
     };
     sink.on_transcription_result(&output);
+    true
+}
+
+/// 识别失败收尾：录音本体入待重试槽位，错误经 `on_error` 与
+/// `on_pending_recording` 告知前端，状态回 Idle。
+fn retain_failed_recording(
+    wav_data: &[u8],
+    user_error: UserFacingError,
+    pending: &PendingRecordingStore,
+    sink: &Arc<dyn PipelineSink>,
+) {
+    let info = pending.retain(wav_data.to_vec(), user_error.clone());
+    sink.on_error(&user_error);
+    sink.on_pending_recording(Some(&info));
+    sink.on_status_change(PipelineStatus::Idle);
 }
 
 /// 按偏好设置与润色状态选择要使用的文本。
@@ -401,9 +457,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_stop_record_with_fake_recorder_reports_empty_audio() {
+    async fn handle_stop_record_discards_degenerate_wav_without_transcribing() {
         use crate::polisher::LLMFormatter;
 
+        // 只有 44 字节 WAV 头、无音频数据。
         let mut recorder = super::super::test_doubles::FakeRecorder::new(vec![0u8; 44]);
         let transcriber = super::super::test_doubles::FakeTranscriber::with_success("", "zh");
         let formatter = LLMFormatter::new(
@@ -413,6 +470,7 @@ mod tests {
             std::time::Duration::from_secs(5),
         )
         .unwrap();
+        let pending = PendingRecordingStore::default();
         let sink = super::super::test_doubles::MockSink::new();
         let sink_arc: Arc<dyn PipelineSink> = Arc::new(sink.clone());
 
@@ -423,18 +481,50 @@ mod tests {
             &transcriber,
             &formatter,
             PolishLevel::None,
+            &pending,
             sink_arc,
         )
         .await;
 
         assert_eq!(recorder.stop_count(), 1);
-        assert_eq!(transcriber.call_count(), 1);
-        assert_eq!(sink.status_changes(), vec![PipelineStatus::Processing]);
-        assert_eq!(sink.results().len(), 1);
-        assert!(sink.results()[0].text.is_empty());
-        assert!(sink.results()[0].raw_text.is_empty());
-        assert!(!sink.results()[0].polish_failed);
+        assert_eq!(transcriber.call_count(), 0);
+        assert_eq!(sink.status_changes(), vec![PipelineStatus::Idle]);
+        assert!(sink.results().is_empty());
         assert!(sink.errors().is_empty());
+        assert!(pending.peek_info().is_none(), "误触录音不进待重试槽位");
+    }
+
+    #[tokio::test]
+    async fn handle_stop_record_discards_recording_below_min_duration() {
+        // 299ms < 300ms 守卫：丢弃；恰好 300ms：进入转写。
+        for (samples, expect_transcribed) in [(4784usize, false), (4800, true)] {
+            let pcm = vec![0u8; samples * 2];
+            let wav = audio::encode_wav(&pcm, 16000, 1, 16).unwrap();
+            let mut recorder = super::super::test_doubles::FakeRecorder::new(wav);
+            let transcriber =
+                super::super::test_doubles::FakeTranscriber::with_success("text", "zh");
+            let formatter = failing_formatter();
+            let pending = PendingRecordingStore::default();
+            let sink = super::super::test_doubles::MockSink::new();
+            let sink_arc: Arc<dyn PipelineSink> = Arc::new(sink.clone());
+
+            recorder.start_recording().unwrap();
+            handle_stop_record(
+                &mut recorder,
+                &transcriber,
+                &formatter,
+                PolishLevel::None,
+                &pending,
+                sink_arc,
+            )
+            .await;
+
+            assert_eq!(
+                transcriber.call_count(),
+                usize::from(expect_transcribed),
+                "samples={samples}"
+            );
+        }
     }
 
     // ---------------------------------------------------------------------------
@@ -442,12 +532,8 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     fn make_test_wav() -> Vec<u8> {
-        let samples: Vec<i16> = vec![0, 1000, -1000, 32767, -32768];
-        let mut pcm = Vec::new();
-        for s in &samples {
-            pcm.extend_from_slice(&s.to_le_bytes());
-        }
-        audio::encode_wav(&pcm, 16000, 1, 16).unwrap()
+        // 500ms（16kHz 单声道 16 位）：高于 300ms 误触守卫，代表一段真实录音。
+        audio::encode_wav(&vec![0u8; 16000], 16000, 1, 16).unwrap()
     }
 
     fn failing_formatter() -> LLMFormatter {
@@ -512,6 +598,7 @@ mod tests {
         let mut recorder = super::super::test_doubles::FakeRecorder::new(wav);
         let transcriber = RetainingProgressTranscriber::new();
         let formatter = failing_formatter();
+        let pending = PendingRecordingStore::default();
         let sink = super::super::test_doubles::MockSink::new();
         let sink_arc: Arc<dyn PipelineSink> = Arc::new(sink.clone());
 
@@ -524,6 +611,7 @@ mod tests {
                 &transcriber,
                 &formatter,
                 PolishLevel::None,
+                &pending,
                 sink_arc,
             ),
         )
@@ -531,15 +619,17 @@ mod tests {
         .expect("transcription result must not wait for a retained progress callback");
 
         assert!(transcriber.progress.lock().unwrap().is_some());
+        // 空文本结果按服务异常处理：保留录音、不发 done 进度、不产出结果。
         assert_eq!(
             sink.progress(),
             vec![
                 ("transcribe".to_string(), None),
                 ("transcribe".to_string(), Some(0.5)),
-                ("done".to_string(), Some(1.0))
             ]
         );
-        assert_eq!(sink.results().len(), 1);
+        assert!(sink.results().is_empty());
+        let info = pending.peek_info().expect("空结果保留录音");
+        assert_eq!(info.error.code, "transcription.empty");
     }
 
     #[tokio::test]
@@ -549,6 +639,7 @@ mod tests {
         let transcriber =
             super::super::test_doubles::FakeTranscriber::with_success("raw text", "zh");
         let formatter = failing_formatter();
+        let pending = PendingRecordingStore::default();
         let sink = super::super::test_doubles::MockSink::new();
         let sink_arc: Arc<dyn PipelineSink> = Arc::new(sink.clone());
 
@@ -559,6 +650,7 @@ mod tests {
             &transcriber,
             &formatter,
             PolishLevel::Medium,
+            &pending,
             sink_arc,
         )
         .await;
@@ -575,9 +667,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_stop_record_transcription_failure_emits_error_and_idle() {
+    async fn handle_stop_record_transcription_failure_retains_audio_for_retry() {
         let wav = make_test_wav();
-        let mut recorder = super::super::test_doubles::FakeRecorder::new(wav);
+        let mut recorder = super::super::test_doubles::FakeRecorder::new(wav.clone());
         let err = TranscriberError::ModelLoadFailed {
             reason: "server error".to_string(),
         };
@@ -586,6 +678,7 @@ mod tests {
         let expected_reason = "server error";
         let transcriber = super::super::test_doubles::FakeTranscriber::new(Err(err));
         let formatter = failing_formatter();
+        let pending = PendingRecordingStore::default();
         let sink = super::super::test_doubles::MockSink::new();
         let sink_arc: Arc<dyn PipelineSink> = Arc::new(sink.clone());
 
@@ -596,6 +689,7 @@ mod tests {
             &transcriber,
             &formatter,
             PolishLevel::Medium,
+            &pending,
             sink_arc,
         )
         .await;
@@ -613,14 +707,22 @@ mod tests {
             Some(&expected_reason.to_string())
         );
         assert!(sink.results().is_empty());
+
+        // 录音本体必须保留在待重试槽位，而不是随失败一起丢弃。
+        let info = pending.peek_info().expect("失败后录音本体应保留");
+        assert_eq!(info.duration_ms, 500);
+        assert_eq!(info.error.code, expected_code);
+        assert_eq!(pending.take_wav(), Some(wav));
+        assert_eq!(sink.pending_events(), vec![Some(info)]);
     }
 
     #[tokio::test]
-    async fn handle_stop_record_empty_text_emits_empty_result() {
+    async fn handle_stop_record_empty_text_retains_audio_for_retry() {
         let wav = make_test_wav();
         let mut recorder = super::super::test_doubles::FakeRecorder::new(wav);
         let transcriber = super::super::test_doubles::FakeTranscriber::with_success("", "zh");
         let formatter = failing_formatter();
+        let pending = PendingRecordingStore::default();
         let sink = super::super::test_doubles::MockSink::new();
         let sink_arc: Arc<dyn PipelineSink> = Arc::new(sink.clone());
 
@@ -631,19 +733,22 @@ mod tests {
             &transcriber,
             &formatter,
             PolishLevel::Medium,
+            &pending,
             sink_arc,
         )
         .await;
 
         assert_eq!(recorder.stop_count(), 1);
         assert_eq!(transcriber.call_count(), 1);
-        assert_eq!(sink.status_changes(), vec![PipelineStatus::Processing]);
-
-        let results = sink.results();
-        assert_eq!(results.len(), 1);
-        assert!(results[0].text.is_empty());
-        assert!(results[0].raw_text.is_empty());
-        assert!(!results[0].polish_failed);
+        assert_eq!(
+            sink.status_changes(),
+            vec![PipelineStatus::Processing, PipelineStatus::Idle]
+        );
+        // 有效录音识别出空文本按服务异常处理：保留录音，不产出空结果。
+        assert!(sink.results().is_empty());
+        let info = pending.peek_info().expect("空结果也应保留录音");
+        assert_eq!(info.error.code, "transcription.empty");
+        assert_eq!(sink.pending_events().len(), 1);
     }
 
     #[tokio::test]
@@ -656,6 +761,7 @@ mod tests {
         let transcriber =
             super::super::test_doubles::FakeTranscriber::with_success("raw text", "zh");
         let formatter = failing_formatter();
+        let pending = PendingRecordingStore::default();
         let sink = super::super::test_doubles::MockSink::new();
         let sink_arc: Arc<dyn PipelineSink> = Arc::new(sink.clone());
 
@@ -666,18 +772,17 @@ mod tests {
             &transcriber,
             &formatter,
             PolishLevel::Medium,
+            &pending,
             sink_arc,
         )
         .await;
 
         assert_eq!(recorder.stop_count(), 1);
         assert_eq!(transcriber.call_count(), 0);
-        assert_eq!(
-            sink.status_changes(),
-            vec![PipelineStatus::Processing, PipelineStatus::Idle]
-        );
+        assert_eq!(sink.status_changes(), vec![PipelineStatus::Idle]);
         assert!(sink.results().is_empty());
         assert!(sink.errors().is_empty());
+        assert!(pending.peek_info().is_none(), "无录音本体可保留");
     }
 
     // ---------------------------------------------------------------------------

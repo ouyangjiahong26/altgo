@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **待重试录音**：转写失败或识别结果为空时，录音本体保留在内存（单槽、不落盘、不进历史），主窗出现“上次转写失败，录音已保留”横幅，可一键重新识别或放弃；重试在流水线主循环内串行执行，维持单次转写互斥（ADR-0003 不变）。新增命令 `get_pending_recording`、`retry_pending_transcription`、`discard_pending_recording` 与事件 `pending-recording-changed`。
+
+### Fixes
+
+- **误触短按不再触发转写**：长按阈值（默认 200ms）刚过就松开的意外按压，此前会带着一瞬音频进入完整转写回合——在线 MiMo 后端服务异常时悬浮窗会转圈直到超时。现在低于 300ms 的录音在停止后直接丢弃，不转写、不报错。
+
 ## v2.7.0 (2026-09-30)
 
 ### Added

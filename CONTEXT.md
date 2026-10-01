@@ -13,6 +13,9 @@
 **提供商预设（Provider Preset）**
 预配置的 API 提供商模板，包含名称、base URL、API 格式、推荐模型与分类。当前仅用于润色设置。存放在 `frontend/src/config/modelPresets.ts`。
 
+**待重试录音（Pending Recording）**
+转写失败或识别结果为空时保留在内存中的录音本体（WAV 字节，单槽、只留最新一段、不落盘、不进历史）。保留的唯一目的是重新识别：主窗横幅提供“重新识别”与“放弃”，重试请求进入流水线主循环串行执行（ADR-0003）。实现为 `voice_pipeline/pending.rs` 的 `PendingRecordingStore`。_Avoid_: 失败缓存、录音备份。
+
 **模型目录（Model Catalog）**
 与某提供商预设关联的推荐模型列表。每条含模型 ID、显示名、描述、上下文窗口与输入模态（文本/音频/图像）。用户可从目录中挑选，无需手动输入模型名。
 

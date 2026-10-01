@@ -124,13 +124,14 @@ lib.rs
 
 ### 主循环
 
-`voice_pipeline/context.rs` 的主循环是 tokio::select! 三分支：
+`voice_pipeline/context.rs` 的主循环是 tokio::select! 四分支：
 
 1. **按键事件** → `machine.process(ev)`。
 2. **状态机超时** → `machine.poll_timeout()`（仅在 `deadline.is_some()` 时启用）。
-3. **停止信号** → `break`。
+3. **重试请求** → 取出待重试录音，走与停止录音相同的转写收尾。
+4. **停止信号** → `break`。
 
-命令由状态机同步返回，`match cmd` 后**就地**调用 `handle_start_record` 或 `handle_stop_record`。**没有独立的“命令通道”**——状态机不自己执行副作用，只是把意图交给调用方。
+命令由状态机同步返回，`match cmd` 后**就地**调用 `handle_start_record` 或 `handle_stop_record`。状态机没有自己的“命令通道”——它只把意图交给调用方；重试请求是唯一的外部注入命令，同样在循环内串行执行。
 
 ### 状态机
 
@@ -153,14 +154,17 @@ lib.rs
 | 步骤 | 输入 | 输出/行为 | 出错处理 |
 |------|------|-----------|----------|
 | 停止录音 | `&dyn Recorder` | WAV 字节 | 报错，回 `Idle` |
-| 转写 | WAV + 进度回调 | `TranscribeResult` | `on_error` + 回 `Idle` |
-| 空文本过滤 | 转写文本 | 直接 `done` | 仅跳过 |
+| 误触守卫 | WAV 时长（`audio::wav_duration_ms`） | 低于 300ms 直接丢弃，回 `Idle` | 不转写、不报错 |
+| 转写 | WAV + 进度回调 | `TranscribeResult` | `on_error` + 录音本体进待重试槽位，回 `Idle` |
+| 空文本过滤 | 转写文本 | 同上按识别失败处理，保留录音 | 同上 |
 | 润色 | `raw_text` + `LLMFormatter` | 润色后文本 | 降级为 `raw_text` |
 | 结果分发 | `TranscriptionResult` | 浮窗 + 剪贴板 + 历史 | 剪贴板/历史失败只 warn |
 
 关键点：
 
-- 转写失败、润色失败都是**可恢复降级**。
+- 润色失败是**可恢复降级**；转写失败与空结果不是静默降级——录音本体保留进
+  `PendingRecordingStore`（内存单槽、不落盘），主窗横幅提供“重新识别”，
+  重试请求经 `RetryRequestHandle` 进入主循环串行执行（ADR-0003 不变）。
 - 剪贴板失败、历史追加失败只 `tracing::warn!`，不中断结果返回（见 `process_transcription_result`）。
 
 ### 本地引擎：内嵌常驻
@@ -227,12 +231,15 @@ lib.rs
 - 浮窗 2：`copy_text`、`hide_overlay`
 - 模型 4：`list_models`、`download_model`、`delete_model`、`resolve_model`
 - 历史 4：`list_history`、`delete_history_entries`、`clear_history`、`polish_history_entry`
+- 待重试录音 3：`get_pending_recording`、`retry_pending_transcription`、`discard_pending_recording`
 
 ### 事件
 
-共 11 个 Tauri 事件：
+共 12 个 Tauri 事件：
 
-`pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`key-listener-backend`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`。
+`pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`key-listener-backend`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`、`pending-recording-changed`。
+
+`pending-recording-changed` 载荷为待重试录音元信息（`durationMs` + 错误码结构）或 null；保留与清空（重试成功、用户放弃）都会发出，主窗横幅据此显隐。
 
 `polish-failed` 携带润色失败原因字符串，在 `transcription-result` 之前发出；悬浮窗 done 阶段据此显示“润色失败，已使用原文”。`audio-level` 在录音期间以固定 100ms 间隔（10 次/秒）定时派发感知音量给悬浮窗，驱动录音阶段的实时波形。
 

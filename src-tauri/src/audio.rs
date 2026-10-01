@@ -186,6 +186,54 @@ pub fn decode_wav_to_f32(wav_data: &[u8]) -> Result<Vec<f32>, &'static str> {
     Ok(samples)
 }
 
+/// 计算 WAV 字节流的音频时长（毫秒）。
+///
+/// 解析 fmt 块的 byte_rate（每秒字节数）与 data 块长度求时长；data 声明
+/// 长度超出实际字节时按实际截断。非 WAV、缺 fmt/data 块或 byte_rate 为 0
+/// 时返回 `None`，调用方自行决定回退策略。
+pub fn wav_duration_ms(wav_data: &[u8]) -> Option<u64> {
+    if wav_data.len() < 44 {
+        return None;
+    }
+    if &wav_data[0..4] != b"RIFF" || &wav_data[8..12] != b"WAVE" {
+        return None;
+    }
+
+    let mut offset = 12usize;
+    let mut byte_rate = None;
+    let mut data_size = None;
+    while offset + 8 <= wav_data.len() {
+        let chunk_id = &wav_data[offset..offset + 4];
+        let Ok(size_bytes) = wav_data[offset + 4..offset + 8].try_into() else {
+            return None;
+        };
+        let chunk_size = u32::from_le_bytes(size_bytes) as u64;
+        if chunk_id == b"fmt " && offset + 20 <= wav_data.len() {
+            // fmt 块数据内偏移 8..12 是 byte_rate（sample_rate × 声道 × 位深 / 8）。
+            let Ok(rate_bytes) = wav_data[offset + 16..offset + 20].try_into() else {
+                return None;
+            };
+            byte_rate = Some(u32::from_le_bytes(rate_bytes) as u64);
+        } else if chunk_id == b"data" {
+            // data 紧跟在块头之后；可用字节不足声明时按实际数量计。
+            let available = (wav_data.len() - offset - 8) as u64;
+            data_size = Some(chunk_size.min(available));
+        }
+        offset += 8 + chunk_size as usize;
+        // RIFF 块按偶数字节对齐。
+        if !chunk_size.is_multiple_of(2) {
+            offset += 1;
+        }
+    }
+
+    let rate = byte_rate?;
+    let size = data_size?;
+    if rate == 0 {
+        return None;
+    }
+    Some(size * 1000 / rate)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -460,5 +508,28 @@ mod tests {
         let level = calculate_audio_level(&pcm);
         // 经感知增益后应落在可见的舒适区间 [0.2, 0.9]
         assert!(level > 0.2 && level <= 1.0, "level was {}", level);
+    }
+
+    #[test]
+    fn test_wav_duration_ms_standard_wav() {
+        // 16kHz 单声道 16 位：500ms = 8000 采样 = 16000 字节。
+        let pcm = vec![0u8; 16000];
+        let wav = encode_wav(&pcm, 16000, 1, 16).unwrap();
+        assert_eq!(wav_duration_ms(&wav), Some(500));
+    }
+
+    #[test]
+    fn test_wav_duration_ms_truncates_oversized_data_chunk() {
+        let mut wav = encode_wav(&vec![0u8; 3200], 16000, 1, 16).unwrap();
+        // 声明的 data 尺寸翻倍，但实际字节只有 100ms；按实际算。
+        let data_len = wav.len() - 44;
+        wav[40..44].copy_from_slice(&((data_len as u32) * 2).to_le_bytes());
+        assert_eq!(wav_duration_ms(&wav), Some(100));
+    }
+
+    #[test]
+    fn test_wav_duration_ms_rejects_garbage() {
+        assert_eq!(wav_duration_ms(&[]), None);
+        assert_eq!(wav_duration_ms(&[0u8; 44]), None);
     }
 }

@@ -93,7 +93,14 @@ impl PipelineBuilder {
     }
 
     /// 从配置构建完整的流水线上下文。
-    pub fn build_context(&self) -> Result<PipelineContext, PipelineError> {
+    ///
+    /// `pending_store` 与 `retry_rx` 由调用方注入：前者是跨流水线重启存活的
+    /// 待重试录音槽位（Tauri managed state），后者是重试请求通道的接收端。
+    pub fn build_context(
+        &self,
+        pending_store: super::pending::PendingRecordingStore,
+        retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+    ) -> Result<PipelineContext, PipelineError> {
         let recorder = self.build_recorder();
         let transcriber = self.build_transcriber()?;
         let formatter = self.build_polisher()?;
@@ -106,6 +113,8 @@ impl PipelineBuilder {
             formatter,
             polish_level,
             listener: Mutex::new(Some(listener)),
+            pending_store,
+            retry_rx,
             long_press_threshold: self.cfg.key_listener.long_press_threshold,
             double_click_interval: self.cfg.key_listener.double_click_interval,
             min_press_duration: self.cfg.key_listener.min_press_duration,
@@ -226,7 +235,15 @@ mod tests {
         };
         let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
         drop(stop_tx);
-        super::super::run(Arc::new(cfg), stop_rx, sink).await;
+        let (_retry_tx, retry_rx) = tokio::sync::mpsc::unbounded_channel();
+        super::super::run(
+            Arc::new(cfg),
+            stop_rx,
+            sink,
+            super::super::pending::PendingRecordingStore::default(),
+            retry_rx,
+        )
+        .await;
         assert!(!errors.lock().unwrap().is_empty());
     }
 }
