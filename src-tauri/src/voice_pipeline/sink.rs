@@ -3,6 +3,8 @@
 use crate::error::UserFacingError;
 use crate::pipeline_controller::PipelineStatus;
 
+use super::pending::PendingRecordingInfo;
+
 /// 转写结果。
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TranscriptionResult {
@@ -40,6 +42,10 @@ pub trait PipelineSink: Send + Sync + 'static {
 
     /// 实时感知音频电平更新（0.0 ~ 1.0）。
     fn on_audio_level(&self, _level: f32) {}
+
+    /// 待重试录音槽位变化：`Some` = 转写失败后保留了录音本体，`None` = 槽位
+    /// 已清空（重试成功或用户放弃）。默认空实现，供不需要该事件的实现省略。
+    fn on_pending_recording(&self, _pending: Option<&PendingRecordingInfo>) {}
 }
 
 /// 派发结果。

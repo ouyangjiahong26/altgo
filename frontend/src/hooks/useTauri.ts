@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/event";
 
 /**
@@ -103,6 +104,46 @@ export function useTranscriptionProgress(): {
     };
   }, []);
   return progress;
+}
+
+/** 待重试录音元信息：时长与上次失败原因（音频本体留在 Rust 侧内存）。 */
+export interface PendingRecordingInfo {
+  durationMs: number;
+  error: PipelineErrorPayload;
+}
+
+/**
+ * 订阅待重试录音槽位：挂载时查一次初始状态，之后跟随
+ * `pending-recording-changed` 事件（保留为对象，清空为 null）。
+ */
+export function usePendingRecording(): PendingRecordingInfo | null {
+  const [pending, setPending] = useState<PendingRecordingInfo | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    invoke<PendingRecordingInfo | null>("get_pending_recording")
+      .then((value) => {
+        if (active) setPending(value);
+      })
+      .catch(() => {
+        // 查询失败按无待重试处理，不打扰用户。
+      });
+
+    const unlisten = listen<PendingRecordingInfo | null>(
+      "pending-recording-changed",
+      (event) => {
+        if (active) setPending(event.payload);
+      },
+    );
+
+    return () => {
+      active = false;
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  return pending;
 }
 
 export function useModelDownloadProgress(): {

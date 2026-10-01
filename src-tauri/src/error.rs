@@ -214,6 +214,9 @@ pub enum TranscriberError {
     #[error("Empty audio data")]
     EmptyAudio,
 
+    #[error("transcription returned empty text for non-trivial audio")]
+    EmptyResult,
+
     #[error("failed to load local model: {reason}")]
     ModelLoadFailed { reason: String },
 
@@ -236,7 +239,7 @@ pub enum TranscriberError {
 impl TranscriberError {
     pub fn message(&self) -> String {
         match self {
-            Self::EmptyAudio => "音频数据为空，请重新录音。".to_string(),
+            Self::EmptyAudio | Self::EmptyResult => "音频数据为空，请重新录音。".to_string(),
             Self::ModelLoadFailed { reason } => format!("本地模型加载失败: {}", reason),
             Self::WavDecodeFailed(msg) => format!("音频解码失败: {}", msg),
             Self::InvalidBaseUrl(url) => {
@@ -257,6 +260,8 @@ impl TranscriberError {
     pub fn user_error(&self) -> UserFacingError {
         match self {
             Self::EmptyAudio => UserFacingError::bare("transcriber.empty_audio"),
+            // 复用既有前端词条 error.transcription.empty：录音有效但识别结果为空。
+            Self::EmptyResult => UserFacingError::bare("transcription.empty"),
             Self::ModelLoadFailed { reason } => {
                 UserFacingError::with("transcriber.model_load_failed", "reason", reason.clone())
             }

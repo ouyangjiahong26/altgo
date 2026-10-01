@@ -189,6 +189,14 @@ impl FakeTranscriber {
     pub(super) fn call_count(&self) -> usize {
         self.call_count.load(std::sync::atomic::Ordering::SeqCst)
     }
+
+    /// 重写下一次转写的结果，供“失败后重试成功”的流程测试使用。
+    pub(super) fn set_outcome(
+        &self,
+        outcome: Result<crate::transcriber::TranscribeResult, crate::error::TranscriberError>,
+    ) {
+        *self.outcome.lock().unwrap() = Some(outcome);
+    }
 }
 
 impl Transcriber for FakeTranscriber {
@@ -255,6 +263,7 @@ pub(super) struct MockSink {
     errors: Arc<Mutex<Vec<UserFacingError>>>,
     results: Arc<Mutex<Vec<TranscriptionResult>>>,
     progress: ProgressEvents,
+    pending: Arc<Mutex<Vec<Option<super::pending::PendingRecordingInfo>>>>,
 }
 
 impl MockSink {
@@ -264,6 +273,7 @@ impl MockSink {
             errors: Arc::new(Mutex::new(Vec::new())),
             results: Arc::new(Mutex::new(Vec::new())),
             progress: Arc::new(Mutex::new(Vec::new())),
+            pending: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -281,6 +291,10 @@ impl MockSink {
 
     pub(super) fn progress(&self) -> Vec<ProgressEvent> {
         self.progress.lock().unwrap().clone()
+    }
+
+    pub(super) fn pending_events(&self) -> Vec<Option<super::pending::PendingRecordingInfo>> {
+        self.pending.lock().unwrap().clone()
     }
 }
 
@@ -301,6 +315,9 @@ impl PipelineSink for MockSink {
             .push((phase.to_string(), fraction));
     }
     fn on_key_listener_backend(&self, _: &str) {}
+    fn on_pending_recording(&self, pending: Option<&super::pending::PendingRecordingInfo>) {
+        self.pending.lock().unwrap().push(pending.cloned());
+    }
 }
 
 // ---------------------------------------------------------------------------

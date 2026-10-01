@@ -266,3 +266,44 @@
   line-height: var(--leading-relaxed);
   word-break: break-word;
 }
+
+/* ── 待重试录音横幅 ─────────────────────────────
+   与错误横幅不同：这条是可操作的恢复入口（重新识别/放弃），
+   常驻在内容流顶部，直到录音被重试成功或用户放弃。 */
+
+.home-pending {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-amber-bg);
+  border: 1px solid color-mix(in srgb, var(--color-amber) 45%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.home-pending-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-pending-title {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+}
+
+.home-pending-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  word-break: break-word;
+}
+
+.home-pending-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}

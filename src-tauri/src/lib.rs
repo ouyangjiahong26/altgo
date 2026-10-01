@@ -48,6 +48,14 @@ pub(crate) fn spawn_pipeline_thread(
     pipeline_status: Arc<std::sync::RwLock<crate::pipeline_controller::PipelineStatus>>,
 ) -> PipelineHandle {
     let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
+    // 重试请求通道：sender 交给 managed state，receiver 进流水线主循环。
+    let (retry_tx, retry_rx) = tokio::sync::mpsc::unbounded_channel::<()>();
+    app.state::<voice_pipeline::RetryRequestHandle>()
+        .set(retry_tx);
+    let pending_store = app
+        .state::<voice_pipeline::PendingRecordingStore>()
+        .inner()
+        .clone();
     let app_handle = app.clone();
     let cfg_clone = cfg.clone();
 
@@ -85,7 +93,13 @@ pub(crate) fn spawn_pipeline_thread(
             dispatch,
             overlay,
         );
-        rt.block_on(voice_pipeline::run(cfg, stop_rx, sink));
+        rt.block_on(voice_pipeline::run(
+            cfg,
+            stop_rx,
+            sink,
+            pending_store,
+            retry_rx,
+        ));
     });
     PipelineHandle {
         stop_tx,
@@ -128,6 +142,8 @@ pub fn run() {
         .manage(config_store::ConfigStore::load(config_path))
         .manage(history::HistoryStore::new(history_path))
         .manage(pipeline_controller::PipelineController::new())
+        .manage(voice_pipeline::PendingRecordingStore::default())
+        .manage(voice_pipeline::RetryRequestHandle::default())
         .manage(Arc::new(output::PlatformOutput::new()) as Arc<dyn output::Output>)
         // 单实例保护：第二个实例启动时唤起已有实例的窗口并自行退出。
         // 避免两个进程各装一个键盘钩子，导致同一次录音被转写、注入两次。
@@ -187,6 +203,9 @@ pub fn run() {
             cmd::delete_history_entries,
             cmd::clear_history,
             cmd::polish_history_entry,
+            cmd::get_pending_recording,
+            cmd::retry_pending_transcription,
+            cmd::discard_pending_recording,
             cmd::check_update,
             cmd::install_update,
         ])

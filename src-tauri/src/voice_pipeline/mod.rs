@@ -7,18 +7,21 @@
 //! - `builder` — PipelineBuilder 组件构造
 //! - `context` — PipelineContext 事件循环
 //! - `handlers` — 命令处理器、结果处理、历史润色编排
+//! - `pending` — 待重试录音槽位与重试请求通道
 //!
 //! 公共接口：
-//! - `run(cfg, stop_rx, sink)` — 入口（构建 context + 运行事件循环）
+//! - `run(cfg, stop_rx, sink, pending_store, retry_rx)` — 入口（构建 context + 运行事件循环）
 //! - `PipelineBuilder` — 单独构造各组件（可测试）
 //! - `PipelineContext` — 拥有组件，暴露 `run(stop_rx, sink)`
 //! - `TranscriptionDispatch` / `TranscriptionDispatcherImpl` — sink 注入的业务 seam
+//! - `PendingRecordingStore` / `RetryRequestHandle` — 待重试录音与重试请求
 //! - `dispatch_history_polish` — 历史条目润色编排
 
 mod builder;
 mod context;
 mod dispatcher;
 mod handlers;
+pub mod pending;
 mod sink;
 
 #[cfg(test)]
@@ -31,6 +34,7 @@ pub use handlers::{
     dispatch_history_polish, handle_start_record, handle_stop_record, process_transcription_result,
     select_text,
 };
+pub use pending::{PendingRecordingInfo, PendingRecordingStore, RetryRequestHandle};
 pub use sink::{DispatchOutcome, PipelineSink, TranscriptionResult};
 
 use std::sync::Arc;
@@ -43,10 +47,12 @@ pub async fn run(
     cfg: Arc<crate::config::Config>,
     stop_rx: tokio::sync::oneshot::Receiver<()>,
     sink: impl PipelineSink,
+    pending_store: PendingRecordingStore,
+    retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
 ) {
     let builder = PipelineBuilder::new(cfg.clone());
 
-    let ctx = match builder.build_context() {
+    let ctx = match builder.build_context(pending_store, retry_rx) {
         Ok(ctx) => ctx,
         Err(e) => {
             tracing::error!(error = %e, "failed to build pipeline context");

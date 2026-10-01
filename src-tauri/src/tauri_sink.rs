@@ -36,6 +36,7 @@ pub trait PipelineEventEmitter: Send + Sync + 'static {
     fn emit_audio_level(&self, level: f32);
     fn emit_key_listener_backend(&self, backend: &str);
     fn emit_history_updated(&self);
+    fn emit_pending_recording(&self, pending: Option<&crate::voice_pipeline::PendingRecordingInfo>);
 }
 
 /// 生产实现：把事件转发给 Tauri 前端。
@@ -83,6 +84,16 @@ impl PipelineEventEmitter for TauriEventEmitter {
 
     fn emit_history_updated(&self) {
         let _ = self.app.emit("history-updated", ());
+    }
+
+    fn emit_pending_recording(
+        &self,
+        pending: Option<&crate::voice_pipeline::PendingRecordingInfo>,
+    ) {
+        let _ = self.app.emit(
+            crate::voice_pipeline::pending::PENDING_RECORDING_EVENT,
+            pending,
+        );
     }
 }
 
@@ -280,6 +291,10 @@ impl PipelineSink for TauriPipelineSink {
     fn on_key_listener_backend(&self, backend: &str) {
         self.emitter.emit_key_listener_backend(backend);
     }
+
+    fn on_pending_recording(&self, pending: Option<&crate::voice_pipeline::PendingRecordingInfo>) {
+        self.emitter.emit_pending_recording(pending);
+    }
 }
 
 // 测试通过注入 `PipelineEventEmitter` fake 来验证事件内容与顺序，
@@ -350,6 +365,7 @@ mod tests {
         AudioLevel(f32),
         KeyListenerBackend(String),
         HistoryUpdated,
+        PendingRecording(Option<crate::voice_pipeline::PendingRecordingInfo>),
     }
 
     /// Mock `PipelineEventEmitter`：把每次调用按顺序记录下来。
@@ -427,6 +443,16 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push(EmittedEvent::HistoryUpdated);
+        }
+
+        fn emit_pending_recording(
+            &self,
+            pending: Option<&crate::voice_pipeline::PendingRecordingInfo>,
+        ) {
+            self.events
+                .lock()
+                .unwrap()
+                .push(EmittedEvent::PendingRecording(pending.cloned()));
         }
     }
 
@@ -826,6 +852,33 @@ mod tests {
                 EmittedEvent::KeyListenerBackend("xinput".into()),
                 EmittedEvent::KeyListenerBackend("evtest".into()),
                 EmittedEvent::KeyListenerBackend("".into()),
+            ]
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // on_pending_recording 测试
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn on_pending_recording_forwards_info_and_clear() {
+        let fx = make_fixture(true, None);
+        let info = crate::voice_pipeline::PendingRecordingInfo {
+            duration_ms: 4200,
+            error: UserFacingError {
+                code: "transcriber.http_error".into(),
+                params: None,
+            },
+        };
+
+        fx.sink.on_pending_recording(Some(&info));
+        fx.sink.on_pending_recording(None);
+
+        assert_eq!(
+            fx.emitter.recorded_events(),
+            vec![
+                EmittedEvent::PendingRecording(Some(info)),
+                EmittedEvent::PendingRecording(None),
             ]
         );
     }

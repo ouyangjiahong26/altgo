@@ -4,10 +4,11 @@ import {
   usePipelineError,
   useKeyListenerBackend,
   useTranscriptionProgress,
+  usePendingRecording,
 } from "../hooks/useTauri";
 import { tError, useTranslation } from "../i18n";
 import HistoryPanel from "../components/HistoryPanel";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { copyToClipboard } from "../utils/clipboard";
@@ -46,8 +47,25 @@ export default function Home() {
   const error = usePipelineError();
   const keyBackend = useKeyListenerBackend();
   const txProgress = useTranscriptionProgress();
+  const pending = usePendingRecording();
   const [copied, setCopied] = useState(false);
   const [triggerLabel, setTriggerLabel] = useState("");
+
+  const handleRetryPending = async () => {
+    try {
+      await invoke("retry_pending_transcription");
+    } catch {
+      // 重试请求失败（流水线未运行等）：横幅保留，用户可稍后再试。
+    }
+  };
+
+  const handleDiscardPending = async () => {
+    try {
+      await invoke("discard_pending_recording");
+    } catch {
+      // 放弃失败不影响主流程；事件未到时横幅暂留。
+    }
+  };
 
   const handleCopy = async () => {
     if (transcription) {
@@ -86,6 +104,39 @@ export default function Home() {
         <div className="home-error">
           <span className="error-icon">⚠</span>
           <p className="error-text">{tError(error.code, error.params)}</p>
+        </div>
+      )}
+      {pending && (
+        <div className="home-pending" role="status">
+          <div className="home-pending-text">
+            <span className="home-pending-title">{t("main.pending_title")}</span>
+            <span className="home-pending-meta">
+              {t("main.pending_duration_seconds").replace(
+                "{seconds}",
+                String(Math.max(1, Math.round(pending.durationMs / 1000))),
+              )}
+              {" · "}
+              {tError(pending.error.code, pending.error.params)}
+            </span>
+          </div>
+          <div className="home-pending-actions">
+            <button
+              type="button"
+              className="btn btn-sm home-pending-retry"
+              onClick={handleRetryPending}
+            >
+              <RotateCcw size={13} />
+              <span>{t("main.pending_retry")}</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={handleDiscardPending}
+            >
+              <Trash2 size={13} />
+              <span>{t("main.pending_discard")}</span>
+            </button>
+          </div>
         </div>
       )}
       {!transcription ? (
