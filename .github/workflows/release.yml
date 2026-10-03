@@ -208,7 +208,7 @@ jobs:
           persist-credentials: false
 
       - name: Download deb artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: altgo-*-packages
           path: package-artifact
@@ -265,7 +265,7 @@ jobs:
         run: bash packaging/scripts/extract-release-notes.sh release_notes.md
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
           merge-multiple: true
