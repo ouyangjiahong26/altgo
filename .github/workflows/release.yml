@@ -135,10 +135,10 @@ jobs:
         include:
           - arch: x64
             target: x86_64-pc-windows-msvc
-            sherpa-archive: sherpa-onnx-v1.13.6-win-x64-static-MT-Release-lib.tar.bz2
+            sherpa-archive: sherpa-onnx-v1.13.8-win-x64-static-MT-Release-lib.tar.bz2
           - arch: arm64
             target: aarch64-pc-windows-msvc
-            sherpa-archive: sherpa-onnx-v1.13.6-win-arm64-static-MT-Release-lib.tar.bz2
+            sherpa-archive: sherpa-onnx-v1.13.8-win-arm64-static-MT-Release-lib.tar.bz2
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -159,7 +159,7 @@ jobs:
         run: |
           mkdir -p src-tauri/target/sherpa-onnx-prebuilt
           ARCHIVE="${{ matrix.sherpa-archive }}"
-          URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.6/${ARCHIVE}"
+          URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/${ARCHIVE}"
           curl -fSL -o "src-tauri/target/sherpa-onnx-prebuilt/${ARCHIVE}" "${URL}"
           tar -xjf "src-tauri/target/sherpa-onnx-prebuilt/${ARCHIVE}" -C src-tauri/target/sherpa-onnx-prebuilt/
 
