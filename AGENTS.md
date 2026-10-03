@@ -111,7 +111,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 ## Runtime/Tooling Preferences
 
-- **Rust**：edition 2021，Tauri 2.10.x，sherpa-onnx 1.13.6 静态链接（`SHERPA_ONNX_LIB_DIR`/`SHERPA_ONNX_ARCHIVE_DIR` 可覆盖，否则自动下载预编译包缓存到 `src-tauri/target/sherpa-onnx-prebuilt/`）。无 `rustfmt.toml`/`clippy.toml`——默认规则 + `-D warnings`。
+- **Rust**：edition 2021，Tauri 2.10.x，sherpa-onnx 1.13.8 静态链接（Cargo.toml 精确 pin，与 CI/Release 预编译包同版本；`SHERPA_ONNX_LIB_DIR`/`SHERPA_ONNX_ARCHIVE_DIR` 可覆盖，否则自动下载预编译包缓存到 `src-tauri/target/sherpa-onnx-prebuilt/`）。无 `rustfmt.toml`/`clippy.toml`——默认规则 + `-D warnings`。
 - **Node**：一律 **npm**（`frontend/`、`docs-site/` 均 `package-lock.json` v3；不用 pnpm/yarn）；CI 用 Node 22；`tsconfig` strict + `noUnusedLocals`/`noUnusedParameters`。
 - **Linux 运行时外部工具**：`xinput`、`xmodmap`、`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`。Wayland 会话在 GUI 初始化前自动切 XWayland（`display_backend.rs`），否则浮窗定位不生效。
 - **环境变量**：`ALTGO_POLISHER_API_KEY` 覆盖 `[polisher] api_key`；`ALTGO_MODEL_BASE_URL` 覆盖模型下载镜像。

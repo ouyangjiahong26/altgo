@@ -23,6 +23,10 @@ updates:
       day: "monday"
     commit-message:
       prefix: "chore"
+    groups:
+      docusaurus:
+        patterns:
+          - "@docusaurus/*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
