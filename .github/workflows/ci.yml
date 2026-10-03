@@ -64,7 +64,7 @@ jobs:
           curl -fSL -o "src-tauri/target/sherpa-onnx-prebuilt/${ARCHIVE}" "${URL}"
           tar -xjf "src-tauri/target/sherpa-onnx-prebuilt/${ARCHIVE}" -C src-tauri/target/sherpa-onnx-prebuilt/
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm

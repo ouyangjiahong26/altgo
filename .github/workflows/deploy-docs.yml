@@ -30,7 +30,7 @@ jobs:
           # workflow_run 下锁定到触发 CI 的那个 commit；手动触发时该值为空，退回默认分支。
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
