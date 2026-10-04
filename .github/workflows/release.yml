@@ -116,7 +116,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: "1"
 
       - name: 上传 Linux 软件包产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: altgo-${{ matrix.arch }}-packages
           path: |
@@ -190,7 +190,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
       - name: 上传 Windows 安装包产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: altgo-windows-${{ matrix.arch }}-packages
           path: |
@@ -237,7 +237,7 @@ jobs:
           bash ../packaging/aur/generate-pkgbuild.sh "${{ steps.version.outputs.value }}" "$(pwd)/../${AMD64_DEB}" "$(pwd)/../${ARM64_DEB}"
 
       - name: Upload AUR artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: altgo-aur-pkgbuild
           path: |
