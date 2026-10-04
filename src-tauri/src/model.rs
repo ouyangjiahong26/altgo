@@ -9,6 +9,7 @@ use futures_util::StreamExt;
 use reqwest::Client;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use std::borrow::Cow;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -71,12 +72,13 @@ fn model_download_client() -> &'static Client {
 }
 
 /// 模型内单个文件。
+#[derive(Clone)]
 pub struct ModelFile {
     pub filename: &'static str,
     /// 近似大小（用于进度条；与 Content-Length 接近即可）。
     pub size_bytes: u64,
     /// 官方发布文件的 SHA-256，用于识别中断下载和损坏缓存。
-    pub sha256: &'static str,
+    pub sha256: Cow<'static, str>,
 }
 
 /// 已知模型信息。
@@ -84,7 +86,7 @@ pub struct ModelInfo {
     pub name: &'static str,
     /// HF 仓库路径（`<owner>/<repo>`），下载 URL 由 `model_download_bases` 拼接。
     pub repo_path: &'static str,
-    pub files: &'static [ModelFile],
+    pub files: Cow<'static, [ModelFile]>,
     pub description: &'static str,
 }
 
@@ -93,12 +95,12 @@ const SENSE_VOICE_FILES: &[ModelFile] = &[
     ModelFile {
         filename: MAIN_MODEL_FILENAME,
         size_bytes: 230 * 1024 * 1024,
-        sha256: MAIN_MODEL_SHA256,
+        sha256: Cow::Borrowed(MAIN_MODEL_SHA256),
     },
     ModelFile {
         filename: TOKENS_FILENAME,
         size_bytes: 8 * 1024,
-        sha256: TOKENS_SHA256,
+        sha256: Cow::Borrowed(TOKENS_SHA256),
     },
 ];
 
@@ -108,12 +110,12 @@ const SENSE_VOICE_YUE_FILES: &[ModelFile] = &[
     ModelFile {
         filename: MAIN_MODEL_FILENAME,
         size_bytes: 237_115_547,
-        sha256: SENSE_VOICE_YUE_SHA256,
+        sha256: Cow::Borrowed(SENSE_VOICE_YUE_SHA256),
     },
     ModelFile {
         filename: TOKENS_FILENAME,
         size_bytes: 315_894,
-        sha256: TOKENS_SHA256,
+        sha256: Cow::Borrowed(TOKENS_SHA256),
     },
 ];
 
@@ -121,13 +123,13 @@ const MODELS: &[ModelInfo] = &[
     ModelInfo {
         name: "sense-voice",
         repo_path: "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17",
-        files: SENSE_VOICE_FILES,
+        files: Cow::Borrowed(SENSE_VOICE_FILES),
         description: "SenseVoice（中英日韩粤自动检测，速度快）",
     },
     ModelInfo {
         name: "sense-voice-yue",
         repo_path: "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09",
-        files: SENSE_VOICE_YUE_FILES,
+        files: Cow::Borrowed(SENSE_VOICE_YUE_FILES),
         description: "SenseVoice 粤语增强（2025 新版，粤语更准）",
     },
 ];
@@ -149,6 +151,17 @@ pub fn model_dir(name: &str) -> PathBuf {
     models_dir().join(name)
 }
 
+// sha2 0.11 的 digest 输出不再实现 LowerHex，改用显式小写 hex 编码。
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for &b in bytes {
+        out.push(HEX[(b >> 4) as usize] as char);
+        out.push(HEX[(b & 0x0f) as usize] as char);
+    }
+    out
+}
+
 fn file_sha256(path: &Path) -> std::io::Result<String> {
     let mut file = std::fs::File::open(path)?;
     let mut hasher = Sha256::new();
@@ -162,7 +175,7 @@ fn file_sha256(path: &Path) -> std::io::Result<String> {
         hasher.update(&buffer[..read]);
     }
 
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(bytes_to_hex(&hasher.finalize()))
 }
 
 fn model_file_structurally_ready(file: &ModelFile, path: &Path) -> bool {
@@ -216,7 +229,7 @@ pub fn list_downloaded() -> Vec<String> {
                 continue;
             };
             if let Some(m) = MODELS.iter().find(|m| m.name == name) {
-                if model_files_ready(&path, m.files) {
+                if model_files_ready(&path, &m.files) {
                     downloaded.push(name);
                 }
             }
@@ -230,7 +243,7 @@ pub fn is_downloaded(name: &str) -> bool {
     MODELS
         .iter()
         .find(|m| m.name == name)
-        .is_some_and(|m| model_files_ready(&model_dir(name), m.files))
+        .is_some_and(|m| model_files_ready(&model_dir(name), &m.files))
 }
 
 /// 模型列表项（含下载状态），供 IPC 返回给前端。
@@ -295,7 +308,7 @@ pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
     // 是模型名吗？
     if let Some(m) = MODELS.iter().find(|m| m.name == config_model) {
         let dir = model_dir(config_model);
-        if model_files_ready(&dir, m.files) {
+        if model_files_ready(&dir, &m.files) {
             return Some(dir);
         }
         return None;
@@ -369,7 +382,7 @@ where
     std::fs::create_dir_all(&dir)?;
 
     let total_bytes = info.files.iter().map(|file| file.size_bytes).sum();
-    download_model_files(info.files, &bases, &dir, total_bytes, &mut on_progress).await?;
+    download_model_files(&info.files, &bases, &dir, total_bytes, &mut on_progress).await?;
     Ok(dir)
 }
 
@@ -545,10 +558,8 @@ mod tests {
     use super::*;
 
     fn test_model_info(model_payload: &[u8], tokens_payload: &[u8]) -> ModelInfo {
-        let model_sha256: &'static str =
-            Box::leak(format!("{:x}", Sha256::digest(model_payload)).into_boxed_str());
-        let tokens_sha256: &'static str =
-            Box::leak(format!("{:x}", Sha256::digest(tokens_payload)).into_boxed_str());
+        let model_sha256 = Cow::Owned(bytes_to_hex(&Sha256::digest(model_payload)));
+        let tokens_sha256 = Cow::Owned(bytes_to_hex(&Sha256::digest(tokens_payload)));
         let files = vec![
             ModelFile {
                 filename: MAIN_MODEL_FILENAME,
@@ -565,7 +576,7 @@ mod tests {
         ModelInfo {
             name: "sense-voice",
             repo_path: "test/repo",
-            files: Box::leak(files.into_boxed_slice()),
+            files: Cow::Owned(files),
             description: "test model",
         }
     }
@@ -648,8 +659,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test-model");
         std::fs::write(&path, b"valid model").unwrap();
-        let sha256: &'static str =
-            Box::leak(format!("{:x}", Sha256::digest(b"valid model")).into_boxed_str());
+        let sha256 = Cow::Owned(bytes_to_hex(&Sha256::digest(b"valid model")));
         let file = ModelFile {
             filename: "test-model",
             size_bytes: 11,
@@ -706,7 +716,7 @@ mod tests {
         // 两个模型的主模型校验和不同（tokens 词表相同）；若被"统一"成同一 SHA，
         // 其中一个模型的 is_downloaded 会永远判 false
         let sha_of =
-            |name: &str| models_info().iter().find(|m| m.name == name).unwrap().files[0].sha256;
+            |name: &str| &models_info().iter().find(|m| m.name == name).unwrap().files[0].sha256;
         assert_ne!(sha_of("sense-voice"), sha_of("sense-voice-yue"));
     }
 
