@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.7.3 (2026-10-04)
+
+### Changed
+
+- **前端升级到 React 19 与 Vite 8**：react、react-dom 与对应 @types 一并升到 19.3.0（#227），vite 升到 8.3.2（#207）、@vitejs/plugin-react 升到 6（#228）、vitest 升到 5（#204）、lucide-react 升到 1.49（#194、#224）、react-router-dom 升到 7.18.4（#199）、@tauri-apps/api 升到 2.12.1（#201）。
+- **Rust 依赖升级**：sha2 升到 0.11，摘要输出改为显式小写 hex 编码并顺带消除了测试里的内存泄漏（#220）；sherpa-onnx 预编译包对齐 1.13.8（#202、#214）；dirs 升到 6（#208）、thiserror 升到 2（#203、#222），serde、regex、uuid 与 tauri 插件跟进补丁版（#216、#218、#226、#205、#206）。
+- **文档站依赖升级**：Docusaurus 家族升到 3.10.2（#195、#196、#197）、TypeScript 升到 7（#198），react 与 react-dom 及类型升到 19.3.0（#223、#225）。
+- **CI 全线升级 GitHub Actions**：checkout、setup-node、upload-artifact 升到 v7（#209、#215、#217），download-artifact 升到 v8（#211）、upload-pages-artifact 升到 v5（#210）、deploy-pages 升到 v5（#213）、gh-release 升到 v3（#212），并稳定 Windows 检查名（#214）。
+- **补齐仓库治理文件**：补上贡献流程与 issue/PR 模板要求的治理文件（#193）。
+
 ## v2.7.2 (2026-10-01)
 
 ### Fixes
