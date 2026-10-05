@@ -46,7 +46,7 @@ windows = { version = "0.58", features = [
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_WindowsAndMessaging",
 ] }
-cpal = "0.15"
+cpal = "0.18"
 arboard = "3"
 
 [dev-dependencies]
