@@ -27,7 +27,7 @@ tokio = { version = "1", features = ["macros", "sync", "time", "rt-multi-thread"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
-base64 = "0.22"
+base64 = "0.23"
 reqwest = { version = "0.13", features = ["json", "multipart", "stream"] }
 dirs = "6"
 futures-util = "0.3"
