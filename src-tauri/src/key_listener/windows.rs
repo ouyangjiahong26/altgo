@@ -10,7 +10,7 @@ use crate::error::KeyListenerError;
 use std::thread::JoinHandle;
 use tokio::sync::mpsc;
 
-use windows::Win32::Foundation::{HINSTANCE, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, GetMessageW, PostThreadMessageW, SetWindowsHookExW, UnhookWindowsHookEx,
@@ -96,13 +96,8 @@ where
             let thread_id = unsafe { GetCurrentThreadId() };
 
             unsafe {
-                let hook = SetWindowsHookExW(
-                    WH_KEYBOARD_LL,
-                    Some(ll_keyboard_proc),
-                    HINSTANCE::default(),
-                    0,
-                )
-                .map_err(|err| format!("SetWindowsHookExW failed: {err}"));
+                let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(ll_keyboard_proc), None, 0)
+                    .map_err(|err| format!("SetWindowsHookExW failed: {err}"));
                 let hook = match hook {
                     Ok(h) => h,
                     Err(e) => {
