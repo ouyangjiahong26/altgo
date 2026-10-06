@@ -662,7 +662,7 @@ mod tests {
         assert_eq!(overlay_states.len(), 1);
         assert_eq!(overlay_states[0].phase, OverlayPhase::Done);
 
-        // 真实代码顺序：history-updated → pipeline-status(Done) → transcription-result(text)
+        // 真实代码顺序依次为 history-updated、pipeline-status(Done)、transcription-result(text)
         // 先送文本再切 done，前端收到 done 时已有结果，避免空 island 闪烁。
         assert_eq!(
             fx.emitter.recorded_events(),

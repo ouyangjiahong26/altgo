@@ -14,87 +14,109 @@ interface PolishStepProps {
 }
 
 export function PolishStep({
-  t,
-  lang,
-  stepLabel,
-  config,
-  update,
-  catalogPresets,
-  catalogError,
+  t, lang, stepLabel, config, update, catalogPresets, catalogError,
 }: PolishStepProps) {
   return (
     <div className="onboarding-step">
       <div className="onboarding-step-label">{stepLabel(3)}</div>
       <h2 className="onboarding-title">{t("onboarding.polish_title")}</h2>
       <div className="onboarding-card">
-        <ProviderPresetSelector
-          presets={catalogPresets}
-          modelType="polisher"
-          currentApiBaseUrl={config.polishApiBaseUrl}
-          currentModel={config.polishModel}
-          lang={lang}
-          t={t}
-          onSelect={(preset: ProviderPreset, model?: ModelCatalogEntry) => {
-            update("polishApiBaseUrl", preset.apiBaseUrl);
-            update("polishModel", model?.model || preset.defaultModel);
-            update("polishProtocol", preset.apiFormat);
-          }}
+        <PresetAndLevelFields
+          t={t} lang={lang} config={config} update={update}
+          catalogPresets={catalogPresets}
         />
-        <div className="settings-field">
-          <span className="settings-field-label-text">{t("settings.polish_level")}</span>
-          <div className="settings-field-control">
-            <select
-              className="select"
-              value={config.polishLevel}
-              onChange={(e) => update("polishLevel", e.target.value)}
-            >
-              <option value="none">{t("settings.polish_none")}</option>
-              <option value="light">{t("settings.polish_light")}</option>
-              <option value="medium">{t("settings.polish_medium")}</option>
-              <option value="heavy">{t("settings.polish_heavy")}</option>
-            </select>
-          </div>
-        </div>
-        <div className="settings-field">
-          <span className="settings-field-label-text">{t("settings.api_key")}</span>
-          <div className="settings-field-control">
-            <input
-              type="password"
-              className="field"
-              value={config.polisherApiKey}
-              onChange={(e) => update("polisherApiKey", e.target.value)}
-              placeholder={config.hasPolisherApiKey ? "sk-***" : "sk-..."}
-            />
-          </div>
-        </div>
-        <div className="settings-field">
-          <span className="settings-field-label-text">{t("settings.api_url")}</span>
-          <div className="settings-field-control">
-            <input
-              type="text"
-              className="field"
-              value={config.polishApiBaseUrl}
-              onChange={(e) => update("polishApiBaseUrl", e.target.value)}
-              placeholder="https://api.openai.com"
-            />
-          </div>
-        </div>
-        <div className="settings-field">
-          <span className="settings-field-label-text">{t("settings.model")}</span>
-          <div className="settings-field-control">
-            <input
-              type="text"
-              className="field"
-              value={config.polishModel}
-              onChange={(e) => update("polishModel", e.target.value)}
-              placeholder="gpt-4o-mini"
-            />
-          </div>
-        </div>
+        <ConnectionFields t={t} config={config} update={update} />
       </div>
       {catalogError && (
         <p className="settings-hint settings-test-err">{catalogError}</p>
       )}
     </div>
+  );
+}
+
+/** 供应商预设与润色级别。 */
+function PresetAndLevelFields({
+  t, lang, config, update, catalogPresets,
+}: Pick<
+  PolishStepProps,
+  "t" | "lang" | "config" | "update" | "catalogPresets"
+>) {
+  return (
+    <>
+      <ProviderPresetSelector
+        presets={catalogPresets}
+        modelType="polisher"
+        currentApiBaseUrl={config.polishApiBaseUrl}
+        currentModel={config.polishModel}
+        lang={lang}
+        t={t}
+        onSelect={(preset: ProviderPreset, model?: ModelCatalogEntry) => {
+          update("polishApiBaseUrl", preset.apiBaseUrl);
+          update("polishModel", model?.model || preset.defaultModel);
+          update("polishProtocol", preset.apiFormat);
+        }}
+      />
+      <div className="settings-field">
+        <span className="settings-field-label-text">{t("settings.polish_level")}</span>
+        <div className="settings-field-control">
+          <select
+            className="select"
+            value={config.polishLevel}
+            onChange={(e) => update("polishLevel", e.target.value)}
+          >
+            <option value="none">{t("settings.polish_none")}</option>
+            <option value="light">{t("settings.polish_light")}</option>
+            <option value="medium">{t("settings.polish_medium")}</option>
+            <option value="heavy">{t("settings.polish_heavy")}</option>
+          </select>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** API 连接信息：密钥、地址与模型。 */
+function ConnectionFields({
+  t, config, update,
+}: Pick<PolishStepProps, "t" | "config" | "update">) {
+  return (
+    <>
+      <div className="settings-field">
+        <span className="settings-field-label-text">{t("settings.api_key")}</span>
+        <div className="settings-field-control">
+          <input
+            type="password"
+            className="field"
+            value={config.polisherApiKey}
+            onChange={(e) => update("polisherApiKey", e.target.value)}
+            placeholder={config.hasPolisherApiKey ? "sk-***" : "sk-..."}
+          />
+        </div>
+      </div>
+      <div className="settings-field">
+        <span className="settings-field-label-text">{t("settings.api_url")}</span>
+        <div className="settings-field-control">
+          <input
+            type="text"
+            className="field"
+            value={config.polishApiBaseUrl}
+            onChange={(e) => update("polishApiBaseUrl", e.target.value)}
+            placeholder="https://api.openai.com"
+          />
+        </div>
+      </div>
+      <div className="settings-field">
+        <span className="settings-field-label-text">{t("settings.model")}</span>
+        <div className="settings-field-control">
+          <input
+            type="text"
+            className="field"
+            value={config.polishModel}
+            onChange={(e) => update("polishModel", e.target.value)}
+            placeholder="gpt-4o-mini"
+          />
+        </div>
+      </div>
+    </>
   );
 }

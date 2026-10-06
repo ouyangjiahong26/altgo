@@ -143,7 +143,7 @@ fn run_xinput_stdout_loop(
     running: Arc<AtomicBool>,
 ) {
     let reader = std::io::BufReader::new(stdout);
-    let mut event_type: Option<bool> = None; // true=press, false=release
+    let mut event_type: Option<bool> = None; // true 表示按下，false 表示松开
 
     for line in reader.lines() {
         if !running.load(Ordering::SeqCst) {

@@ -93,19 +93,8 @@ fn run_parecord_loop(
     recording: Arc<AtomicBool>,
     audio_level_cb: Arc<RwLock<Option<AudioLevelCallback>>>,
 ) {
-    let child = std::process::Command::new("parecord")
-        .args([
-            "--format=s16le",
-            &format!("--rate={}", sample_rate),
-            "--channels=1",
-            "--raw",
-        ])
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
-        .spawn();
-
-    let mut child = match child {
-        Ok(c) => c,
+    let mut child = match spawn_parecord(sample_rate) {
+        Ok(child) => child,
         Err(e) => {
             tracing::error!(error = %e, "failed to start parecord");
             recording.store(false, Ordering::SeqCst);
@@ -122,8 +111,36 @@ fn run_parecord_loop(
     };
 
     let mut reader = std::io::BufReader::new(stdout);
-    let mut chunk = [0u8; 1024];
+    read_pcm_into_buffer(&mut reader, &buffer, &recording, &audio_level_cb);
 
+    // 停止 parecord 并把管道里剩余的音频数据取干净。
+    let _ = child.kill();
+    drain_reader(&mut reader, &buffer);
+    let _ = child.wait();
+}
+
+/// 以 16 位小端、单声道、原始流参数启动 parecord。
+fn spawn_parecord(sample_rate: u32) -> std::io::Result<std::process::Child> {
+    std::process::Command::new("parecord")
+        .args([
+            "--format=s16le",
+            &format!("--rate={}", sample_rate),
+            "--channels=1",
+            "--raw",
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+}
+
+/// 循环读取 PCM：写入共享缓冲并回调电平，直到录音标志清零或管道结束。
+fn read_pcm_into_buffer(
+    reader: &mut std::io::BufReader<std::process::ChildStdout>,
+    buffer: &Buffer,
+    recording: &AtomicBool,
+    audio_level_cb: &RwLock<Option<AudioLevelCallback>>,
+) {
+    let mut chunk = [0u8; 1024];
     while recording.load(Ordering::SeqCst) {
         match reader.read(&mut chunk) {
             Ok(0) => break,
@@ -141,16 +158,17 @@ fn run_parecord_loop(
             }
         }
     }
+}
 
-    // 停止 parecord 并把管道里剩余的音频数据取干净。
-    let _ = child.kill();
+/// kill 之后把管道里剩余的音频数据读干净，避免丢尾部语音。
+fn drain_reader(reader: &mut std::io::BufReader<std::process::ChildStdout>, buffer: &Buffer) {
+    let mut chunk = [0u8; 1024];
     while let Ok(n) = reader.read(&mut chunk) {
         if n == 0 {
             break;
         }
         buffer.write(&chunk[..n]);
     }
-    let _ = child.wait();
 }
 
 impl Recorder for PulseRecorder {

@@ -1,6 +1,6 @@
 /** 历史面板的状态与副作用：加载、选择、删除、复制与手动润色。
  * HistoryPanel 组件只负责渲染。 */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { copyToClipboard } from "../../utils/clipboard";
@@ -18,17 +18,54 @@ interface PolishConfig {
   hasPolisherApiKey: boolean;
 }
 
+/** 历史面板全部状态与副作用的唯一入口，HistoryPanel 只消费其返回值。 */
 export function useHistoryPanel(t: (key: string) => string) {
+  const list = useHistoryList();
+  const selection = useHistorySelection(list.entries, list.selected, list.setSelected);
+  const removal = useHistoryRemoval({
+    t,
+    entries: list.entries,
+    selected: list.selected,
+    setSelected: list.setSelected,
+    load: list.load,
+    setError: list.setError,
+  });
+  const copy = useHistoryCopy(t, list.setError);
+  const polish = useHistoryPolish(t, list.setEntries, list.setError);
+
+  useEffect(() => {
+    list.load();
+  }, [list.load]);
+
+  useEffect(() => {
+    const unlisten = listen("history-updated", () => {
+      list.load();
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [list.load]);
+
+  return {
+    entries: list.entries, loading: list.loading, selected: list.selected,
+    copiedId: copy.copiedId, polishingId: polish.polishingId,
+    instructionId: polish.instructionId, instructionText: polish.instructionText,
+    setInstructionText: polish.setInstructionText, error: list.error,
+    allSelected: selection.allSelected, someSelected: selection.someSelected,
+    toggleAll: selection.toggleAll, toggleOne: selection.toggleOne,
+    handleDeleteSelected: removal.handleDeleteSelected,
+    handleClearAll: removal.handleClearAll,
+    handleCopy: copy.handleCopy, handlePolish: polish.handlePolish,
+    openInstruction: polish.openInstruction, closeInstruction: polish.closeInstruction,
+  };
+}
+
+/** 条目列表、选中集与错误态：加载历史并保留仍存在条目的选中。 */
+function useHistoryList() {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [polishingId, setPolishingId] = useState<string | null>(null);
-  // 记录“已复制”按钮的复合键（`{id}:text` / `{id}:raw`），区分复制润色文本与原始转写。
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [instructionId, setInstructionId] = useState<string | null>(null);
-  const [instructionText, setInstructionText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [polishConfig, setPolishConfig] = useState<PolishConfig | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -51,25 +88,17 @@ export function useHistoryPanel(t: (key: string) => string) {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  return {
+    entries, setEntries, loading, error, setError, load, selected, setSelected,
+  };
+}
 
-  useEffect(() => {
-    invoke<PolishConfig>("get_config")
-      .then((c) => setPolishConfig(c))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const unlisten = listen("history-updated", () => {
-      load();
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [load]);
-
+/** 选中态操作：全选切换与单条勾选。 */
+function useHistorySelection(
+  entries: HistoryEntry[],
+  selected: Set<string>,
+  setSelected: Dispatch<SetStateAction<Set<string>>>,
+) {
   const allSelected =
     entries.length > 0 && entries.every((e) => selected.has(e.id));
   const someSelected = selected.size > 0;
@@ -94,6 +123,22 @@ export function useHistoryPanel(t: (key: string) => string) {
     });
   };
 
+  return { allSelected, someSelected, toggleAll, toggleOne };
+}
+
+interface HistoryRemovalDeps {
+  t: (key: string) => string;
+  entries: HistoryEntry[];
+  selected: Set<string>;
+  setSelected: Dispatch<SetStateAction<Set<string>>>;
+  load: () => Promise<void>;
+  setError: Dispatch<SetStateAction<string | null>>;
+}
+
+/** 批量删除与清空：确认后调后端命令并重载列表。 */
+function useHistoryRemoval({
+  t, entries, selected, setSelected, load, setError,
+}: HistoryRemovalDeps) {
   const handleDeleteSelected = async () => {
     if (selected.size === 0) {
       return;
@@ -132,6 +177,17 @@ export function useHistoryPanel(t: (key: string) => string) {
     })();
   };
 
+  return { handleDeleteSelected, handleClearAll };
+}
+
+/** 复制操作：优先后端剪贴板，成功后短暂标记对应按钮为已复制。 */
+function useHistoryCopy(
+  t: (key: string) => string,
+  setError: Dispatch<SetStateAction<string | null>>,
+) {
+  // 记录“已复制”按钮的复合键（`{id}:text` / `{id}:raw`），区分复制润色文本与原始转写。
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const handleCopy = async (key: string, text: string) => {
     setError(null);
     // 优先走后端剪贴板（xclip 等），失败回退 WebView API（copyToClipboard 内置）。
@@ -145,11 +201,55 @@ export function useHistoryPanel(t: (key: string) => string) {
     }
   };
 
+  return { copiedId, handleCopy };
+}
+
+/** 读取润色配置：判定手动润色的 API 是否已配齐。 */
+function usePolishConfig() {
+  const [polishConfig, setPolishConfig] = useState<PolishConfig | null>(null);
+
+  useEffect(() => {
+    invoke<PolishConfig>("get_config")
+      .then((c) => setPolishConfig(c))
+      .catch(() => {});
+  }, []);
+
   // 手动润色固定 medium 档（后端绕过全局 none），此处只需校验 API 已配置。
-  const polishConfigMissing =
+  return (
     !polishConfig?.polishApiBaseUrl?.trim() ||
     !polishConfig?.polishModel?.trim() ||
-    !polishConfig?.hasPolisherApiKey;
+    !polishConfig?.hasPolisherApiKey
+  );
+}
+
+/** 附令润色输入区：记录打开的条目与输入中的指令文本。 */
+function usePolishInstruction(setError: Dispatch<SetStateAction<string | null>>) {
+  const [instructionId, setInstructionId] = useState<string | null>(null);
+  const [instructionText, setInstructionText] = useState("");
+
+  const openInstruction = (id: string) => {
+    setError(null);
+    setInstructionText("");
+    setInstructionId(id);
+  };
+
+  const closeInstruction = () => {
+    setInstructionId(null);
+    setInstructionText("");
+  };
+
+  return { instructionId, instructionText, setInstructionText, openInstruction, closeInstruction };
+}
+
+/** 手动润色：校验配置后调后端润色命令，成功后更新对应条目。 */
+function useHistoryPolish(
+  t: (key: string) => string,
+  setEntries: Dispatch<SetStateAction<HistoryEntry[]>>,
+  setError: Dispatch<SetStateAction<string | null>>,
+) {
+  const [polishingId, setPolishingId] = useState<string | null>(null);
+  const polishConfigMissing = usePolishConfig();
+  const instruction = usePolishInstruction(setError);
 
   const handlePolish = async (id: string, extraInstruction?: string) => {
     if (polishConfigMissing) {
@@ -166,8 +266,7 @@ export function useHistoryPanel(t: (key: string) => string) {
       setEntries((prev) =>
         prev.map((e) => (e.id === updated.id ? updated : e)),
       );
-      setInstructionId(null);
-      setInstructionText("");
+      instruction.closeInstruction();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -175,36 +274,13 @@ export function useHistoryPanel(t: (key: string) => string) {
     }
   };
 
-  const openInstruction = (id: string) => {
-    setError(null);
-    setInstructionText("");
-    setInstructionId(id);
-  };
-
-  const closeInstruction = () => {
-    setInstructionId(null);
-    setInstructionText("");
-  };
-
   return {
-    entries,
-    loading,
-    selected,
-    copiedId,
     polishingId,
-    instructionId,
-    instructionText,
-    setInstructionText,
-    error,
-    allSelected,
-    someSelected,
-    toggleAll,
-    toggleOne,
-    handleDeleteSelected,
-    handleClearAll,
-    handleCopy,
     handlePolish,
-    openInstruction,
-    closeInstruction,
+    instructionId: instruction.instructionId,
+    instructionText: instruction.instructionText,
+    setInstructionText: instruction.setInstructionText,
+    openInstruction: instruction.openInstruction,
+    closeInstruction: instruction.closeInstruction,
   };
 }

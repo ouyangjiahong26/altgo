@@ -113,7 +113,7 @@ impl<W: OverlayWindow + 'static> OverlayManager<W> {
     /// 设置悬浮窗状态。
     ///
     /// 这是一个原子意图：调用方只需描述“现在应该显示什么相位”，
-    /// 本方法内部一次性完成 resize → reposition → prepare → show → emit。
+    /// 本方法内部按 resize、reposition、prepare、show、emit 的顺序一次完成。
     /// 窗口尺寸是固定的，重复调用只是幂等的几何设置。
     pub fn set_state(&self, state: OverlayState) {
         let seq = self.generation.fetch_add(1, Ordering::SeqCst) + 1;

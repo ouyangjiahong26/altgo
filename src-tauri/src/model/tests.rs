@@ -67,7 +67,7 @@ fn test_resolve_model_dir_unknown_name() {
 #[test]
 fn test_resolve_model_dir_incomplete_dir() {
     let dir = tempfile::tempdir().unwrap();
-    // 只有 tokens.txt 没有主模型 → 视为未下载
+    // 只有 tokens.txt 没有主模型时视为未下载
     std::fs::write(dir.path().join("tokens.txt"), b"tok").unwrap();
     assert!(resolve_model_dir(dir.path().to_str().unwrap()).is_none());
 }
@@ -173,7 +173,7 @@ fn test_model_registry_entries() {
     let unique_repos: std::collections::HashSet<_> = repos.iter().collect();
     assert_eq!(unique_repos.len(), repos.len());
 
-    // 两个模型的主模型校验和不同（tokens 词表相同）；若被"统一"成同一 SHA，
+    // 两个模型的主模型校验和不同（tokens 词表相同）。若被误改成同一 SHA，
     // 其中一个模型的 is_downloaded 会永远判 false
     let sha_of =
         |name: &str| &models_info().iter().find(|m| m.name == name).unwrap().files[0].sha256;
@@ -255,7 +255,7 @@ async fn test_download_success_writes_dest_and_reports_progress() {
     {
         let calls = progress_calls.lock().unwrap();
         assert!(!calls.is_empty());
-        // total 恒为声明总大小；进度按实际下载字节累计
+        // total 恒为声明总大小，进度按实际下载字节累计
         let total = calls.last().unwrap().1;
         assert_eq!(
             total,

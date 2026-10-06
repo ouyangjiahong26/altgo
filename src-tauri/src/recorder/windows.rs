@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn append_pcm_downsamples_half_rate() {
         let buf = Buffer::new();
-        // 32 kHz → 16 kHz：4 个采样应产出 ~2 个
+        // 32 kHz 重采样到 16 kHz：4 个采样应产出约 2 个
         append_pcm(&buf, &[0.0, 0.5, -0.5, 0.25], 32_000, 1, 16_000);
         let pcm = buf.read_all();
         assert_eq!(pcm.len(), 4); // 2 个 s16 采样

@@ -41,23 +41,9 @@ function formatTime(ms: number, locale: string): string {
 }
 
 export function HistoryEntryItem({
-  t,
-  entry,
-  uiLang,
-  selected,
-  copiedText,
-  copiedRaw,
-  polishing,
-  instructionOpen,
-  instructionText,
-  onToggle,
-  onCopyText,
-  onCopyRaw,
-  onPolish,
-  onOpenInstruction,
-  onCloseInstruction,
-  onInstructionChange,
-  onInstructionSubmit,
+  t, entry, uiLang, selected, copiedText, copiedRaw, polishing,
+  instructionOpen, instructionText, onToggle, onCopyText, onCopyRaw, onPolish,
+  onOpenInstruction, onCloseInstruction, onInstructionChange, onInstructionSubmit,
 }: HistoryEntryItemProps) {
   const e = entry;
 
@@ -81,106 +67,176 @@ export function HistoryEntryItem({
             {e.rawText}
           </p>
         )}
-        <div className="history-item-actions">
-          <button
-            type="button"
-            className={`history-btn history-btn--small ${copiedText ? "history-btn--copied" : ""}`}
-            onClick={onCopyText}
-            title={t("history.copy")}
-          >
-            {copiedText ? (
-              <>
-                <Check size={14} />
-                {t("history.copied")}
-              </>
-            ) : (
-              <>
-                <Copy size={14} />
-                {t("history.copy")}
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`history-btn history-btn--small ${copiedRaw ? "history-btn--copied" : ""}`}
-            onClick={onCopyRaw}
-            title={t("history.copy_raw")}
-          >
-            {copiedRaw ? (
-              <>
-                <Check size={14} />
-                {t("history.raw_copied")}
-              </>
-            ) : (
-              <>
-                <FileText size={14} />
-                {t("history.copy_raw")}
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            className="history-btn history-btn--small history-btn--accent"
-            disabled={polishing}
-            onClick={onPolish}
-            title={t("history.polish")}
-          >
-            {polishing ? (
-              <Loader2 size={14} className="history-spin" />
-            ) : (
-              <Sparkles size={14} />
-            )}
-            {t("history.polish")}
-          </button>
-          <button
-            type="button"
-            className="history-btn history-btn--small"
-            disabled={polishing}
-            onClick={onOpenInstruction}
-            title={t("history.polish_with_instruction")}
-          >
-            <PenLine size={14} />
-            {t("history.polish_with_instruction")}
-          </button>
-        </div>
+        <HistoryEntryActions
+          t={t} copiedText={copiedText} copiedRaw={copiedRaw} polishing={polishing}
+          onCopyText={onCopyText} onCopyRaw={onCopyRaw} onPolish={onPolish}
+          onOpenInstruction={onOpenInstruction}
+        />
         {instructionOpen && (
-          <div className="history-item-instruction">
-            <input
-              type="text"
-              className="history-instruction-input"
-              value={instructionText}
-              onChange={(ev) => onInstructionChange(ev.target.value)}
-              onKeyDown={(ev) => {
-                if (ev.key === "Enter" && !polishing) {
-                  onInstructionSubmit();
-                }
-              }}
-              disabled={polishing}
-              placeholder={t("history.instruction_placeholder")}
-            />
-            <button
-              type="button"
-              className="history-btn history-btn--small history-btn--accent"
-              disabled={polishing}
-              onClick={onInstructionSubmit}
-            >
-              {polishing ? (
-                <Loader2 size={14} className="history-spin" />
-              ) : (
-                t("history.submit")
-              )}
-            </button>
-            <button
-              type="button"
-              className="history-btn history-btn--small"
-              disabled={polishing}
-              onClick={onCloseInstruction}
-            >
-              {t("history.cancel")}
-            </button>
-          </div>
+          <HistoryInstructionArea
+            t={t} polishing={polishing} instructionText={instructionText}
+            onInstructionChange={onInstructionChange}
+            onInstructionSubmit={onInstructionSubmit} onCloseInstruction={onCloseInstruction}
+          />
         )}
       </div>
     </li>
+  );
+}
+
+/** 操作行：复制润色文本、复制原始转写、直接润色与附令润色。 */
+function HistoryEntryActions({
+  t, copiedText, copiedRaw, polishing,
+  onCopyText, onCopyRaw, onPolish, onOpenInstruction,
+}: Pick<
+  HistoryEntryItemProps,
+  "t" | "copiedText" | "copiedRaw" | "polishing" | "onCopyText" | "onCopyRaw"
+  | "onPolish" | "onOpenInstruction"
+>) {
+  return (
+    <div className="history-item-actions">
+      <CopyTextButton t={t} copiedText={copiedText} onCopyText={onCopyText} />
+      <CopyRawButton t={t} copiedRaw={copiedRaw} onCopyRaw={onCopyRaw} />
+      <PolishButton t={t} polishing={polishing} onPolish={onPolish} />
+      <PolishWithInstructionButton
+        t={t} polishing={polishing} onOpenInstruction={onOpenInstruction}
+      />
+    </div>
+  );
+}
+
+function CopyTextButton({
+  t, copiedText, onCopyText,
+}: Pick<HistoryEntryItemProps, "t" | "copiedText" | "onCopyText">) {
+  return (
+    <button
+      type="button"
+      className={`history-btn history-btn--small ${copiedText ? "history-btn--copied" : ""}`}
+      onClick={onCopyText}
+      title={t("history.copy")}
+    >
+      {copiedText ? (
+        <>
+          <Check size={14} />
+          {t("history.copied")}
+        </>
+      ) : (
+        <>
+          <Copy size={14} />
+          {t("history.copy")}
+        </>
+      )}
+    </button>
+  );
+}
+
+function CopyRawButton({
+  t, copiedRaw, onCopyRaw,
+}: Pick<HistoryEntryItemProps, "t" | "copiedRaw" | "onCopyRaw">) {
+  return (
+    <button
+      type="button"
+      className={`history-btn history-btn--small ${copiedRaw ? "history-btn--copied" : ""}`}
+      onClick={onCopyRaw}
+      title={t("history.copy_raw")}
+    >
+      {copiedRaw ? (
+        <>
+          <Check size={14} />
+          {t("history.raw_copied")}
+        </>
+      ) : (
+        <>
+          <FileText size={14} />
+          {t("history.copy_raw")}
+        </>
+      )}
+    </button>
+  );
+}
+
+function PolishButton({
+  t, polishing, onPolish,
+}: Pick<HistoryEntryItemProps, "t" | "polishing" | "onPolish">) {
+  return (
+    <button
+      type="button"
+      className="history-btn history-btn--small history-btn--accent"
+      disabled={polishing}
+      onClick={onPolish}
+      title={t("history.polish")}
+    >
+      {polishing ? (
+        <Loader2 size={14} className="history-spin" />
+      ) : (
+        <Sparkles size={14} />
+      )}
+      {t("history.polish")}
+    </button>
+  );
+}
+
+function PolishWithInstructionButton({
+  t, polishing, onOpenInstruction,
+}: Pick<HistoryEntryItemProps, "t" | "polishing" | "onOpenInstruction">) {
+  return (
+    <button
+      type="button"
+      className="history-btn history-btn--small"
+      disabled={polishing}
+      onClick={onOpenInstruction}
+      title={t("history.polish_with_instruction")}
+    >
+      <PenLine size={14} />
+      {t("history.polish_with_instruction")}
+    </button>
+  );
+}
+
+/** 附令润色输入区：输入自定义指令后提交润色。 */
+function HistoryInstructionArea({
+  t, polishing, instructionText, onInstructionChange,
+  onInstructionSubmit, onCloseInstruction,
+}: Pick<
+  HistoryEntryItemProps,
+  "t" | "polishing" | "instructionText" | "onInstructionChange"
+  | "onInstructionSubmit" | "onCloseInstruction"
+>) {
+  return (
+    <div className="history-item-instruction">
+      <input
+        type="text"
+        className="history-instruction-input"
+        value={instructionText}
+        onChange={(ev) => onInstructionChange(ev.target.value)}
+        onKeyDown={(ev) => {
+          if (ev.key === "Enter" && !polishing) {
+            onInstructionSubmit();
+          }
+        }}
+        disabled={polishing}
+        placeholder={t("history.instruction_placeholder")}
+      />
+      <button
+        type="button"
+        className="history-btn history-btn--small history-btn--accent"
+        disabled={polishing}
+        onClick={onInstructionSubmit}
+      >
+        {polishing ? (
+          <Loader2 size={14} className="history-spin" />
+        ) : (
+          t("history.submit")
+        )}
+      </button>
+      <button
+        type="button"
+        className="history-btn history-btn--small"
+        disabled={polishing}
+        onClick={onCloseInstruction}
+      >
+        {t("history.cancel")}
+      </button>
+    </div>
   );
 }
