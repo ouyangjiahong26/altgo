@@ -31,6 +31,12 @@
 **PipelineSink**
 接收运行中管道事件的 trait：状态变更、进度、错误、转写结果。`tauri_sink.rs` 的 `TauriPipelineSink` 是生产环境唯一的实体适配器。转写结果路径把业务工作（剪贴板写入 + 历史追加）委托给构造时注入的 `TranscriptionDispatch` trait 对象。sink 本身只发 Tauri 事件并切换悬浮窗状态。
 
+**按下响应（Press Response）**
+按下激活键到悬浮窗录音相位可见的延迟。由长按阈值（`key_listener.long_press_threshold`，等待区分单击与长按）、录音器启动与悬浮窗显示三段构成；录音 PCM 的到达节奏也影响可感知的起录时机（Linux 由 parecord 的 `--latency-msec` 决定出块间隔）。_Avoid_: 按下延迟、UI 延迟。
+
+**出稿延迟（Release-to-Result Latency）**
+松开激活键到结果文本就绪的延迟：done 悬浮窗与剪贴板终稿同时产生。当前为单段出稿：转写与润色全部完成后一次性出稿（区分“原文出稿后再润色更新”的两段式方案，未被采纳）。由录音收尾、转写网络往返与润色网络往返构成。_Avoid_: 出稿时间、结果延迟。
+
 ## 配置
 
 **ConfigStore**

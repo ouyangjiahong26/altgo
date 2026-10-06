@@ -41,6 +41,10 @@ enum Step {
 
 /// 主循环跨迭代持有的状态：处理组件、按键事件通道、状态机与超时期限。
 struct LoopState {
+    // 按键监听器与主循环同生命周期：真实监听器的停止逻辑（evtest 读取线程、
+    // Windows 钩子）挂在 Drop 上，构建后立即丢弃会让事件通道当场关闭、
+    // 流水线自行退出。下划线前缀表示主循环只持有它、不读取它。
+    _listener: Box<dyn KeyListener>,
     recorder: Box<dyn Recorder>,
     transcriber: Box<dyn Transcriber>,
     formatter: LLMFormatter,
@@ -67,13 +71,17 @@ impl PipelineContext {
     }
 }
 
-/// 取出并启动按键监听器：成功时告知 sink 后端名并返回按键事件通道。
+/// 取出并启动按键监听器：成功时告知 sink 后端名，返回监听器本体与按键事件
+/// 通道。监听器必须由调用方持有到主循环结束，提前 Drop 会关闭事件通道。
 /// 构造期失败（槽位已被取走或启动失败）向 sink 上报错误并返回 `None`，
 /// 调用方据此终止流水线。
 fn start_key_listener(
     listener_slot: &Mutex<Option<Box<dyn KeyListener>>>,
     sink: &Arc<dyn PipelineSink>,
-) -> Option<tokio::sync::mpsc::UnboundedReceiver<crate::key_listener::KeyEvent>> {
+) -> Option<(
+    Box<dyn KeyListener>,
+    tokio::sync::mpsc::UnboundedReceiver<crate::key_listener::KeyEvent>,
+)> {
     let mut listener: Box<dyn KeyListener> = match listener_slot.lock().unwrap().take() {
         Some(l) => l,
         None => {
@@ -88,7 +96,7 @@ fn start_key_listener(
         Ok((key_events, backend)) => {
             tracing::info!(backend = backend, "key listener active");
             sink.on_key_listener_backend(backend);
-            Some(key_events)
+            Some((listener, key_events))
         }
         Err(e) => {
             // 此处拿不到 backend 名，不构造 FatalError::KeyListenerFailed。
@@ -115,7 +123,7 @@ impl LoopState {
             level_sink.on_audio_level(level);
         })));
 
-        let key_events = start_key_listener(&ctx.listener, &sink)?;
+        let (_listener, key_events) = start_key_listener(&ctx.listener, &sink)?;
         // 创建状态机，直接集成到主循环
         let machine = Machine::new(
             ctx.long_press_threshold,
@@ -123,6 +131,7 @@ impl LoopState {
             ctx.min_press_duration,
         );
         Some(LoopState {
+            _listener,
             recorder,
             transcriber: ctx.transcriber,
             formatter: ctx.formatter,
@@ -258,7 +267,9 @@ mod tests {
     use crate::recorder::PlatformRecorder;
     use crate::transcriber::Transcriber;
 
-    use super::super::test_doubles::{FakeListener, FakeRecorder, FakeTranscriber, MockSink};
+    use super::super::test_doubles::{
+        DropClosingListener, FakeListener, FakeRecorder, FakeTranscriber, MockSink,
+    };
 
     fn test_polisher_config() -> crate::config::PolisherConfig {
         crate::config::PolisherConfig {
@@ -471,6 +482,39 @@ mod tests {
                 PipelineStatus::Processing,
                 PipelineStatus::Stopped,
             ]
+        );
+    }
+
+    #[tokio::test]
+    async fn key_listener_survives_startup_and_delivers_events() {
+        // 回归：拆分 LoopState 时监听器在启动后被立即丢弃，真实监听器随 Drop
+        // 关闭事件通道，流水线启动即退出、按键无响应。主循环必须持有监听器，
+        // 启动后送达的按键事件才能驱动录音。
+        let ctx = make_test_context(
+            Box::new(DropClosingListener::new()),
+            Box::new(Arc::new(FakeRecorder::new(make_test_wav()))),
+            Box::new(Arc::new(FakeTranscriber::with_success("raw text", "en"))),
+            PolishLevel::None,
+        );
+        let sink = MockSink::new();
+        let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+
+        let run_handle = tokio::spawn(ctx.run(stop_rx, sink.clone()));
+
+        // 替身启动后周期发送长按事件；监听器若被提前丢弃，通道关闭，
+        // Recording 状态永远不会出现。
+        wait_until(200, || {
+            sink.status_changes().contains(&PipelineStatus::Recording)
+        })
+        .await;
+
+        let _ = stop_tx.send(());
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), run_handle).await;
+
+        assert!(
+            sink.status_changes().contains(&PipelineStatus::Recording),
+            "主循环未持有按键监听器：事件通道在按键到达前已关闭，状态变化为 {:?}",
+            sink.status_changes()
         );
     }
 
