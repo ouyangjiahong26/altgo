@@ -53,7 +53,7 @@ impl WindowsRecorder {
         // 若设备拒绝，回退到默认配置，回调里做降采样与混单声道。
         let target_config = cpal::StreamConfig {
             channels: 1,
-            sample_rate: cpal::SampleRate(self.sample_rate),
+            sample_rate: self.sample_rate,
             buffer_size: cpal::BufferSize::Default,
         };
 
@@ -69,7 +69,7 @@ impl WindowsRecorder {
                 let default_config = device.default_input_config().map_err(|e| {
                     RecorderError::StartFailed(format!("无法获取默认音频格式: {e}"))
                 })?;
-                let src_rate = default_config.sample_rate().0;
+                let src_rate = default_config.sample_rate();
                 let channels = default_config.channels();
                 let config: cpal::StreamConfig = default_config.into();
                 build_stream(&device, &config, make_callback(src_rate, channels))
@@ -136,7 +136,7 @@ fn build_stream(
 ) -> Result<SendStream, RecorderError> {
     let stream = device
         .build_input_stream(
-            config,
+            *config,
             callback,
             |err| tracing::warn!(error = %err, "audio input stream error"),
             None,
