@@ -284,21 +284,29 @@ async fn dispatch_text(
         tracing::warn!("failed to write clipboard");
     }
 
-    // Windows: 注入到当前焦点窗口，其他平台为 no-op
     if inject_text {
-        let text_clone = text_to_use.to_string();
-        let output_handle = output_adapter.clone_box();
-        let injected = tokio::task::spawn_blocking(move || output_handle.inject_text(&text_clone))
-            .await
-            .ok()
-            .and_then(|r| r.ok())
-            .is_some();
-        if !injected {
-            tracing::warn!("failed to inject text");
-        }
+        inject_text_to_focus(text_to_use, output_adapter).await;
     }
 
-    // 追加历史
+    append_history(text_to_use, raw_text, history_store).await
+}
+
+/// Windows 上把文本注入当前焦点窗口，其他平台为 no-op。失败只告警不中断分发。
+async fn inject_text_to_focus(text_to_use: &str, output_adapter: &dyn Output) {
+    let text_clone = text_to_use.to_string();
+    let output_handle = output_adapter.clone_box();
+    let injected = tokio::task::spawn_blocking(move || output_handle.inject_text(&text_clone))
+        .await
+        .ok()
+        .and_then(|r| r.ok())
+        .is_some();
+    if !injected {
+        tracing::warn!("failed to inject text");
+    }
+}
+
+/// 把转写结果追加到历史存储，返回是否落盘成功。失败只告警不中断分发。
+async fn append_history(text_to_use: &str, raw_text: &str, history_store: &HistoryStore) -> bool {
     let raw = raw_text.to_string();
     let display = text_to_use.to_string();
     let store = history_store.clone();

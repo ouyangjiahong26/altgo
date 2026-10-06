@@ -67,7 +67,7 @@ impl PipelineContext {
     }
 }
 
-/// 取出并启动按键监听器：成功时告知 sink 后端名并返回按键事件通道；
+/// 取出并启动按键监听器：成功时告知 sink 后端名并返回按键事件通道。
 /// 构造期失败（槽位已被取走或启动失败）向 sink 上报错误并返回 `None`，
 /// 调用方据此终止流水线。
 fn start_key_listener(
@@ -150,7 +150,7 @@ impl LoopState {
     }
 
     /// 主循环的单轮等待：`tokio::select!` 在按键事件、状态机超时、重试请求、
-    /// 停止信号四路中取先就绪者；返回 `None` 表示按键通道关闭或收到停止
+    /// 停止信号四路中取先就绪者。返回 `None` 表示按键通道关闭或收到停止
     /// 信号，应退出主循环。
     async fn next_step(
         &mut self,
@@ -398,7 +398,7 @@ mod tests {
         rt.block_on(ctx.run(stop_rx, MockSink));
     }
 
-    /// 每 20 ms 轮询一次条件，最多 tries 次；超时不报错，由调用方断言。
+    /// 每 20 ms 轮询一次条件，最多 tries 次。超时不报错，由调用方断言。
     async fn wait_until(tries: usize, mut cond: impl FnMut() -> bool) {
         for _ in 0..tries {
             if cond() {

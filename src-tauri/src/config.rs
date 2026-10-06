@@ -302,7 +302,7 @@ impl Config {
         Ok(())
     }
 
-    /// 校验转写后端取值；取值为 online 时继续校验在线转写必填字段。
+    /// 校验转写后端取值。取值为 online 时继续校验在线转写必填字段。
     fn validate_transcriber(&self) -> Result<(), ConfigError> {
         let backend = self.transcriber.backend.trim().to_lowercase();
         if backend != "local" && backend != "online" {

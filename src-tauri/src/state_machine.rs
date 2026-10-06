@@ -91,7 +91,7 @@ impl Machine {
         cmd
     }
 
-    /// Idle：抑制期内忽略按下与松开，抑制标志由松开清除；否则按下进入长按检测。
+    /// Idle：抑制期内忽略按下与松开，抑制标志由松开清除。否则按下进入长按检测。
     fn handle_idle(&mut self, event: KeyEvent) -> Option<Command> {
         if event.pressed && self.idle_suppress_press_until_release {
             return None;
@@ -152,7 +152,7 @@ impl Machine {
         }
     }
 
-    /// ContinuousRecording：再按一次停止；按住期间的系统键连发先忽略直至出现松开。
+    /// ContinuousRecording：再按一次停止。按住期间的系统键连发先忽略直至出现松开。
     fn handle_continuous_recording(&mut self, event: KeyEvent) -> Option<Command> {
         if event.pressed {
             if self.continuous_hold {

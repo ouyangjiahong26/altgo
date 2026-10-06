@@ -561,8 +561,7 @@ where
         downloaded += chunk.len() as u64;
         on_progress(base_done + downloaded, total);
     }
-    // tokio 的 File 无用户态缓冲，flush 不引入新的错误路径；
-    // 与原先同步写入后直接 drop 的语义一致，忽略返回值。
+    // tokio 的 File 无用户态缓冲，flush 不引入新的错误路径，忽略返回值。
     let _ = file.flush().await;
 
     Ok(())
