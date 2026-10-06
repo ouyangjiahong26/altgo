@@ -41,7 +41,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      # Cargo workspace 在 src-tauri；默认的根目录 target/ 不存在，必须显式指定。
+      # Cargo workspace 在 src-tauri。默认的根目录 target/ 不存在，必须显式指定。
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
@@ -74,7 +74,7 @@ jobs:
         run: npm ci
         working-directory: frontend
 
-      # 前端测试、fmt 和 Clippy 不依赖目标架构，单跑一次即可；两个架构仍会
+      # 前端测试、fmt 和 Clippy 不依赖目标架构，单跑一次即可。两个架构仍会
       # 分别执行测试，覆盖各自的编译及链接路径。
       - name: Run frontend tests
         if: matrix.arch == 'amd64'

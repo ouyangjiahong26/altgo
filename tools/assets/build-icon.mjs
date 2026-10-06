@@ -32,7 +32,7 @@ const render = (svg, size) =>
 
 /**
  * 按 ICO 规范打包多张 PNG：目录项里存 PNG 原始字节，256 及以上写 0 占位。
- * PNG 条目自带 alpha 通道，因此从 16px 到 256px 都保留透明背景。
+ * PNG 条目自带 alpha 通道，因此从 16 px 到 256 px 都保留透明背景。
  */
 function encodeIco(entries) {
   const header = Buffer.alloc(6);
@@ -103,7 +103,7 @@ for (const [size, rel] of markTargets) {
 }
 
 // 前端窗口图标：与应用图标同源，避免标题栏与系统图标不一致
-// （--web none 表示只渲染位图，不同步前端 SVG；空串会被缺省值兜住，故用 none）
+// （--web none 表示只渲染位图，不同步前端 SVG。空串会被缺省值兜住，故用 none）
 const webTarget = arg('web', 'frontend/public/altgo-logo.svg');
 if (webTarget !== 'none') {
   await writeFile(path.resolve(repo, webTarget), appSvg);

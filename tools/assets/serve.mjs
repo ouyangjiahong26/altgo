@@ -42,7 +42,7 @@ function resolve(urlPath) {
     .sort((a, b) => b.prefix.length - a.prefix.length)[0];
   const rest = mount.prefix === '/' ? decoded : decoded.slice(mount.prefix.length) || '/';
   const filePath = path.join(mount.dir, rest);
-  // startsWith 必须带上分隔符，否则 /repo-evil 这类同级目录也会被前缀匹配放过；
+  // startsWith 必须带上分隔符，否则 /repo-evil 这类同级目录也会被前缀匹配放过。
   // decodeURIComponent 在 join 之前发生，%2e%2e%2f 这类编码穿越靠这一步兜底挡住。
   return filePath === mount.dir || filePath.startsWith(mount.dir + path.sep) ? filePath : null;
 }

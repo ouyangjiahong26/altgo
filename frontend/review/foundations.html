@@ -24,7 +24,7 @@
 <header class="sr-top">
       <div>
         <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 基础与组件</div>
-        <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致；可切换深浅主题与根字号（15 / 17 / 19）。</div>
+        <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致，可切换深浅主题与根字号（15 / 17 / 19）。</div>
       </div>
       <div class="sr-ctl" role="group" aria-label="主题">
         <button type="button" data-theme-btn="dark" aria-pressed="true">暗色</button>
@@ -97,7 +97,7 @@
           <div class="sr-note">
             上一版 <code>ui-primitives.css</code> 里的 <code>.input-wrapper</code> /
             <code>.input-label</code> / <code>.input-field</code> / <code>.select-field</code> /
-            <code>.input-error</code> 在 TSX 中已无引用，本次重构随旧设置页样式一并删除；
+            <code>.input-error</code> 在 TSX 中已无引用，不保留在 <code>ui-primitives.css</code> 中。
             表单控件统一收敛为 <code>ui-primitives.css</code> 的 <code>.field</code> /
             <code>.select</code>，只有 <code>.loading-container</code> 仍被
             <code>Settings.tsx</code> 使用。
@@ -117,7 +117,7 @@
 
 <section class="sr-sec" id="layout">
           <h2>Layout 头部</h2>
-          <p class="sr-desc">窗口标题栏：左侧 logo 与副标题，右侧导航与窗口控制按钮；有新版本时“设置”导航上出现红点。</p>
+          <p class="sr-desc">窗口标题栏：左侧 logo 与副标题，右侧导航与窗口控制按钮，有新版本时“设置”导航上出现红点。</p>
           <div class="sr-pair">
             <div class="sr-frame" style="padding: 0">
               <header class="layout-header">
@@ -132,7 +132,7 @@
                   <nav class="layout-nav">
                     <a class="layout-nav-link active" href="#layout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>主页</a>
                     <a class="layout-nav-link" href="#layout" style="position: relative"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>设置
-                      <span style="position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#ef4444"></span>
+                      <span style="position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--color-red)"></span>
                     </a>
                   </nav>
                   <div class="window-controls">

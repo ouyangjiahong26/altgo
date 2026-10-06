@@ -24,5 +24,5 @@
 ## 注意
 
 - winget 要求首个提交的包先通过人工审核，之后的版本更新可走自动化。
-- 目前 Release 仅有 x64 安装包；待 Windows arm64 构建（#131）落地后，在
+- 目前 Release 仅有 x64 安装包。待 Windows arm64 构建（#131）落地后，在
   installer 清单中追加 `Architecture: arm64` 条目即可。

@@ -1,6 +1,6 @@
 name: Deploy Docs to GitHub Pages
 
-# Pages: 仓库 Settings → Pages → Source 选“GitHub Actions”；站点 URL 与 docs-site/docusaurus.config.ts 中 baseUrl 一致。
+# Pages：仓库 Settings 的 Pages 页把 Source 选为“GitHub Actions”。站点 URL 与 docs-site/docusaurus.config.ts 中 baseUrl 一致。
 # 触发方式：等 master 上的 CI 成功后再部署，避免 CI 红着却把“已修好”的文档发出去。
 # 也可在 Actions 中手动 Run workflow（workflow_dispatch）。
 on:
@@ -22,12 +22,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    # workflow_run 会在 CI 失败/取消时也触发，这里只放行成功的那次；手动触发无 workflow_run 上下文，照常执行。
+    # workflow_run 会在 CI 失败/取消时也触发，这里只放行成功的那次。手动触发无 workflow_run 上下文，照常执行。
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v7
         with:
-          # workflow_run 下锁定到触发 CI 的那个 commit；手动触发时该值为空，退回默认分支。
+          # workflow_run 下锁定到触发 CI 的那个 commit。手动触发时该值为空，退回默认分支。
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           persist-credentials: false
       - uses: actions/setup-node@v7

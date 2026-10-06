@@ -7,9 +7,9 @@
 [![Release](https://img.shields.io/github/v/release/ouyangjiahong26/altgo)](https://github.com/ouyangjiahong26/altgo/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**altgo** 是桌面语音转文字工具。按住触发键说话，松开即自动完成录音、转写与可选润色，结果写入系统剪贴板，并在屏幕底部的悬浮窗中单行展示。
+altgo 是桌面语音转文字工具。按住触发键说话，松开即自动完成录音、转写与可选润色，结果写入系统剪贴板，并在屏幕底部的悬浮窗中单行展示。
 
-支持 **Linux**（Ubuntu 22.04+，x86_64 / aarch64）与 **Windows 10+**（x86_64 / arm64），暂不支持 macOS。
+支持 Linux（Ubuntu 22.04+，x86_64 / aarch64）与 Windows 10+（x86_64 / arm64），暂不支持 macOS。
 
 - [在线文档](https://ouyangjiahong26.github.io/altgo/)
 - [Releases 下载](https://github.com/ouyangjiahong26/altgo/releases)
@@ -17,7 +17,7 @@
 
 ## 功能
 
-- **按住右 Alt 说话，松开自动转写**
+- 按住右 Alt 说话，松开自动转写
 
   ![录音时的悬浮窗：红点与实时电平轨迹](assets/overlay-phase-recording.svg)
 
@@ -36,13 +36,13 @@
 - 自动检查更新：启动时静默检查，设置页可手动检查并在独立窗口查看更新说明
 - 托盘图标：显示主窗口或退出应用
 - 外观可调：深浅配色跟随系统或手动指定，字体大小与窗口尺寸各三档
-- **只保存文本，从不保存音频**
+- 只保存文本，从不保存音频
 
 ## 安装
 
 ### Linux
 
-安装前把当前用户加入 `input` 组，否则无法读取键盘设备；随后注销重新登录：
+安装前把当前用户加入 `input` 组，否则无法读取键盘设备。随后注销重新登录：
 
 ```bash
 sudo usermod -aG input "$USER"
@@ -65,7 +65,7 @@ sudo usermod -aG input "$USER"
    chmod +x altgo_*.AppImage && ./altgo_*.AppImage
    ```
 
-   与 `.deb`/`.rpm` 不同，AppImage 不自动解析依赖；缺库时参照下方依赖说明自行安装。
+   与 `.deb`/`.rpm` 不同，AppImage 不自动解析依赖。缺库时参照下方依赖说明自行安装。
 
 3. 重新登录后启动 altgo，在设置页完成转写配置。
 
@@ -86,7 +86,7 @@ x64 与 arm64 按设备架构选择对应包。安装后从开始菜单启动 al
 
 ## 快速开始
 
-启动应用后，在 **设置** 页完成：
+启动应用后，在设置页完成：
 
 1. 选择转写引擎：本地 SenseVoice 需先下载模型，在线 MiMo ASR 需填 API Key。
 2. 按需设置润色档位与润色服务。

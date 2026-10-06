@@ -50,7 +50,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      # Cargo workspace 在 src-tauri；保留默认 job 隔离，避免 debug 测试缓存抢占
+      # Cargo workspace 在 src-tauri。保留默认 job 隔离，避免 debug 测试缓存抢占
       # release 打包缓存。
       - uses: Swatinem/rust-cache@v2
         with:

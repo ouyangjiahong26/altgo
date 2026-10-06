@@ -3,7 +3,7 @@
 
 /* ─── 根变量 ─── */
 :root {
-  /* 品牌配色 — 曜石黑 + 青绿 */
+  /* 品牌配色：曜石黑 + 青绿 */
   --ifm-color-primary: #14b8a6;
   --ifm-color-primary-dark: #12a89a;
   --ifm-color-primary-darker: #119e91;

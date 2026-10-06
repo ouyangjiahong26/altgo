@@ -1,8 +1,8 @@
 # altgo 文档站（Docusaurus）
 
-面向最终用户的说明文档站点，只有**简体中文**（`zh-Hans`）一个语言版本。生产环境部署在 **GitHub Pages**：
+面向最终用户的说明文档站点，只有简体中文（`zh-Hans`）一个语言版本。生产环境部署在 GitHub Pages：
 
-**[https://ouyangjiahong26.github.io/altgo/](https://ouyangjiahong26.github.io/altgo/)**
+[https://ouyangjiahong26.github.io/altgo/](https://ouyangjiahong26.github.io/altgo/)
 
 `url` / `baseUrl` 与组织名见 [`docusaurus.config.ts`](docusaurus.config.ts)。推送 `master` 时由 [`.github/workflows/deploy-docs.yml`](../.github/workflows/deploy-docs.yml) 构建并发布（详见 [`CONTRIBUTING.md`](../CONTRIBUTING.md)）。
 

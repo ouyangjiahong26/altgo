@@ -2,7 +2,7 @@
       /* ============================================================
          审查页自身的框架样式，sr- 前缀，避免与产品样式冲突。
          注意：design-system.css 把 body 设为 overflow:hidden / 不可选中、#root 占据
-         100vh，那是给无边框透明窗口用的；审查页覆盖回可滚动、可选中，且不使用 #root。
+         100vh，那是给无边框透明窗口用的。审查页覆盖回可滚动、可选中，且不使用 #root。
          ============================================================ */
       html {
         background: var(--color-bg);
@@ -238,7 +238,7 @@
         padding: 0;
         background: repeating-conic-gradient(from 0deg, rgba(128, 128, 128, 0.18) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
       }
-      /* 审查页里把整窗向导的 fixed 定位收回预览框；产品里它是全窗流程，必须 fixed。 */
+      /* 审查页里把整窗向导的 fixed 定位收回预览框，产品里它是全窗流程，必须 fixed。 */
       .sr-frame .onboarding {
         position: absolute;
         inset: 0;
@@ -256,7 +256,7 @@
         overflow: hidden;
         border-radius: var(--radius-2xl);
       }
-      /* 产品里窗口内层是 height:100vh（等于窗口高度）；预览框里收回 400px，
+      /* 产品里窗口内层是 height:100vh（等于窗口高度）。预览框里收回 400px，
          否则底部操作区会被裁掉。 */
       .sr-frame--notes .update-notes-window {
         height: 400px;
@@ -321,7 +321,6 @@
       }
     
 
-/* ── 拆分后追加：分组导航、演示框自适应高度与真实窗口宽度 ── */
 .sr-nav-group {
   display: flex;
   flex-direction: column;
@@ -342,7 +341,6 @@
 .sr-frame {
   overflow: visible;
 }
-/* --tall 的旧限高与“高度随内容展开”冲突，解除 */
 .sr-frame--tall {
   max-height: none;
 }
