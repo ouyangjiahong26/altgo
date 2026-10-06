@@ -5,7 +5,7 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## v2.7.3 (2026-10-04)
+## v2.7.3 (2026-10-06)
 
 ### Changed
 
@@ -14,6 +14,9 @@
 - **文档站依赖升级**：Docusaurus 家族升到 3.10.2（#195、#196、#197）、TypeScript 升到 7（#198），react 与 react-dom 及类型升到 19.3.0（#223、#225）。
 - **CI 全线升级 GitHub Actions**：checkout、setup-node、upload-artifact 升到 v7（#209、#215、#217），download-artifact 升到 v8（#211）、upload-pages-artifact 升到 v5（#210）、deploy-pages 升到 v5（#213）、gh-release 升到 v3（#212），并稳定 Windows 检查名（#214）。
 - **补齐仓库治理文件**：补上贡献流程与 issue/PR 模板要求的治理文件（#193）。
+- **Rust 依赖升级（第二批）**：windows 升到 0.61 并适配 SetWindowsHookExW 的 Option 签名（#243），cpal 升到 0.18 并适配 Windows 采集 API（#248），reqwest 升到 0.13（#249），base64 升到 0.23（#244）。
+- **前端与文档站依赖升级（第二批）**：lucide-react 升到 1.50（#245、#247），typescript 升到 7.0.2（#251），vitest 升到 5.0.3（#250），jsdom 升到 30（#252），@tauri-apps/cli 升到 2.12.1（#253）。
+- **维护性重构**：完成审计整改的代码修复、模块拆分与全仓文档清理（#254），拆分存量超长函数并将模型下载写盘改为异步（#255）。
 
 ## v2.7.2 (2026-10-01)
 
