@@ -120,6 +120,11 @@ fn run_parecord_loop(
 }
 
 /// 以 16 位小端、单声道、原始流参数启动 parecord。
+///
+/// `--latency-msec` 必须显式压低：部分声源（如 USB 音频适配器）按缺省
+/// 目标延迟协商出约 2 秒的批量出块，PCM 要攒满一批才过管道。读取线程
+/// 阻塞在 read() 上、靠数据到达才能检查停止标志，出块稀疏会直接把
+/// 松开后的相位切换拖慢几百毫秒，电平轨迹也采不到 10 Hz 样本。
 fn spawn_parecord(sample_rate: u32) -> std::io::Result<std::process::Child> {
     std::process::Command::new("parecord")
         .args([
@@ -127,6 +132,7 @@ fn spawn_parecord(sample_rate: u32) -> std::io::Result<std::process::Child> {
             &format!("--rate={}", sample_rate),
             "--channels=1",
             "--raw",
+            "--latency-msec=20",
         ])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
