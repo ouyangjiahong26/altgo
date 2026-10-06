@@ -8,7 +8,6 @@
 use super::{KeyEvent, KeyListener};
 use crate::config::KeyListenerConfig;
 use crate::error::KeyListenerError;
-use parking_lot::Mutex;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -74,7 +73,8 @@ pub struct X11Listener {
     child: Option<Child>,
     // evtest 子进程句柄：读取线程只借走 stdout，句柄留在监听器上，
     // stop() 才能终止子进程、唤醒阻塞在 read() 的读取线程并回收僵尸。
-    evtest_children: Arc<Mutex<Vec<Child>>>,
+    // 只有 &mut self 两个方法触碰，无需加锁。
+    evtest_children: Vec<Child>,
 }
 
 /// 枚举可用于 `evtest` 回退的键盘设备（供按键捕获使用）。
@@ -304,7 +304,7 @@ impl X11Listener {
             linux_evdev_code: cfg.linux_evdev_code,
             running: Arc::new(AtomicBool::new(false)),
             child: None,
-            evtest_children: Arc::new(Mutex::new(Vec::new())),
+            evtest_children: Vec::new(),
         })
     }
 
@@ -482,7 +482,7 @@ impl X11Listener {
                 }
             };
             let stdout = child.stdout.take().expect("evtest stdout captured");
-            self.evtest_children.lock().push(child);
+            self.evtest_children.push(child);
 
             let running = Arc::clone(&running);
             let tx = tx.clone();
@@ -496,21 +496,17 @@ impl X11Listener {
 
     /// 停止监听：终止并回收全部子进程。evtest 读取线程阻塞在 read() 上，
     /// 只有 kill 子进程让管道 EOF 才能唤醒它们，退出后不留孤儿与僵尸。
+    /// 回收必须同步：SIGKILL 后 wait 是亚毫秒级，放后台线程会让应用
+    /// 退出时来不及执行 kill，evtest 以活体孤儿泄漏。
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
         if let Some(child) = self.child.as_mut() {
             let _ = child.kill();
             let _ = child.wait();
         }
-        let children: Vec<Child> = std::mem::take(&mut *self.evtest_children.lock());
-        if !children.is_empty() {
-            // 回收放到独立线程：stop 可能在 Drop 中被调用，不应阻塞调用方。
-            std::thread::spawn(move || {
-                for mut child in children {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                }
-            });
+        for mut child in std::mem::take(&mut self.evtest_children) {
+            let _ = child.kill();
+            let _ = child.wait();
         }
     }
 
@@ -631,33 +627,27 @@ mod tests {
         // 回归：stop() 曾只置停止标志，evtest 子进程既不终止也不回收，
         // 读取线程阻塞在 read() 上永不退出，子进程泄漏成孤儿或僵尸。
         // 用 sleep 进程顶替 evtest 验证生命周期语义，避免依赖真实设备。
-        let has_xinput = Command::new("xinput")
-            .arg("version")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok();
-        if !has_xinput {
-            return;
-        }
-
-        let mut listener = X11Listener::new(&test_config()).unwrap();
+        // 直接构造结构体：new() 的 xinput 存在性检查与回收逻辑无关，
+        // 不该让 CI（不装 xinput）静默跳过这条回归。
+        let mut listener = X11Listener {
+            key_name: "Alt_R".to_string(),
+            linux_evdev_code: None,
+            running: Arc::new(AtomicBool::new(false)),
+            child: None,
+            evtest_children: Vec::new(),
+        };
         let child = Command::new("sleep").arg("30").spawn().unwrap();
         let pid = child.id();
-        listener.evtest_children.lock().push(child);
+        listener.evtest_children.push(child);
 
         listener.stop();
 
-        // stop() 在后台线程 kill+wait；轮询等待进程被彻底回收
-        //（僵尸进程的 /proc 条目仍在，能区分“未回收”）。
-        let gone = || !Path::new(&format!("/proc/{pid}")).exists();
-        for _ in 0..100 {
-            if gone() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(20));
-        }
-        assert!(gone(), "stop() 后子进程应被终止并回收，pid {pid} 仍存在");
+        // stop() 同步 kill+wait；僵尸进程的 /proc 条目也会消失，
+        // 条目仍存在即视为未回收（pid 复用概率在毫秒级窗口内可忽略）。
+        assert!(
+            !Path::new(&format!("/proc/{pid}")).exists(),
+            "stop() 后子进程应被终止并回收，pid {pid} 仍存在"
+        );
     }
 
     #[test]

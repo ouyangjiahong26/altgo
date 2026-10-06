@@ -76,7 +76,6 @@ dependencies = [
  "dirs 6.0.0",
  "futures-util",
  "mockito",
- "parking_lot",
  "regex",
  "reqwest",
  "serde",
