@@ -67,14 +67,14 @@ pub struct AnthropicRequest {
     /// 扩展思考与 `temperature` 不兼容（须为 1 或缺省）：思考开启时不发送。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
-    /// 扩展思考参数；`None` 时不发送（Anthropic 思考默认关闭）。
+    /// 扩展思考参数，`None` 时不发送（Anthropic 思考默认关闭）。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking: Option<AnthropicThinking>,
 }
 
 /// Anthropic 扩展思考参数。
 ///
-/// `type` 为 `enabled` 时必带 `budget_tokens`（最低 1024）；显式关闭思考时 `type` 为
+/// `type` 为 `enabled` 时必带 `budget_tokens`（最低 1024），显式关闭思考时 `type` 为
 /// `disabled`，此时不发送 `budget_tokens`。
 #[derive(Debug, Serialize)]
 pub struct AnthropicThinking {
@@ -98,10 +98,10 @@ pub struct AnthropicResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct AnthropicContent {
-    /// 块类型（"text" / "thinking" 等）；缺省按文本块处理，兼容不填 type 的端点。
+    /// 块类型（"text" / "thinking" 等），缺省按文本块处理，兼容不填 type 的端点。
     #[serde(rename = "type", default)]
     pub block_type: String,
-    /// 仅文本块有此字段；thinking 块无。
+    /// 仅文本块有此字段，thinking 块无。
     #[serde(default)]
     pub text: Option<String>,
 }

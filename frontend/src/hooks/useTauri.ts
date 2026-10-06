@@ -6,7 +6,7 @@ import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/eve
  * 订阅一个 Tauri 事件，返回最新载荷（尚无事件时返回 `initial`）。
  *
  * 回调在 effect 闭包中被捕获，因此改动它不会重新订阅。
- * 用返回的 `payload` 驱动 UI；若需要派生转换，请在调用方完成。
+ * 用返回的 `payload` 驱动 UI，若需要派生转换，请在调用方完成。
  */
 export function useTauriEvent<T>(
   event: string,
@@ -26,7 +26,7 @@ export function useTauriEvent<T>(
       active = false;
       unlistenPromise.then((fn) => fn());
     };
-    // callback 特意不作为依赖项；需要的消费方可自行 memo。
+    // callback 特意不作为依赖项，需要的消费方可自行 memo。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event]);
 

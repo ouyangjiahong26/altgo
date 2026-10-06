@@ -119,7 +119,7 @@ pub fn run() {
         .init();
 
     // Wayland 下客户端窗口定位不可用，需在 GUI 初始化前切到 X11 后端
-    // （XWayland）；完整因由见 display_backend 模块文档。
+    // （XWayland）。完整因由见 display_backend 模块文档。
     #[cfg(target_os = "linux")]
     if let Some(backend) = display_backend::resolve_display_backend(
         std::env::var_os("WAYLAND_DISPLAY").is_some(),
@@ -179,7 +179,7 @@ pub fn run() {
             let controller = app.state::<pipeline_controller::PipelineController>();
             let status_arc = controller.status_arc();
             // 前端可能在 `setup` 之前就调用 save_config（窗口加载早于 setup 钩子），那条路径
-            // 已经起过流水线；此时保留既有实例，既不重复启动、也不当作致命错误（返回 Err 会让
+            // 已经起过流水线，此时保留既有实例，既不重复启动、也不当作致命错误（返回 Err 会让
             // Tauri 直接 panic 退出）。
             controller.ensure_started_with_blocking(|| {
                 spawn_pipeline_thread(app.handle(), cfg, status_arc)

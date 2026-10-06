@@ -89,20 +89,17 @@ impl EvtestChild for RealEvtestChild {
     }
 }
 
-fn capture_evdev_press_with_devices<F>(
+/// 为每个键盘设备启动 evtest，收集子进程与 stdout 读取线程。
+///
+/// spawn 失败或取不到 stdout 的设备跳过，取不到 stdout 的子进程当场回收。
+fn spawn_evtest_readers<F>(
     devices: Vec<PathBuf>,
-    timeout: Duration,
-    mut spawn_evtest: F,
-) -> Result<u16, String>
+    tx: &mpsc::SyncSender<u16>,
+    spawn_evtest: &mut F,
+) -> (Vec<Box<dyn EvtestChild>>, Vec<thread::JoinHandle<()>>)
 where
     F: FnMut(&std::path::Path) -> std::io::Result<Box<dyn EvtestChild>>,
 {
-    if devices.is_empty() {
-        return Err("未找到键盘设备（/dev/input）".into());
-    }
-
-    let (tx, rx) = mpsc::sync_channel::<u16>(1);
-    let deadline = Instant::now() + timeout;
     let mut children = Vec::new();
     let mut readers = Vec::new();
 
@@ -134,12 +131,11 @@ where
         }));
     }
 
-    drop(tx);
-    let remaining = deadline.saturating_duration_since(Instant::now());
-    let result = rx.recv_timeout(remaining).map_err(|_| {
-        "超时：未检测到按键（请确认对 /dev/input 有读权限，如在 input 组）".to_string()
-    });
+    (children, readers)
+}
 
+/// 回收全部 evtest 子进程并等待读取线程退出，保证捕获结束后不留残留进程。
+fn reap_evtest_children(children: Vec<Box<dyn EvtestChild>>, readers: Vec<thread::JoinHandle<()>>) {
     for mut child in children {
         let _ = child.kill();
         let _ = child.wait();
@@ -147,6 +143,31 @@ where
     for reader in readers {
         let _ = reader.join();
     }
+}
+
+fn capture_evdev_press_with_devices<F>(
+    devices: Vec<PathBuf>,
+    timeout: Duration,
+    mut spawn_evtest: F,
+) -> Result<u16, String>
+where
+    F: FnMut(&std::path::Path) -> std::io::Result<Box<dyn EvtestChild>>,
+{
+    if devices.is_empty() {
+        return Err("未找到键盘设备（/dev/input）".into());
+    }
+
+    let (tx, rx) = mpsc::sync_channel::<u16>(1);
+    let deadline = Instant::now() + timeout;
+    let (children, readers) = spawn_evtest_readers(devices, &tx, &mut spawn_evtest);
+
+    drop(tx);
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    let result = rx.recv_timeout(remaining).map_err(|_| {
+        "超时：未检测到按键（请确认对 /dev/input 有读权限，如在 input 组）".to_string()
+    });
+
+    reap_evtest_children(children, readers);
 
     result
 }

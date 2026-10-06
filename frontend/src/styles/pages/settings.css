@@ -2,7 +2,7 @@
    设置页样式
 
    结构参照桌面工具的偏好设置：一块表面承载若干字段行，行与行之间只有一条
-   极细分隔线，标签左、控件右；分组标题用 13px 中等字重，不铺满、不居中。
+   极细分隔线，标签左、控件右，分组标题用 13px 中等字重，不铺满、不居中。
    控件皮肤统一来自 components/ui-primitives.css。
    ============================================ */
 
@@ -517,7 +517,8 @@
   width: 20px;
   height: 20px;
   border-radius: var(--radius-sm);
-  color: #ffffff;
+  background-color: var(--color-icon-fallback);
+  color: var(--color-on-primary);
   font-size: 10px;
   font-weight: var(--font-semibold);
   flex-shrink: 0;
@@ -661,7 +662,7 @@
   text-align: center;
 }
 
-/* 当前服务商保持紧凑；完整列表按需展开 */
+/* 当前服务商保持紧凑，完整列表按需展开 */
 .provider-preset-summary {
   display: flex;
   align-items: center;
@@ -736,7 +737,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-5);
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-scrim);
 }
 
 .provider-preset-dialog {

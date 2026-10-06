@@ -6,6 +6,7 @@
 //! - `encode_wav`：将原始 PCM 数据编码为带 44 字节头的 WAV 格式
 //! - `decode_wav_to_f32`：将 16 位 PCM WAV 数据解码为 [-1.0, 1.0] 范围的浮点采样
 
+use crate::error::AudioError;
 use std::sync::Mutex;
 
 /// 线程安全的 PCM 音频字节缓冲区。
@@ -63,29 +64,53 @@ pub fn encode_wav(
     sample_rate: u32,
     channels: u16,
     bits_per_sample: u16,
-) -> anyhow::Result<Vec<u8>> {
+) -> Result<Vec<u8>, AudioError> {
+    validate_encode_params(pcm_data, sample_rate, channels, bits_per_sample)?;
+
+    let data_size = pcm_data.len() as u32;
+    let mut wav = Vec::with_capacity(44 + pcm_data.len());
+    push_wav_header(&mut wav, sample_rate, channels, bits_per_sample, data_size);
+    wav.extend_from_slice(pcm_data);
+
+    Ok(wav)
+}
+
+/// 编码入参校验：PCM 非空、采样率与声道位深非零，且数据长度能装进 WAV 的 u32 长度字段。
+fn validate_encode_params(
+    pcm_data: &[u8],
+    sample_rate: u32,
+    channels: u16,
+    bits_per_sample: u16,
+) -> Result<(), AudioError> {
     if pcm_data.is_empty() {
-        return Err(anyhow::anyhow!("PCM data must not be empty"));
+        return Err(AudioError::EmptyPcm);
     }
     if sample_rate == 0 {
-        return Err(anyhow::anyhow!("Sample rate must be positive"));
+        return Err(AudioError::InvalidSampleRate);
     }
     if channels == 0 {
-        return Err(anyhow::anyhow!("Channels must be positive"));
+        return Err(AudioError::InvalidChannels);
     }
     if bits_per_sample == 0 {
-        return Err(anyhow::anyhow!("Bits per sample must be positive"));
+        return Err(AudioError::InvalidBitsPerSample);
     }
+    if pcm_data.len() > u32::MAX as usize {
+        return Err(AudioError::PcmTooLarge);
+    }
+    Ok(())
+}
 
+/// 拼装 44 字节 WAV 头：RIFF 头、fmt 块与 data 块头（不含数据本身）。
+fn push_wav_header(
+    wav: &mut Vec<u8>,
+    sample_rate: u32,
+    channels: u16,
+    bits_per_sample: u16,
+    data_size: u32,
+) {
     let byte_rate = sample_rate * channels as u32 * bits_per_sample as u32 / 8;
     let block_align = channels * bits_per_sample / 8;
-    if pcm_data.len() > u32::MAX as usize {
-        return Err(anyhow::anyhow!("PCM data too large for WAV format (>4GB)"));
-    }
-    let data_size = pcm_data.len() as u32;
     let file_size = 36 + data_size; // RIFF 头 - 8 + 数据
-
-    let mut wav = Vec::with_capacity(44 + pcm_data.len());
 
     // RIFF 头
     wav.extend_from_slice(b"RIFF");
@@ -105,9 +130,6 @@ pub fn encode_wav(
     // data 块
     wav.extend_from_slice(b"data");
     wav.extend_from_slice(&data_size.to_le_bytes());
-    wav.extend_from_slice(pcm_data);
-
-    Ok(wav)
 }
 
 /// 从 16 位 PCM 字节数据中计算感知音频电平（范围 [0.0, 1.0]）。
@@ -133,48 +155,16 @@ pub fn calculate_audio_level(pcm_data: &[u8]) -> f32 {
     (ratio * PERCEPTUAL_GAIN).sqrt().min(1.0)
 }
 
-pub fn decode_wav_to_f32(wav_data: &[u8]) -> Result<Vec<f32>, &'static str> {
+pub fn decode_wav_to_f32(wav_data: &[u8]) -> Result<Vec<f32>, AudioError> {
     if wav_data.len() < 44 {
-        return Err("WAV data too short");
+        return Err(AudioError::WavTooShort);
     }
     if &wav_data[0..4] != b"RIFF" || &wav_data[8..12] != b"WAVE" {
-        return Err("Not a valid WAV file");
+        return Err(AudioError::InvalidWavHeader);
     }
 
-    // 定位 data 块。
-    let mut offset = 12u32;
-    let mut data_offset = 0u32;
-    let mut data_size = 0u32;
-
-    while offset + 8 <= wav_data.len() as u32 {
-        let chunk_id = &wav_data[offset as usize..offset as usize + 4];
-        let chunk_size = u32::from_le_bytes(
-            wav_data[offset as usize + 4..offset as usize + 8]
-                .try_into()
-                .unwrap(),
-        );
-        if chunk_id == b"data" {
-            data_offset = offset + 8;
-            data_size = chunk_size;
-            break;
-        }
-        offset += 8 + chunk_size;
-        // 对齐到偶数边界。
-        if chunk_size % 2 != 0 {
-            offset += 1;
-        }
-    }
-
-    if data_offset == 0 {
-        return Err("No data chunk found in WAV");
-    }
-
-    let end = (data_offset + data_size) as usize;
-    let pcm_data = if end <= wav_data.len() {
-        &wav_data[data_offset as usize..end]
-    } else {
-        &wav_data[data_offset as usize..]
-    };
+    let (data_offset, data_size) = find_data_chunk(wav_data)?;
+    let pcm_data = data_payload(wav_data, data_offset, data_size);
 
     let n_samples = pcm_data.len() / 2;
     let mut samples = Vec::with_capacity(n_samples);
@@ -186,9 +176,43 @@ pub fn decode_wav_to_f32(wav_data: &[u8]) -> Result<Vec<f32>, &'static str> {
     Ok(samples)
 }
 
+/// 扫描 RIFF 块列表定位 data 块，返回其数据起始偏移与声明长度。
+fn find_data_chunk(wav_data: &[u8]) -> Result<(u32, u32), AudioError> {
+    let mut offset = 12u32;
+
+    while offset + 8 <= wav_data.len() as u32 {
+        let chunk_id = &wav_data[offset as usize..offset as usize + 4];
+        let chunk_size = u32::from_le_bytes(
+            wav_data[offset as usize + 4..offset as usize + 8]
+                .try_into()
+                .unwrap(),
+        );
+        if chunk_id == b"data" {
+            return Ok((offset + 8, chunk_size));
+        }
+        offset += 8 + chunk_size;
+        // 对齐到偶数边界。
+        if chunk_size % 2 != 0 {
+            offset += 1;
+        }
+    }
+
+    Err(AudioError::MissingDataChunk)
+}
+
+/// 取 data 块的 PCM 字节，声明长度超出实际字节时按实际截断。
+fn data_payload(wav_data: &[u8], data_offset: u32, data_size: u32) -> &[u8] {
+    let end = (data_offset + data_size) as usize;
+    if end <= wav_data.len() {
+        &wav_data[data_offset as usize..end]
+    } else {
+        &wav_data[data_offset as usize..]
+    }
+}
+
 /// 计算 WAV 字节流的音频时长（毫秒）。
 ///
-/// 解析 fmt 块的 byte_rate（每秒字节数）与 data 块长度求时长；data 声明
+/// 解析 fmt 块的 byte_rate（每秒字节数）与 data 块长度求时长。data 声明
 /// 长度超出实际字节时按实际截断。非 WAV、缺 fmt/data 块或 byte_rate 为 0
 /// 时返回 `None`，调用方自行决定回退策略。
 pub fn wav_duration_ms(wav_data: &[u8]) -> Option<u64> {
@@ -215,7 +239,7 @@ pub fn wav_duration_ms(wav_data: &[u8]) -> Option<u64> {
             };
             byte_rate = Some(u32::from_le_bytes(rate_bytes) as u64);
         } else if chunk_id == b"data" {
-            // data 紧跟在块头之后；可用字节不足声明时按实际数量计。
+            // data 紧跟在块头之后，可用字节不足声明时按实际数量计。
             let available = (wav_data.len() - offset - 8) as u64;
             data_size = Some(chunk_size.min(available));
         }
@@ -393,7 +417,10 @@ mod tests {
         wav.extend_from_slice(&[0x00; 6]);
 
         assert_eq!(wav.len(), 50);
-        assert_eq!(decode_wav_to_f32(&wav), Err("No data chunk found in WAV"));
+        assert_eq!(
+            decode_wav_to_f32(&wav),
+            Err(crate::error::AudioError::MissingDataChunk)
+        );
     }
 
     #[test]
@@ -422,7 +449,7 @@ mod tests {
 
     #[test]
     fn test_decode_wav_odd_chunk_padding() {
-        // 在 data 前放一个奇数大小的 'junk' 块；解码器必须跳过填充字节。
+        // 在 data 前放一个奇数大小的 'junk' 块，解码器必须跳过填充字节。
         let mut wav = Vec::new();
         wav.extend_from_slice(b"RIFF");
         // 文件大小 = 4 (WAVE) + 8 + 16 (fmt) + 8 + 3 (junk) + 1 (pad) + 8 + 4 (data) = 50
@@ -438,7 +465,7 @@ mod tests {
         wav.extend_from_slice(&16u16.to_le_bytes());
         wav.extend_from_slice(b"junk");
         wav.extend_from_slice(&3u32.to_le_bytes());
-        wav.extend_from_slice(&[0x01, 0x02, 0x03]); // 奇数长度 → 后跟填充字节
+        wav.extend_from_slice(&[0x01, 0x02, 0x03]); // 奇数长度，其后跟填充字节
         wav.push(0x00); // 填充
         wav.extend_from_slice(b"data");
         wav.extend_from_slice(&4u32.to_le_bytes());
@@ -512,7 +539,7 @@ mod tests {
 
     #[test]
     fn test_wav_duration_ms_standard_wav() {
-        // 16kHz 单声道 16 位：500ms = 8000 采样 = 16000 字节。
+        // 16 kHz 单声道 16 位：500 ms = 8000 采样 = 16000 字节。
         let pcm = vec![0u8; 16000];
         let wav = encode_wav(&pcm, 16000, 1, 16).unwrap();
         assert_eq!(wav_duration_ms(&wav), Some(500));
@@ -521,7 +548,7 @@ mod tests {
     #[test]
     fn test_wav_duration_ms_truncates_oversized_data_chunk() {
         let mut wav = encode_wav(&vec![0u8; 3200], 16000, 1, 16).unwrap();
-        // 声明的 data 尺寸翻倍，但实际字节只有 100ms；按实际算。
+        // 声明的 data 尺寸翻倍，但实际字节只有 100 ms，按实际算。
         let data_len = wav.len() - 44;
         wav[40..44].copy_from_slice(&((data_len as u32) * 2).to_le_bytes());
         assert_eq!(wav_duration_ms(&wav), Some(100));

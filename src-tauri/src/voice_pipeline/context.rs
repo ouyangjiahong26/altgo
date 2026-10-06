@@ -1,4 +1,4 @@
-//! PipelineContext — 拥有所有组件并运行事件循环。
+//! PipelineContext：拥有所有组件并运行事件循环。
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -228,7 +228,7 @@ mod tests {
     }
 
     fn make_test_wav() -> Vec<u8> {
-        // 1000ms：高于 300ms 误触守卫，代表一段真实录音。
+        // 1000 ms：高于 300 ms 误触守卫，代表一段真实录音。
         let samples: Vec<u8> = (0..16000).flat_map(|_| 0i16.to_le_bytes()).collect();
         crate::audio::encode_wav(&samples, 16000, 1, 16).unwrap()
     }
@@ -478,7 +478,7 @@ mod tests {
     #[tokio::test]
     async fn accidental_press_barely_over_threshold_discards_recording_without_transcribing() {
         let (listener, handle) = FakeListener::new("fake");
-        // 20ms 音频：长按阈值刚过就松开的意外按压只能录到一瞬音频。
+        // 20 ms 音频：长按阈值刚过就松开的意外按压只能录到一瞬音频。
         let samples: Vec<u8> = (0..320).flat_map(|_| 0i16.to_le_bytes()).collect();
         let wav = crate::audio::encode_wav(&samples, 16000, 1, 16).unwrap();
         let recorder = Arc::new(FakeRecorder::new(wav));
@@ -495,7 +495,7 @@ mod tests {
         let run_handle = tokio::spawn(ctx.run(stop_rx, sink.clone()));
         tokio::time::sleep(std::time::Duration::from_millis(30)).await;
 
-        // 按住 80ms：超过 60ms 长按阈值（StartRecord 已发出），随即松开。
+        // 按住 80 ms：超过 60 ms 长按阈值（StartRecord 已发出），随即松开。
         handle.send(KeyEvent { pressed: true });
         tokio::time::sleep(std::time::Duration::from_millis(80)).await;
         handle.send(KeyEvent { pressed: false });
@@ -546,7 +546,7 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(80)).await;
         handle.send(KeyEvent { pressed: false });
 
-        // 等失败路径走完（录音进待重试槽位；初始 Idle 不代表完成）。
+        // 等失败路径走完（录音进待重试槽位，初始 Idle 不代表完成）。
         for _ in 0..100 {
             if pending_store.peek_info().is_some() {
                 break;

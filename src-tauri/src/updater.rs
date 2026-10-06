@@ -109,71 +109,92 @@ pub async fn check_update_core<P: UpdateProvider + ?Sized>(
     let check_future = provider.check_update_raw();
     let result = match tokio::time::timeout(timeout_duration, check_future).await {
         Ok(res) => res,
-        Err(_) => {
-            return Err(UpdateErrorResponse {
-                kind: UpdateErrorKind::Timeout,
-                message: "检查更新超时（10秒），请检查网络连接后重试".to_string(),
-            });
-        }
+        Err(_) => return Err(timeout_error_response()),
     };
 
     match result {
-        Ok(Some(info)) => Ok(UpdateCheckResponse {
-            has_update: true,
-            current_version: info.current_version,
-            latest_version: info.version,
-            body: info.body,
-            date: info.date,
-            support_tier,
-        }),
-        Ok(None) => Ok(UpdateCheckResponse {
-            has_update: false,
-            current_version: env!("CARGO_PKG_VERSION").to_string(),
-            latest_version: env!("CARGO_PKG_VERSION").to_string(),
-            body: None,
-            date: None,
-            support_tier,
-        }),
-        Err(err_msg) => {
-            let lower = err_msg.to_lowercase();
-            let kind = if lower.contains("timeout") || lower.contains("timed out") {
-                UpdateErrorKind::Timeout
-            } else if lower.contains("signature")
-                || lower.contains("verification failed")
-                || lower.contains("minisign")
-            {
-                UpdateErrorKind::Signature
-            } else if lower.contains("429") || lower.contains("rate limit") {
-                UpdateErrorKind::RateLimited
-            } else if lower.contains("connect")
-                || lower.contains("dns")
-                || lower.contains("network")
-                || lower.contains("http")
-                || lower.contains("reqwest")
-                || lower.contains("could not fetch")
-                || lower.contains("failed to fetch")
-                || lower.contains("release json")
-            {
-                UpdateErrorKind::Network
-            } else {
-                UpdateErrorKind::Unknown
-            };
+        Ok(Some(info)) => Ok(update_found_response(info, support_tier)),
+        Ok(None) => Ok(no_update_response(support_tier)),
+        Err(err_msg) => Err(map_provider_error(&err_msg)),
+    }
+}
 
-            let user_msg = match kind {
-                UpdateErrorKind::Timeout => "检查更新超时，请检查网络连接后重试".to_string(),
-                UpdateErrorKind::Signature => {
-                    format!("更新包签名验证失败，防止安全篡改：{err_msg}")
-                }
-                UpdateErrorKind::RateLimited => "更新接口请求过于频繁，请稍后再试".to_string(),
-                UpdateErrorKind::Network => format!("无法连接到更新服务器：{err_msg}"),
-                UpdateErrorKind::Unknown => format!("检查更新失败：{err_msg}"),
-            };
+/// 检查超时的错误响应。
+fn timeout_error_response() -> UpdateErrorResponse {
+    UpdateErrorResponse {
+        kind: UpdateErrorKind::Timeout,
+        message: "检查更新超时（10秒），请检查网络连接后重试".to_string(),
+    }
+}
 
-            Err(UpdateErrorResponse {
-                kind,
-                message: user_msg,
-            })
-        }
+/// 有新版本时的响应映射，版本与说明取 provider 返回值。
+fn update_found_response(
+    info: UpdateInfoRaw,
+    support_tier: UpdateSupportTier,
+) -> UpdateCheckResponse {
+    UpdateCheckResponse {
+        has_update: true,
+        current_version: info.current_version,
+        latest_version: info.version,
+        body: info.body,
+        date: info.date,
+        support_tier,
+    }
+}
+
+/// 已是最新版本时的响应映射，版本号取当前构建版本。
+fn no_update_response(support_tier: UpdateSupportTier) -> UpdateCheckResponse {
+    UpdateCheckResponse {
+        has_update: false,
+        current_version: env!("CARGO_PKG_VERSION").to_string(),
+        latest_version: env!("CARGO_PKG_VERSION").to_string(),
+        body: None,
+        date: None,
+        support_tier,
+    }
+}
+
+/// 把 provider 的错误串映射为结构化错误：先按关键词定类别，再产出用户文案。
+fn map_provider_error(err_msg: &str) -> UpdateErrorResponse {
+    let kind = classify_error_kind(&err_msg.to_lowercase());
+    let message = error_user_message(&kind, err_msg);
+    UpdateErrorResponse { kind, message }
+}
+
+/// 按错误串关键词判定类别，命中顺序即优先级，超时最先、未知兜底。
+fn classify_error_kind(lower: &str) -> UpdateErrorKind {
+    if lower.contains("timeout") || lower.contains("timed out") {
+        UpdateErrorKind::Timeout
+    } else if lower.contains("signature")
+        || lower.contains("verification failed")
+        || lower.contains("minisign")
+    {
+        UpdateErrorKind::Signature
+    } else if lower.contains("429") || lower.contains("rate limit") {
+        UpdateErrorKind::RateLimited
+    } else if lower.contains("connect")
+        || lower.contains("dns")
+        || lower.contains("network")
+        || lower.contains("http")
+        || lower.contains("reqwest")
+        || lower.contains("could not fetch")
+        || lower.contains("failed to fetch")
+        || lower.contains("release json")
+    {
+        UpdateErrorKind::Network
+    } else {
+        UpdateErrorKind::Unknown
+    }
+}
+
+/// 按类别产出中文用户文案，签名与网络类带上原始错误详情。
+fn error_user_message(kind: &UpdateErrorKind, err_msg: &str) -> String {
+    match kind {
+        UpdateErrorKind::Timeout => "检查更新超时，请检查网络连接后重试".to_string(),
+        UpdateErrorKind::Signature => format!("更新包签名校验未通过，已阻止安装：{err_msg}"),
+        UpdateErrorKind::RateLimited => "更新接口请求过于频繁，请稍后再试".to_string(),
+        UpdateErrorKind::Network => format!("无法连接到更新服务器：{err_msg}"),
+        UpdateErrorKind::Unknown => format!("检查更新失败：{err_msg}"),
     }
 }
 

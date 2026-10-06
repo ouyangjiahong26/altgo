@@ -2,13 +2,13 @@
 //!
 //! 区分致命错误（停管道）与可恢复错误（降级继续）。`user_error()` 把错误映射为
 //! 稳定错误码（`UserFacingError`），经事件通道交给前端字典翻译，Rust 不再向事件
-//! 通道发中文文案；`message()` 的中文文案仅剩润色连接测试（`describe_test_error`）
+//! 通道发中文文案。`message()` 的中文文案仅剩润色连接测试（`describe_test_error`）
 //! 与测试消费。
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-/// 经事件通道传给前端的用户可见错误：`code` 是稳定错误码，前端字典按语言翻译；
+/// 经事件通道传给前端的用户可见错误：`code` 是稳定错误码，前端字典按语言翻译。
 /// `params` 供模板占位符（如 `{reason}`）插值。
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -113,9 +113,10 @@ impl FatalError {
     pub fn message(&self) -> String {
         match self {
             Self::ModelNotFound { model, searched } => {
+                let paths: Vec<String> = searched.iter().map(|p| p.display().to_string()).collect();
                 format!(
-                    "本地模型未找到（配置值: {:?}）。\n搜索路径: {:?}\n请在 GUI 设置中下载模型，或将 [transcriber] model 设为已下载模型的名称（如 \"sense-voice\"）、包含 model.int8.onnx 与 tokens.txt 的目录，或 model.int8.onnx 文件路径。",
-                    model, searched
+                    "本地模型未找到（配置值：{model}）。\n搜索路径：{}\n请在 GUI 设置中下载模型，或将 [transcriber] model 设为已下载模型的名称（如 \"sense-voice\"）、包含 model.int8.onnx 与 tokens.txt 的目录，或 model.int8.onnx 文件路径。",
+                    paths.join("\n  ")
                 )
             }
             Self::ApiAuthFailed { service, status } => {
@@ -125,7 +126,7 @@ impl FatalError {
                 )
             }
             Self::KeyListenerFailed { backend, reason } => {
-                format!("按键监听器启动失败（{}）: {}", backend, reason)
+                format!("按键监听器启动失败（{}）：{}", backend, reason)
             }
             Self::TranscriberInitFailed(e) => e.message(),
             Self::PolisherInitFailed(e) => e.message(),
@@ -133,7 +134,7 @@ impl FatalError {
         }
     }
 
-    /// 映射为前端可翻译的错误码；包装变体透传内层错误的码。
+    /// 映射为前端可翻译的错误码，包装变体透传内层错误的码。
     pub fn user_error(&self) -> UserFacingError {
         match self {
             Self::ModelNotFound { model, searched } => UserFacingError {
@@ -197,7 +198,7 @@ impl RecoverableError {
         }
     }
 
-    /// 映射为前端可翻译的错误码；包装变体透传内层错误的码。
+    /// 映射为前端可翻译的错误码，包装变体透传内层错误的码。
     pub fn user_error(&self) -> UserFacingError {
         match self {
             Self::TranscriptionFailed(e) => e.user_error(),
@@ -217,11 +218,14 @@ pub enum TranscriberError {
     #[error("transcription returned empty text for non-trivial audio")]
     EmptyResult,
 
+    #[error("ASR API returned no usable content")]
+    EmptyResponse,
+
     #[error("failed to load local model: {reason}")]
     ModelLoadFailed { reason: String },
 
     #[error("audio decode error: {0}")]
-    WavDecodeFailed(&'static str),
+    WavDecodeFailed(String),
 
     #[error("invalid ASR API base URL: {0}")]
     InvalidBaseUrl(String),
@@ -240,8 +244,9 @@ impl TranscriberError {
     pub fn message(&self) -> String {
         match self {
             Self::EmptyAudio | Self::EmptyResult => "音频数据为空，请重新录音。".to_string(),
-            Self::ModelLoadFailed { reason } => format!("本地模型加载失败: {}", reason),
-            Self::WavDecodeFailed(msg) => format!("音频解码失败: {}", msg),
+            Self::EmptyResponse => "在线识别返回了空内容，请重试。".to_string(),
+            Self::ModelLoadFailed { reason } => format!("本地模型加载失败：{}", reason),
+            Self::WavDecodeFailed(msg) => format!("音频解码失败：{}", msg),
             Self::InvalidBaseUrl(url) => {
                 format!(
                     "在线识别 API 地址无效：'{}'。请填写完整 URL（如 https://token-plan-cn.xiaomimimo.com/v1）。",
@@ -249,10 +254,10 @@ impl TranscriberError {
                 )
             }
             Self::ApiError { status, body } => {
-                format!("在线识别 API 错误（HTTP {}）: {}", status, body)
+                format!("在线识别 API 错误（HTTP {}）：{}", status, body)
             }
-            Self::HttpError(msg) => format!("在线识别请求失败: {}", msg),
-            Self::JsonError(msg) => format!("在线识别响应解析失败: {}", msg),
+            Self::HttpError(msg) => format!("在线识别请求失败：{}", msg),
+            Self::JsonError(msg) => format!("在线识别响应解析失败：{}", msg),
         }
     }
 
@@ -262,11 +267,12 @@ impl TranscriberError {
             Self::EmptyAudio => UserFacingError::bare("transcriber.empty_audio"),
             // 复用既有前端词条 error.transcription.empty：录音有效但识别结果为空。
             Self::EmptyResult => UserFacingError::bare("transcription.empty"),
+            Self::EmptyResponse => UserFacingError::bare("transcriber.empty_response"),
             Self::ModelLoadFailed { reason } => {
                 UserFacingError::with("transcriber.model_load_failed", "reason", reason.clone())
             }
             Self::WavDecodeFailed(msg) => {
-                UserFacingError::with("transcriber.wav_decode_failed", "reason", *msg)
+                UserFacingError::with("transcriber.wav_decode_failed", "reason", msg.clone())
             }
             Self::InvalidBaseUrl(url) => {
                 UserFacingError::with("transcriber.invalid_base_url", "url", url.clone())
@@ -336,11 +342,11 @@ impl PolisherError {
             Self::MissingApiKey => "润色 API 密钥未配置。请在设置中添加 API 密钥。".to_string(),
             Self::RateLimited => "API 请求频率受限，请稍后重试。".to_string(),
             Self::ApiError { status, body } => {
-                format!("LLM API 错误（HTTP {}）: {}", status, body)
+                format!("LLM API 错误（HTTP {}）：{}", status, body)
             }
             Self::EmptyResponse => "LLM 返回空响应。".to_string(),
-            Self::HttpError(msg) => format!("HTTP 请求失败: {}", msg),
-            Self::JsonError(msg) => format!("JSON 解析失败: {}", msg),
+            Self::HttpError(msg) => format!("HTTP 请求失败：{}", msg),
+            Self::JsonError(msg) => format!("JSON 解析失败：{}", msg),
             Self::RetriesExhausted => "所有重试尝试均失败。".to_string(),
         }
     }
@@ -394,9 +400,9 @@ pub enum RecorderError {
 impl RecorderError {
     pub fn message(&self) -> String {
         match self {
-            Self::StartFailed(msg) => format!("启动录音失败: {}", msg),
-            Self::StopFailed(msg) => format!("停止录音失败: {}", msg),
-            Self::CaptureFailed(msg) => format!("音频捕获错误: {}", msg),
+            Self::StartFailed(msg) => format!("启动录音失败：{}", msg),
+            Self::StopFailed(msg) => format!("停止录音失败：{}", msg),
+            Self::CaptureFailed(msg) => format!("音频捕获错误：{}", msg),
             Self::EmptyRecording => "录音为空，请重试。".to_string(),
         }
     }
@@ -416,6 +422,34 @@ impl RecorderError {
             Self::EmptyRecording => UserFacingError::bare("recorder.empty_recording"),
         }
     }
+}
+
+/// 音频编解码错误。
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum AudioError {
+    #[error("PCM data must not be empty")]
+    EmptyPcm,
+
+    #[error("sample rate must be positive")]
+    InvalidSampleRate,
+
+    #[error("channels must be positive")]
+    InvalidChannels,
+
+    #[error("bits per sample must be positive")]
+    InvalidBitsPerSample,
+
+    #[error("PCM data too large for WAV format (>4 GB)")]
+    PcmTooLarge,
+
+    #[error("WAV data too short")]
+    WavTooShort,
+
+    #[error("not a valid WAV file")]
+    InvalidWavHeader,
+
+    #[error("no data chunk found in WAV")]
+    MissingDataChunk,
 }
 
 /// 输出（剪贴板）错误。
@@ -603,7 +637,7 @@ mod tests {
         assert_eq!(params.get("status").unwrap(), "429");
         assert_eq!(params.get("body").unwrap(), "busy");
 
-        let ue = TranscriberError::WavDecodeFailed("bad header").user_error();
+        let ue = TranscriberError::WavDecodeFailed("bad header".to_string()).user_error();
         assert_eq!(ue.code, "transcriber.wav_decode_failed");
         assert_eq!(ue.params.unwrap().get("reason").unwrap(), "bad header");
 
@@ -634,7 +668,7 @@ mod tests {
         let ue = PipelineError::Recoverable(RecoverableError::EmptyTranscription).user_error();
         assert_eq!(ue.code, "transcription.empty");
 
-        // 无参错误码序列化时不携带 params 字段；有参时为 camelCase 的 params 对象。
+        // 无参错误码序列化时不携带 params 字段，有参时为 camelCase 的 params 对象。
         assert_eq!(
             serde_json::to_string(&PolisherError::RateLimited.user_error()).unwrap(),
             r#"{"code":"polisher.rate_limited"}"#

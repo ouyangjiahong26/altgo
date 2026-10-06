@@ -131,7 +131,7 @@ describe("ReleaseNotes", () => {
     expect(container.querySelector(".release-notes-subitem")?.textContent).toBe("子条目");
     expect(container.querySelectorAll(".release-notes-item strong code")).toHaveLength(1);
 
-    // 冒号后的描述不进入渲染；样板尾巴与版本行同样被过滤。
+    // 冒号后的描述不进入渲染，样板尾巴与版本行同样被过滤。
     expect(container.textContent).not.toContain("主窗改为 440×680");
     expect(container.textContent).not.toContain("ouyangjiahong26/altgo");
     expect(container.textContent).not.toContain("altgo v2.6.18");

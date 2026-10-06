@@ -53,7 +53,7 @@ unsafe extern "system" fn ll_keyboard_proc(
     CallNextHookEx(None, n_code, w_param, l_param)
 }
 
-/// 运行中的低级键盘钩子句柄；drop 时停止钩子线程。
+/// 运行中的低级键盘钩子句柄，drop 时停止钩子线程。
 pub(crate) struct HookHandle {
     thread_id: u32,
     thread: Option<JoinHandle<()>>,

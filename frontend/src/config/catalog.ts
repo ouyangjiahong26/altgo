@@ -1,14 +1,14 @@
 /**
  * 供应商清单的唯一来源：从 Oh My Pi 的模型目录（catalog.stencil.so，与 `omp models` 同源）
- * 拉取全部供应商与模型，转成 ProviderPreset 注入预设选择器；设置页挂载时自动拉取。
- * 目录无端点的少数大厂由官方补全表补地址；协议按 provider id 映射，协议下拉可纠正。
+ * 拉取全部供应商与模型，转成 ProviderPreset 注入预设选择器。设置页挂载时自动拉取。
+ * 目录无端点的少数大厂由官方补全表补地址。协议按 provider id 映射，协议下拉可纠正。
  */
 import { invoke } from "@tauri-apps/api/core";
 import type { ModelCatalogEntry, ProviderPreset } from "./modelPresets";
 
 /**
- * 目录条目不带协议字段（omp 在自身代码内映射）；altgo 按 provider id 定协议，
- * 未命中的默认 OpenAI 兼容——设置页的协议下拉始终可以手动纠正。
+ * 目录条目不带协议字段（omp 在自身代码内映射），altgo 按 provider id 定协议，
+ * 未命中的默认 OpenAI 兼容，设置页的协议下拉始终可以手动纠正。
  */
 const ANTHROPIC_PROVIDERS: Record<string, true> = {
   anthropic: true,
@@ -38,7 +38,7 @@ interface CatalogProvider {
 
 /**
  * 把目录 JSON 转成 ProviderPreset 列表：
- * - 无端点且不在官方补全表的条目跳过（如 Vertex，需要项目级配置）；
+ * - 无端点且不在官方补全表的条目跳过（如 Vertex，需要项目级配置）。
  * - 模型按显示名排序，上下文窗口取自 limit.context。
  */
 export function parseCatalog(json: unknown): ProviderPreset[] {
@@ -74,7 +74,7 @@ export function parseCatalog(json: unknown): ProviderPreset[] {
 let cached: Promise<ProviderPreset[]> | null = null;
 
 /**
- * 拉取并解析目录；会话内只拉一次，失败后允许重试。
+ * 拉取并解析目录，会话内只拉一次，失败后允许重试。
  * 网络请求在 Rust 侧完成（WebView 的 CSP `connect-src 'self'` 不放行跨域 fetch）。
  */
 export function loadCatalog(): Promise<ProviderPreset[]> {

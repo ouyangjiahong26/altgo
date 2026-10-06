@@ -80,10 +80,10 @@ export function parseReleaseNotes(md: string): NotesBlock[] {
 const INLINE_RE = /(\*\*[^*]+\*\*|`[^`]+`)/;
 
 /**
- * 纯函数：条目的展示文本——只取“：”之前的小标题。
+ * 纯函数：条目的展示文本，只取“：”之前的小标题。
  *
  * CHANGELOG 的条目是“**小标题**：长描述”，窄窗里把长描述全铺开会盖过标题，
- * 读者也只需知道改了什么；细节仍在 CHANGELOG.md 与 GitHub Release 页。
+ * 读者也只需知道改了什么，细节仍在 CHANGELOG.md 与 GitHub Release 页。
  * 没有“：”的条目原样保留。
  */
 export function entryTitle(text: string): string {
@@ -93,7 +93,7 @@ export function entryTitle(text: string): string {
 
 /**
  * 纯函数：把一行内联语法切成 React 节点（`**粗体**`、`` `代码` ``），
- * 其余文本原样保留为字符串节点。粗体内部再解析一次——真实 CHANGELOG 里有
+ * 其余文本原样保留为字符串节点。粗体内部再解析一次，真实 CHANGELOG 里有
  * `**\`build.ps1\` 的检查**` 这类写法，否则反引号会原样显示。
  */
 export function renderInline(text: string): ReactNode[] {

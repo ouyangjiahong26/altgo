@@ -1,7 +1,7 @@
 //! Windows 录音器。
 //!
 //! 使用 cpal（WASAPI）从默认输入设备采集音频，回调里统一转换为
-//! 16kHz 单声道 s16le PCM 写入共享 `Buffer`，输出与 `PulseRecorder` 一致。
+//! 16 kHz 单声道 s16le PCM 写入共享 `Buffer`，输出与 `PulseRecorder` 一致。
 
 use crate::audio::{self, Buffer};
 use crate::error::RecorderError;
@@ -16,12 +16,12 @@ use std::sync::{Arc, Mutex, RwLock};
 struct SendStream(cpal::Stream);
 unsafe impl Send for SendStream {}
 
-/// WASAPI 录音器，输出固定为单声道 16kHz s16le（ASR 输入要求）。
+/// WASAPI 录音器，输出固定为单声道 16 kHz s16le（ASR 输入要求）。
 pub struct WindowsRecorder {
     sample_rate: u32,
     shared_buffer: Arc<Buffer>,
     recording: Arc<AtomicBool>,
-    // Stream 必须保持存活才有数据；stop 时 drop。
+    // Stream 必须保持存活才有数据，stop 时 drop。
     stream: Mutex<Option<SendStream>>,
     audio_level_cb: Arc<RwLock<Option<AudioLevelCallback>>>,
 }
@@ -49,7 +49,7 @@ impl WindowsRecorder {
             .default_input_device()
             .ok_or_else(|| RecorderError::StartFailed("未找到默认输入音频设备".to_string()))?;
 
-        // 优先请求目标格式；WASAPI 共享模式下系统会自动转换采样率/声道。
+        // 优先请求目标格式，WASAPI 共享模式下系统会自动转换采样率/声道。
         // 若设备拒绝，回退到默认配置，回调里做降采样与混单声道。
         let target_config = cpal::StreamConfig {
             channels: 1,
@@ -57,42 +57,15 @@ impl WindowsRecorder {
             buffer_size: cpal::BufferSize::Default,
         };
 
-        let buffer = Arc::clone(&self.shared_buffer);
-        let recording = Arc::clone(&self.recording);
-        let audio_level_cb = Arc::clone(&self.audio_level_cb);
-        let sample_rate = self.sample_rate;
-
-        type PcmCallback = Box<dyn FnMut(&[f32], &cpal::InputCallbackInfo) + Send>;
-
-        fn make_callback(
-            buffer: Arc<Buffer>,
-            recording: Arc<AtomicBool>,
-            audio_level_cb: Arc<RwLock<Option<AudioLevelCallback>>>,
-            dst_rate: u32,
-        ) -> impl Fn(u32, u16) -> PcmCallback {
-            move |src_rate: u32, channels: u16| {
-                let buffer = Arc::clone(&buffer);
-                let recording = Arc::clone(&recording);
-                let audio_level_cb = Arc::clone(&audio_level_cb);
-                Box::new(move |data: &[f32], _info: &cpal::InputCallbackInfo| {
-                    if !recording.load(Ordering::SeqCst) {
-                        return;
-                    }
-                    let pcm = append_pcm(&buffer, data, src_rate, channels, dst_rate);
-                    if let Some(cb) = audio_level_cb.read().ok().and_then(|guard| guard.clone()) {
-                        if !pcm.is_empty() {
-                            let level = audio::calculate_audio_level(&pcm);
-                            cb(level);
-                        }
-                    }
-                })
-            }
-        }
-
-        let make_callback = make_callback(buffer, recording, audio_level_cb, sample_rate);
+        let make_callback = make_pcm_callback(
+            Arc::clone(&self.shared_buffer),
+            Arc::clone(&self.recording),
+            Arc::clone(&self.audio_level_cb),
+            self.sample_rate,
+        );
         let stream = build_stream(&device, &target_config, make_callback(self.sample_rate, 1))
             .or_else(|target_err| {
-                tracing::warn!(error = %target_err, "设备拒绝 16kHz 单声道，回退默认格式");
+                tracing::warn!(error = %target_err, "设备拒绝 16 kHz 单声道，回退默认格式");
                 let default_config = device.default_input_config().map_err(|e| {
                     RecorderError::StartFailed(format!("无法获取默认音频格式: {e}"))
                 })?;
@@ -123,6 +96,35 @@ impl WindowsRecorder {
         }
         audio::encode_wav(&pcm_data, self.sample_rate, 1, 16)
             .map_err(|e| RecorderError::CaptureFailed(e.to_string()))
+    }
+}
+
+/// cpal 输入回调的 boxed 形态，供按格式参数化的回调工厂返回。
+type PcmCallback = Box<dyn FnMut(&[f32], &cpal::InputCallbackInfo) + Send>;
+
+/// 构造音频回调工厂：按实际采样率与声道数生成写 PCM 与上报电平的闭包。
+fn make_pcm_callback(
+    buffer: Arc<Buffer>,
+    recording: Arc<AtomicBool>,
+    audio_level_cb: Arc<RwLock<Option<AudioLevelCallback>>>,
+    dst_rate: u32,
+) -> impl Fn(u32, u16) -> PcmCallback {
+    move |src_rate: u32, channels: u16| {
+        let buffer = Arc::clone(&buffer);
+        let recording = Arc::clone(&recording);
+        let audio_level_cb = Arc::clone(&audio_level_cb);
+        Box::new(move |data: &[f32], _info: &cpal::InputCallbackInfo| {
+            if !recording.load(Ordering::SeqCst) {
+                return;
+            }
+            let pcm = append_pcm(&buffer, data, src_rate, channels, dst_rate);
+            if let Some(cb) = audio_level_cb.read().ok().and_then(|guard| guard.clone()) {
+                if !pcm.is_empty() {
+                    let level = audio::calculate_audio_level(&pcm);
+                    cb(level);
+                }
+            }
+        })
     }
 }
 
@@ -202,7 +204,7 @@ mod tests {
     #[test]
     fn append_pcm_passthrough_same_rate() {
         let buf = Buffer::new();
-        // 16kHz 单声道，4 个采样；逐帧插值时最后一帧缺右邻，输出 3 帧
+        // 16 kHz 单声道，4 个采样。逐帧插值时最后一帧缺右邻，输出 3 帧
         append_pcm(&buf, &[0.0, 0.5, -0.5, 0.25], 16_000, 1, 16_000);
         let pcm = buf.read_all();
         assert_eq!(pcm.len(), 6);
@@ -212,7 +214,7 @@ mod tests {
     #[test]
     fn append_pcm_downsamples_half_rate() {
         let buf = Buffer::new();
-        // 32kHz → 16kHz：4 个采样应产出 ~2 个
+        // 32 kHz → 16 kHz：4 个采样应产出 ~2 个
         append_pcm(&buf, &[0.0, 0.5, -0.5, 0.25], 32_000, 1, 16_000);
         let pcm = buf.read_all();
         assert_eq!(pcm.len(), 4); // 2 个 s16 采样

@@ -7,7 +7,7 @@ import { RELEASES_URL, type UpdateInfo } from "../updateNotes";
 /**
  * 更新说明窗口的展示层：数据与回调全由外部传入，自身不碰 Tauri API。
  *
- * 抽出来的原因是窗口标记只能有一份——更新说明窗口（`update-notes.tsx`）与
+ * 抽出来的原因是窗口标记只能有一份：更新说明窗口（`update-notes.tsx`）与
  * 样式预览页都渲染它，各写一份会悄悄漂移。
  */
 

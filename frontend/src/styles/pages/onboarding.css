@@ -43,7 +43,7 @@
   margin-bottom: var(--space-1);
 }
 
-/* 步骤序号是流程信息，用中性小字；强调色只留给用户当前操作 */
+/* 步骤序号是流程信息，用中性小字，强调色只留给用户当前操作 */
 .onboarding-step-label {
   font-size: var(--text-2xs);
   font-weight: var(--font-medium);

@@ -29,7 +29,7 @@ use crate::error::KeyListenerError;
 
 /// 持续监听激活键的 trait seam。
 ///
-/// 由平台 adapter 实现；pipeline 以 `Box<dyn KeyListener>` 消费，便于注入测试 fake。
+/// 由平台 adapter 实现。pipeline 以 `Box<dyn KeyListener>` 消费，便于注入测试 fake。
 pub trait KeyListener: Send {
     /// 开始监听，返回事件通道与后端标识（如 `"xinput"`）。
     fn start(

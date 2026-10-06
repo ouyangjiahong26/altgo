@@ -1,7 +1,7 @@
 //! 命令处理器与结果处理。
 //!
 //! `handle_start_record` / `handle_stop_record` 是按状态机命令调用的纯业务逻辑。
-//! `transcribe_and_dispatch` 是停止录音与重试待重试录音共用的转写收尾；
+//! `transcribe_and_dispatch` 是停止录音与重试待重试录音共用的转写收尾。
 //! `process_transcription_result` 处理转写完成后的剪贴板写入和历史追加。
 
 use std::sync::Arc;
@@ -19,7 +19,7 @@ use crate::pipeline_controller::PipelineStatus;
 
 /// 最短有效录音时长（毫秒）。低于此值视为误触：长按阈值刚过就松开的意外
 /// 按压只能录到一瞬音频，不该触发一次转写回合（在线后端还要为此付一次
-/// 网络往返，服务异常时浮窗会转圈到超时）。
+/// 网络往返，服务异常时悬浮窗会转圈到超时）。
 pub(crate) const MIN_RECORDING_DURATION_MS: u64 = 300;
 
 /// 处理 StartRecord 命令：开始录音并通知 sink。
@@ -84,7 +84,7 @@ fn audio_too_short(wav_data: &[u8]) -> bool {
 
 /// 转写 + 润色 + 结果分发的共享收尾，停止录音与重试待重试录音共用。
 ///
-/// 返回 `true` 表示产出了转写结果；`false` 表示识别失败，此时录音本体已
+/// 返回 `true` 表示产出了转写结果，`false` 表示识别失败，此时录音本体已
 /// 保留进 `pending` 供用户重新识别（ADR-0003：调用方保证串行调用）。
 pub(crate) async fn transcribe_and_dispatch(
     wav_data: &[u8],
@@ -115,10 +115,12 @@ pub(crate) async fn transcribe_and_dispatch(
         }
     };
 
-    tracing::info!(text = %result.text, "transcribed");
+    // 只记录长度，不记录文本内容：转写结果是用户口述内容，日志可能扩散到
+    // 终端与日志收集系统，与历史落盘 0o600 的保护力度保持一致。
+    tracing::info!(chars = result.text.chars().count(), "transcribed");
 
     if result.text.is_empty() {
-        // 有效长度的录音识别出空文本多半是服务端异常——保留录音供重试，
+        // 有效长度的录音识别出空文本多半是服务端异常，保留录音供重试，
         // 而不是静默吞掉用户刚说完的话。
         let user_error = TranscriberError::EmptyResult.user_error();
         tracing::warn!("empty transcription result, retaining audio for retry");
@@ -141,7 +143,7 @@ pub(crate) async fn transcribe_and_dispatch(
         }
     };
 
-    tracing::info!(text = %polished, "polished");
+    tracing::info!(chars = polished.chars().count(), "polished");
 
     sink.on_progress("done", Some(1.0));
 
@@ -222,7 +224,7 @@ pub async fn dispatch_history_polish(
 /// 处理一次转写结果：选择文本、写剪贴板、追加历史。
 ///
 /// `inject_text` 为 `true` 时（仅 Windows 有实现）把选中文本注入到当前
-/// 焦点窗口；为 `false` 时输出动作仅剩剪贴板写入。
+/// 焦点窗口。为 `false` 时输出动作仅剩剪贴板写入。
 /// 转写为空时返回 `None`（不做任何动作）。
 pub async fn process_transcription_result(
     output: &TranscriptionResult,
@@ -237,7 +239,7 @@ pub async fn process_transcription_result(
 
     let text_to_use = select_text(prefer_polished, output);
 
-    // 写剪贴板（阻塞 I/O；调用方已在异步上下文中）
+    // 写剪贴板（阻塞 I/O，调用方已在异步上下文中）
     let text_clone = text_to_use.clone();
     let output_handle = output_adapter.clone_box();
     let clipboard_ok =
@@ -250,7 +252,7 @@ pub async fn process_transcription_result(
         tracing::warn!("failed to write clipboard");
     }
 
-    // Windows: 注入到当前焦点窗口；其他平台为 no-op
+    // Windows: 注入到当前焦点窗口，其他平台为 no-op
     if inject_text {
         let text_clone = text_to_use.clone();
         let output_handle = output_adapter.clone_box();
@@ -496,7 +498,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_stop_record_discards_recording_below_min_duration() {
-        // 299ms < 300ms 守卫：丢弃；恰好 300ms：进入转写。
+        // 299 ms < 300 ms 守卫：丢弃。恰好 300 ms：进入转写。
         for (samples, expect_transcribed) in [(4784usize, false), (4800, true)] {
             let pcm = vec![0u8; samples * 2];
             let wav = audio::encode_wav(&pcm, 16000, 1, 16).unwrap();
@@ -532,7 +534,7 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     fn make_test_wav() -> Vec<u8> {
-        // 500ms（16kHz 单声道 16 位）：高于 300ms 误触守卫，代表一段真实录音。
+        // 500 ms（16 kHz 单声道 16 位）：高于 300 ms 误触守卫，代表一段真实录音。
         audio::encode_wav(&vec![0u8; 16000], 16000, 1, 16).unwrap()
     }
 

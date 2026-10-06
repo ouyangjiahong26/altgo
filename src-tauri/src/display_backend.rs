@@ -4,7 +4,7 @@
 //! 悬浮窗会被合成器摆到默认位置（GNOME 下为屏幕中央）。检测到 Wayland
 //! 会话时切到 X11 后端（XWayland），悬浮窗定位即恢复生效。
 
-/// 返回应设置的 `GDK_BACKEND` 值；`None` 表示保持现状。
+/// 返回应设置的 `GDK_BACKEND` 值，`None` 表示保持现状。
 ///
 /// - 非 Wayland 会话：不动。
 /// - Wayland 会话且用户未显式设置 `GDK_BACKEND`：切到 `"x11"`（XWayland）。

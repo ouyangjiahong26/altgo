@@ -1,4 +1,4 @@
-//! PipelineBuilder — 组件构造。
+//! PipelineBuilder：组件构造。
 
 use std::sync::{Arc, Mutex};
 
@@ -29,7 +29,7 @@ impl PipelineBuilder {
 
     /// 从配置构建转写引擎。
     ///
-    /// `backend = "online"` 走小米 MiMo 在线识别（纯网络调用，不触碰本地模型解析）；
+    /// `backend = "online"` 走小米 MiMo 在线识别（纯网络调用，不触碰本地模型解析），
     /// 其余（默认 `"local"`）走 sherpa-onnx SenseVoice，本地模型缺失或加载失败时返回错误。
     pub fn build_transcriber(&self) -> Result<Box<dyn Transcriber>, PipelineError> {
         let cfg = &self.cfg.transcriber;

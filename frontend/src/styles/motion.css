@@ -1,4 +1,4 @@
-/* 共享动效 — 由主应用（global.css）与悬浮窗共同导入 */
+/* 共享动效：由主应用（global.css）与悬浮窗共同导入 */
 
 @keyframes island-exit {
   from {

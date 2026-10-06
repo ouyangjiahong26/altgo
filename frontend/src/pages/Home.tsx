@@ -63,7 +63,7 @@ export default function Home() {
     try {
       await invoke("discard_pending_recording");
     } catch {
-      // 放弃失败不影响主流程；事件未到时横幅暂留。
+      // 放弃失败不影响主流程，事件未到时横幅暂留。
     }
   };
 
@@ -77,7 +77,7 @@ export default function Home() {
     }
   };
 
-  // 空态要说清“按住哪个键”，这里取一次配置；失败就退回默认预设文案。
+  // 空态要说清“按住哪个键”，这里取一次配置，失败就退回默认预设文案。
   useEffect(() => {
     invoke<{ keyName?: string }>("get_config")
       .then((cfg) => {

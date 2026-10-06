@@ -1,6 +1,6 @@
 //! 语音识别模块。
 //!
-//! `Transcriber` trait 抽象本地语音识别后端；当前生产实现为
+//! `Transcriber` trait 抽象本地语音识别后端。当前生产实现为
 //! `SherpaTranscriber`（`crate::sherpa`）内嵌 sherpa-onnx 的 SenseVoice。
 //!
 //! 所有实现都返回 `TranscribeResult`（文本 + 语言信息），进度通过闭包回调上报。
@@ -19,12 +19,12 @@ pub struct TranscribeResult {
     pub language: String,
 }
 
-/// 统一的转写后端 trait——`on_progress` 回调由调用方提供，trait 表面不携带
+/// 统一的转写后端 trait：`on_progress` 回调由调用方提供，trait 表面不携带
 /// 通道类型，新后端接入无需改动 trait。
 pub trait Transcriber: Send + Sync {
     /// 转写 WAV 音频数据。
     ///
-    /// `on_progress` 收到 0.0–1.0 的进度；无流式进度的后端成功时也应调用一次
+    /// `on_progress` 收到 0.0–1.0 的进度，无流式进度的后端成功时也应调用一次
     /// `1.0`，让 UI 收到最终一帧。
     fn transcribe<'life0, 'life1>(
         &'life0 self,

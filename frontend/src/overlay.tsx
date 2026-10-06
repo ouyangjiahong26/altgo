@@ -19,7 +19,7 @@ export type Phase = "recording" | "processing" | "done" | "hidden" | null;
 
 export const CROSSFADE_DURATION_MS = 180;
 
-/** 电平轨迹：采样间隔与窗口长度（53 帧 × 100ms ≈ 5.3 秒，恰好填满 158px 视口）。 */
+/** 电平轨迹：采样间隔与窗口长度（53 帧 × 100 ms ≈ 5.3 秒，恰好填满 158px 视口）。 */
 export const TRACE_SAMPLE_INTERVAL_MS = 100;
 export const TRACE_MAX_FRAMES = 53;
 
@@ -31,7 +31,7 @@ export function traceBarHeight(level: number): number {
 
 export interface PhaseTransitionResult {
   action: "show" | "crossfade" | "exit" | "none";
-  /** show：要展示的相位；exit→hidden：动画结束后置 null 以清除 */
+  /** show：要展示的相位。exit→hidden：动画结束后置 null 以清除 */
   phase?: Phase;
   /** crossfade：退出动画期间继续保持的当前相位 */
   exitPhase?: Phase;
@@ -80,16 +80,15 @@ export function computePhaseTransition(
   };
 }
 
-export function Overlay() {
-  const { t } = useTranslation();
-
-  // 当前视觉相位——完全由 Rust 侧的 overlay-state 事件驱动。
+/** 悬浮窗的全部可变状态：把 Tauri 事件流折算成渲染所需数据，Overlay 只做组装。 */
+function useOverlayState() {
+  // 当前视觉相位：完全由 Rust 侧的 overlay-state 事件驱动。
   const [phase, setPhase] = useState<string | null>(null);
 
   // 转写结果文本（done 阶段展示）。
   const [result, setResult] = useState<string | null>(null);
 
-  // 润色失败原因（done 阶段在文本下方提示已回退原文；错误码结构，前端字典翻译）。
+  // 润色失败原因（done 阶段在文本下方提示已回退原文，错误码结构，前端字典翻译）。
   const [polishError, setPolishError] = useState<PipelineErrorPayload | null>(null);
 
   // processing 阶段的进度信息。
@@ -105,7 +104,7 @@ export function Overlay() {
 
   // 是否处于退出过渡中（切换 CSS 类）。
   const [isExiting, setIsExiting] = useState(false);
-  // Crossfade（相位间切换）只做淡出，不带退出位移；exit（隐藏）才滑出。
+  // Crossfade（相位间切换）只做淡出，不带退出位移。exit（隐藏）才滑出。
   const [isCrossfading, setIsCrossfading] = useState(false);
 
   // 记录上一相位以确定过渡方向。
@@ -194,7 +193,7 @@ export function Overlay() {
     const unlistenAudioLevel = listen<number>("audio-level", (event) => {
       if (!active) return;
       const level = event.payload ?? 0;
-      // 仅录音相位采样；processing/done/hidden 不采。
+      // 仅录音相位采样，processing/done/hidden 不采。
       if (prevPhaseRef.current !== "recording") return;
       const now = Date.now();
       if (now - lastSampleAtRef.current < TRACE_SAMPLE_INTERVAL_MS) return;
@@ -236,7 +235,7 @@ export function Overlay() {
     };
   }, []);
 
-  // 只响应容器自身的 transitionend；子元素（进度条、按钮等）的
+  // 只响应容器自身的 transitionend，子元素（进度条、按钮等）的
   // transition 结束会冒泡上来，不得因此提前清除内容。
   const handleTransitionEnd = (event: React.TransitionEvent) => {
     if (event.target !== event.currentTarget) return;
@@ -248,92 +247,151 @@ export function Overlay() {
     }
   };
 
-  if (phase === null && !isExiting) return null;
-
   const handleClose = async () => {
     try {
       await invoke("hide_overlay");
     } catch {
-      // 浮窗 hide 失败——静默忽略
+      // 悬浮窗 hide 失败，静默忽略
     }
   };
 
+  return {
+    phase,
+    result,
+    polishError,
+    txProgress,
+    levelTrace,
+    isExiting,
+    isCrossfading,
+    handleTransitionEnd,
+    handleClose,
+  };
+}
+
+/** done 相位内容：结果圆盘、单行文本、润色失败提示与关闭按钮。 */
+function DoneContent({
+  t,
+  result,
+  polishError,
+  onClose,
+}: {
+  t: (key: string) => string;
+  result: string;
+  polishError: PipelineErrorPayload | null;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div className={`done-indicator ${polishError ? "done-indicator--failed" : ""}`}>
+        <Check size={11} strokeWidth={2.5} aria-hidden />
+      </div>
+      <span className="result-text">{result}</span>
+      {polishError && (
+        <span
+          className="result-warn"
+          title={`${t("overlay.polish_failed")}：${tError(polishError.code, polishError.params)}`}
+        >
+          <TriangleAlert size={12} strokeWidth={2} aria-hidden />
+        </span>
+      )}
+      <button
+        type="button"
+        className="btn-close"
+        onClick={onClose}
+        title={t("overlay.close")}
+        aria-label={t("overlay.close")}
+      >
+        <X size={14} strokeWidth={2.5} aria-hidden />
+      </button>
+    </>
+  );
+}
+
+/** recording 相位内容：状态圆点与电平轨迹。 */
+function RecordingContent({ levelTrace }: { levelTrace: number[] }) {
+  return (
+    <>
+      <span className="dot" aria-hidden />
+      <div className="level-trace" aria-hidden>
+        {levelTrace.map((level, i) => (
+          <div
+            key={i}
+            className="trace-bar"
+            style={{ height: `${traceBarHeight(level).toFixed(1)}px` }}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** processing 相位内容：转写环形动画与进度线（无进度时为不定态动画）。 */
+function ProcessingContent({
+  txProgress,
+}: {
+  txProgress: { phase: string; fraction: number | null } | null;
+}) {
+  return (
+    <>
+      <div className="processing-ring" />
+      <div className="overlay-tx-progress-track">
+        <div
+          className={`overlay-tx-progress-fill ${
+            txProgress?.fraction == null ? "indeterminate" : ""
+          }`}
+          style={
+            txProgress?.fraction != null
+              ? {
+                  transform: `scaleX(${Math.min(
+                    1,
+                    Math.max(0, txProgress.fraction)
+                  )})`,
+                }
+              : undefined
+          }
+        />
+      </div>
+    </>
+  );
+}
+
+export function Overlay() {
+  const { t } = useTranslation();
+  const s = useOverlayState();
+
+  if (s.phase === null && !s.isExiting) return null;
+
   const containerClass = `island-container ${
-    isExiting ? (isCrossfading ? "island-crossfade" : "island-exit") : "island-enter"
+    s.isExiting ? (s.isCrossfading ? "island-crossfade" : "island-exit") : "island-enter"
   }`;
 
-  // 生产端保证 transcription-result 先于 done 到达；若乱序先收到 done 且
+  // 生产端保证 transcription-result 先于 done 到达，若乱序先收到 done 且
   // 结果未到，继续显示 processing 视图，避免渲染出没有内容的空 island（闪烁）。
-  const effectivePhase = phase === "done" && !result ? "processing" : phase;
+  const effectivePhase = s.phase === "done" && !s.result ? "processing" : s.phase;
 
-  if (phase === "done" && result) {
+  if (s.phase === "done" && s.result) {
     return (
-      <div className={containerClass} onTransitionEnd={handleTransitionEnd}>
+      <div className={containerClass} onTransitionEnd={s.handleTransitionEnd}>
         <div className="island">
-          <div className={`done-indicator ${polishError ? "done-indicator--failed" : ""}`}>
-            <Check size={11} strokeWidth={2.5} aria-hidden />
-          </div>
-          <span className="result-text">{result}</span>
-          {polishError && (
-            <span
-              className="result-warn"
-              title={`${t("overlay.polish_failed")}：${tError(polishError.code, polishError.params)}`}
-            >
-              <TriangleAlert size={12} strokeWidth={2} aria-hidden />
-            </span>
-          )}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={handleClose}
-            title={t("overlay.close")}
-            aria-label={t("overlay.close")}
-          >
-            <X size={14} strokeWidth={2.5} aria-hidden />
-          </button>
+          <DoneContent
+            t={t}
+            result={s.result}
+            polishError={s.polishError}
+            onClose={s.handleClose}
+          />
         </div>
       </div>
     );
   }
 
   return (
-    <div className={containerClass} onTransitionEnd={handleTransitionEnd}>
+    <div className={containerClass} onTransitionEnd={s.handleTransitionEnd}>
       <div className="island">
         {effectivePhase === "recording" && (
-          <>
-            <span className="dot" aria-hidden />
-            <div className="level-trace" aria-hidden>
-              {levelTrace.map((level, i) => (
-                <div
-                  key={i}
-                  className="trace-bar"
-                  style={{ height: `${traceBarHeight(level).toFixed(1)}px` }}
-                />
-              ))}
-            </div>
-          </>
+          <RecordingContent levelTrace={s.levelTrace} />
         )}
         {effectivePhase === "processing" && (
-          <>
-            <div className="processing-ring" />
-            <div className="overlay-tx-progress-track">
-              <div
-                className={`overlay-tx-progress-fill ${
-                  txProgress?.fraction == null ? "indeterminate" : ""
-                }`}
-                style={
-                  txProgress?.fraction != null
-                    ? {
-                        transform: `scaleX(${Math.min(
-                          1,
-                          Math.max(0, txProgress.fraction)
-                        )})`,
-                      }
-                    : undefined
-                }
-              />
-            </div>
-          </>
+          <ProcessingContent txProgress={s.txProgress} />
         )}
       </div>
     </div>

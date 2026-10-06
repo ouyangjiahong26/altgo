@@ -16,7 +16,7 @@ vi.mock("@tauri-apps/api/event", () => ({
   }),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-// t 用词面 mock（断言 key 原样出现）；tError 保留真实实现，验证错误码插值。
+// t 用词面 mock（断言 key 原样出现），tError 保留真实实现，验证错误码插值。
 vi.mock("./i18n", async (importOriginal) => {
   const actual = (await importOriginal()) as typeof I18n;
   return { ...actual, useTranslation: () => ({ t: (k: string) => k }) };
@@ -60,7 +60,7 @@ describe("Overlay 相位转换", () => {
     emitPhase("processing");
     expect(container.querySelector(".processing-ring")).not.toBeNull();
 
-    // 生产端契约是 result 先于 done；即使乱序到达，前端也应继续显示
+    // 生产端契约是 result 先于 done，即使乱序到达，前端也应继续显示
     // processing 视图，而不是渲染没有任何内容的空 pill（闪烁）。
     emitPhase("done");
     act(() => {
@@ -164,9 +164,9 @@ describe("Overlay 相位转换", () => {
     });
 
     expect(container.querySelector(".result-text")!.textContent).toBe("你好，世界");
-    // 复制职能已删——结果自动写入剪贴板。
+    // 结果自动写入剪贴板，界面不提供复制按钮。
     expect(container.querySelector(".btn-copy")).toBeNull();
-    // 关闭按钮常驻 DOM，hover 显隐由 CSS 控制；此处断言元素与语义在位。
+    // 关闭按钮常驻 DOM，hover 显隐由 CSS 控制，此处断言元素与语义在位。
     const close = container.querySelector(".btn-close") as HTMLElement;
     expect(close).not.toBeNull();
     expect(close.title).toBe("overlay.close");

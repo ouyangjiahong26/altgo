@@ -1,4 +1,4 @@
-//! 配置存储 —— 持久化配置与原子化 patch 保存。
+//! 配置存储：持久化配置与原子化 patch 保存。
 //!
 //! `Config` 的薄持久化封装。patch 逻辑位于 `config.rs`
 //! （`ConfigPatch::apply_to_config`），配置定义与变更逻辑共处一处。

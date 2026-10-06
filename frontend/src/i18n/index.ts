@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 const LANG_KEY = "altgo-lang";
 
-// 解析界面语言：显式偏好（"zh"/"en"）优先；空串或未设置时跟随系统语言（前缀 zh 判中文，否则英文）。
+// 解析界面语言：显式偏好（"zh"/"en"）优先，空串或未设置时跟随系统语言（前缀 zh 判中文，否则英文）。
 export function resolveUiLang(pref: string | null | undefined): "zh" | "en" {
   if (pref === "zh") return "zh";
   if (pref === "en") return "en";
@@ -172,9 +172,9 @@ const translations: Record<string, Record<string, string>> = {
     "onboarding.key_title": "触发键",
     "onboarding.engine_title": "转写引擎",
     "onboarding.engine_local": "本地 SenseVoice",
-    "onboarding.engine_local_desc": "离线运行、隐私最好，低配机器也可用；需先下载模型。",
+    "onboarding.engine_local_desc": "离线运行、隐私最好，低配机器也可用。需先下载模型。",
     "onboarding.engine_online": "在线识别（MiMo ASR）",
-    "onboarding.engine_online_desc": "无需下载模型，只需联网与 API Key；模型与接口地址可在设置中调整。",
+    "onboarding.engine_online_desc": "无需下载模型，只需联网与 API Key。模型与接口地址可在设置中调整。",
     "onboarding.polish_title": "AI 润色（可选）",
     "onboarding.polish_skip": "跳过",
     "onboarding.done_title": "一切就绪",
@@ -183,34 +183,39 @@ const translations: Record<string, Record<string, string>> = {
     "onboarding.next": "下一步",
     // ---- 流水线错误码：与 src-tauri/src/error.rs 的 user_error() 码表一一对应，占位符 {name} 由 params 插值 ----
     "error.fatal.model_not_found":
-      "本地模型未找到（配置值: {model}）。\n搜索路径: {searched}\n请在 GUI 设置中下载模型，或将 [transcriber] model 设为已下载模型的名称（如 \"sense-voice\"）、包含 model.int8.onnx 与 tokens.txt 的目录，或 model.int8.onnx 文件路径。",
+      "本地模型未找到（配置值：{model}）。\n搜索路径：{searched}\n请在 GUI 设置中下载模型，或将 [transcriber] model 设为已下载模型的名称（如 \"sense-voice\"）、包含 model.int8.onnx 与 tokens.txt 的目录，或 model.int8.onnx 文件路径。",
     "error.fatal.api_auth_failed": "{service} API 认证失败（HTTP {status}）。请检查 API 密钥配置。",
-    "error.fatal.key_listener_failed": "按键监听器启动失败（{backend}）: {reason}",
-    "error.fatal.key_listener_start_failed": "按键监听器启动失败: {detail}",
+    "error.fatal.key_listener_failed": "按键监听器启动失败（{backend}）：{reason}",
+    "error.fatal.key_listener_start_failed": "按键监听器启动失败：{detail}",
     "error.internal.context_already_used": "内部错误：流水线上下文已被使用。",
     "error.transcription.empty": "转写结果为空，请重试。",
     "error.transcriber.empty_audio": "音频数据为空，请重新录音。",
-    "error.transcriber.model_load_failed": "本地模型加载失败: {reason}",
-    "error.transcriber.wav_decode_failed": "音频解码失败: {reason}",
+    "error.transcriber.empty_response": "在线识别返回了空内容，请重试。",
+    "error.transcriber.model_load_failed": "本地模型加载失败：{reason}",
+    "error.transcriber.wav_decode_failed": "音频解码失败：{reason}",
     "error.transcriber.invalid_base_url":
-      "在线识别 API 地址无效：'{url}'。请填写完整 URL（如 https://token-plan-cn.xiaomimimo.com/v1）。",
-    "error.transcriber.api_error": "在线识别 API 错误（HTTP {status}）: {body}",
-    "error.transcriber.http_error": "在线识别请求失败: {detail}",
-    "error.transcriber.json_error": "在线识别响应解析失败: {detail}",
-    "error.polisher.unknown_protocol": "未知的润色协议: '{protocol}'。请使用 'openai' 或 'anthropic'。",
+      "在线识别 API 地址无效：“{url}”。请填写完整 URL（如 https://token-plan-cn.xiaomimimo.com/v1）。",
+    "error.transcriber.api_error": "在线识别 API 错误（HTTP {status}）：{body}",
+    "error.transcriber.http_error": "在线识别请求失败：{detail}",
+    "error.transcriber.json_error": "在线识别响应解析失败：{detail}",
+    "error.polisher.unknown_protocol": "未知的润色协议：“{protocol}”。请使用“openai”或“anthropic”。",
     "error.polisher.invalid_base_url":
-      "润色 API 地址无效：'{url}'。请填写完整的 URL（如 https://api.deepseek.com）。",
+      "润色 API 地址无效：“{url}”。请填写完整的 URL（如 https://api.deepseek.com）。",
     "error.polisher.missing_api_key": "润色 API 密钥未配置。请在设置中添加 API 密钥。",
     "error.polisher.rate_limited": "API 请求频率受限，请稍后重试。",
-    "error.polisher.api_error": "LLM API 错误（HTTP {status}）: {body}",
+    "error.polisher.api_error": "LLM API 错误（HTTP {status}）：{body}",
     "error.polisher.empty_response": "LLM 返回空响应。",
-    "error.polisher.http_error": "HTTP 请求失败: {detail}",
+    "error.polisher.http_error": "HTTP 请求失败：{detail}",
     "error.polisher.json_error": "JSON 解析失败: {detail}",
     "error.polisher.retries_exhausted": "所有重试尝试均失败。",
-    "error.recorder.start_failed": "启动录音失败: {detail}",
-    "error.recorder.stop_failed": "停止录音失败: {detail}",
-    "error.recorder.capture_failed": "音频捕获错误: {detail}",
+    "error.recorder.start_failed": "启动录音失败：{detail}",
+    "error.recorder.stop_failed": "停止录音失败：{detail}",
+    "error.recorder.capture_failed": "音频捕获错误：{detail}",
     "error.recorder.empty_recording": "录音为空，请重试。",
+    "window.minimize": "最小化",
+    "window.maximize": "最大化",
+    "window.restore": "还原",
+    "window.close": "关闭",
   },
   en: {
     "title.subtitle": "Voice to Text",
@@ -394,6 +399,7 @@ const translations: Record<string, Record<string, string>> = {
     "error.internal.context_already_used": "Internal error: pipeline context already used.",
     "error.transcription.empty": "Transcription result is empty, please try again.",
     "error.transcriber.empty_audio": "Audio data is empty, please record again.",
+    "error.transcriber.empty_response": "ASR returned empty content, please try again.",
     "error.transcriber.model_load_failed": "Failed to load local model: {reason}",
     "error.transcriber.wav_decode_failed": "Failed to decode audio: {reason}",
     "error.transcriber.invalid_base_url":
@@ -415,6 +421,10 @@ const translations: Record<string, Record<string, string>> = {
     "error.recorder.stop_failed": "Failed to stop recording: {detail}",
     "error.recorder.capture_failed": "Audio capture error: {detail}",
     "error.recorder.empty_recording": "Recording is empty, please try again.",
+    "window.minimize": "Minimize",
+    "window.maximize": "Maximize",
+    "window.restore": "Restore",
+    "window.close": "Close",
   },
 };
 
@@ -423,7 +433,7 @@ export function translateStatic(lang: string, key: string): string {
 }
 
 // 错误码翻译：模板取 error.<code>，回退链为当前语言字典 → zh 字典 → 原样返回
-// "error." + code；模板中的 {name} 占位用 params 逐个替换，缺失的占位符原样保留。
+// "error." + code，模板中的 {name} 占位用 params 逐个替换，缺失的占位符原样保留。
 export function tError(code: string, params?: Record<string, string>): string {
   const lang = resolveUiLang(localStorage.getItem(LANG_KEY));
   const template =

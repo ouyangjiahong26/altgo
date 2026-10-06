@@ -1,4 +1,4 @@
-//! 浮窗窗口接缝的 Tauri 适配层。
+//! 悬浮窗窗口接缝的 Tauri 适配层。
 //!
 //! 把具体的 `tauri::WebviewWindow` 操作挡在 `OverlayManager` 之外，
 //! manager 经由 `OverlayWindow` 接口即可测试。
@@ -178,13 +178,6 @@ fn parse_xrandr_geometry(output: &str) -> Vec<(i32, i32, i32, i32, bool)> {
     monitors
 }
 
-/// 从工作区矩形提取 `(x, y, width, height)`，不关心各平台结构体的字段命名。
-/// 由测试共享，保证几何提取逻辑在每个平台都被覆盖到。
-#[allow(dead_code)]
-fn geometry_from_work_rect(left: i32, top: i32, right: i32, bottom: i32) -> (i32, i32, i32, i32) {
-    (left, top, right - left, bottom - top)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,38 +202,11 @@ DP-2 connected 1920x1080+3840+0 (normal left inverted right x axis y axis) 527mm
         assert!(parse_xrandr_geometry(sample).is_empty());
     }
 
-    // Windows 路径需要 AppHandle，只能在真实运行时验证；
+    // Windows 路径需要 AppHandle，只能在真实运行时验证。
     // 此处仅覆盖 Linux/xrandr 路径（无显示环境下返回 None 也不得 panic）。
     #[cfg(target_os = "linux")]
     #[test]
     fn test_platform_primary_monitor_geometry_runs_without_panicking() {
         let _ = platform_primary_monitor_geometry();
-    }
-
-    #[test]
-    fn test_geometry_from_work_rect_uses_work_area() {
-        // 整个显示器：0,0 - 3840x2160
-        // 工作区：0,40 - 3840x2080（底部任务栏 40px）
-        let (x, y, w, h) = geometry_from_work_rect(0, 40, 3840, 2120);
-        assert_eq!((x, y, w, h), (0, 40, 3840, 2080));
-    }
-
-    #[test]
-    fn test_geometry_from_work_rect_distinguishes_from_full_monitor() {
-        // 同一显示器会报告 rcMonitor=(0,0,3840,2160)。有任务栏时 rcWork 至少应在一个维度上严格更小。
-        let full = geometry_from_work_rect(0, 0, 3840, 2160);
-        let work = geometry_from_work_rect(0, 40, 3840, 2120);
-        assert_ne!(full, work);
-        assert!(
-            work.3 < full.3,
-            "work height should be smaller than full height"
-        );
-    }
-
-    #[test]
-    fn test_geometry_from_work_rect_negative_origin() {
-        // 位于主显示器左侧的副屏 x 为负值。
-        let (x, y, w, h) = geometry_from_work_rect(-1920, 0, 0, 1080);
-        assert_eq!((x, y, w, h), (-1920, 0, 1920, 1080));
     }
 }
