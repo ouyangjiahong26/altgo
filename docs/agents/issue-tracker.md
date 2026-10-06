@@ -10,16 +10,16 @@
 - **评论 issue**：`gh issue comment <number> --body "..."`
 - **添加 / 移除标签**：`gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **关闭**：`gh issue close <number> --comment "..."`
-- **AI 贡献标记**：AI 提交的 issue 与 PR 标题以 `[AI Generated][<类型>]` 开头（类型是大写标签，如 `[FEAT]`、`[FIX]`、`[DOCS]`、`[CHORE]`、`[ENH]`、`[TASK]`、`[RESEARCH]`）；AI 写的评论首行用 `> **[AI Generated]** 本评论由 AI 完成。` 或 `> **[AI Assisted]** 本评论由 AI 辅助完成。`
-- **正文写作风格**：PR 与 Issue 正文、AI 生成的评论、commit body 和 CHANGELOG 条目的写作约定（完整叙述、平实句子、少特殊符号、细节不进折叠区）见 `CONTRIBUTING.md` 的“正文写作约定”一节；开单模板已内联问题集引导。
+- **AI 贡献标记**：AI 提交的 issue 与 PR 标题以 `[AI Generated][<类型>]` 开头（类型是大写标签，如 `[FEAT]`、`[FIX]`、`[DOCS]`、`[CHORE]`、`[ENH]`、`[TASK]`、`[RESEARCH]`）。AI 写的评论首行用 `> **[AI Generated]** 本评论由 AI 完成。` 或 `> **[AI Assisted]** 本评论由 AI 辅助完成。`
+- **正文写作风格**：PR 与 Issue 正文、AI 生成的评论、commit body 和 CHANGELOG 条目的写作约定（完整叙述、平实句子、少特殊符号、细节不进折叠区）见 `CONTRIBUTING.md` 的“正文写作约定”一节。开单模板已内联问题集引导。
 
-仓库可从 `git remote -v` 推断 —— 在克隆目录中运行 `gh` 会自动识别。
+仓库可从 `git remote -v` 推断：在克隆目录中运行 `gh` 会自动识别。
 
 ## Pull request 作为分诊渠道
 
-**PR 作为请求渠道：否。** 本仓库只分诊 issue，外部 PR 不进入请求队列；`/triage` 读取此标记。
+**PR 作为请求渠道：否。** 本仓库只分诊 issue，外部 PR 不进入请求队列。`/triage` 读取此标记。
 
-设为 `是` 时，PR 与 issue 走相同的标签和状态：`gh pr view <number> --comments` 读、`gh pr diff <number>` 看 diff，`gh pr comment` / `gh pr edit --add-label`/`--remove-label` / `gh pr close` 操作；列出待分诊 PR 时按 `authorAssociation` 过滤掉 `OWNER`/`MEMBER`/`COLLABORATOR`。GitHub 的 issue 与 PR 共用编号空间，`#42` 可能是任一，先 `gh pr view 42` 确认。
+设为 `是` 时，PR 与 issue 走相同的标签和状态：`gh pr view <number> --comments` 读、`gh pr diff <number>` 看 diff，`gh pr comment` / `gh pr edit --add-label`/`--remove-label` / `gh pr close` 操作。列出待分诊 PR 时按 `authorAssociation` 过滤掉 `OWNER`/`MEMBER`/`COLLABORATOR`。GitHub 的 issue 与 PR 共用编号空间，`#42` 可能是任一，先 `gh pr view 42` 确认。
 
 ## 当技能说 “publish to the issue tracker”
 

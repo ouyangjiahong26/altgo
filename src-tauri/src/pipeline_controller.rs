@@ -43,7 +43,7 @@ impl PipelineController {
         Self::default()
     }
 
-    /// 共享状态 Arc 的克隆 —— spawn 时传给 sink。
+    /// 共享状态 Arc 的克隆，spawn 时传给 sink。
     pub fn status_arc(&self) -> Arc<std::sync::RwLock<PipelineStatus>> {
         self.status.clone()
     }
@@ -66,7 +66,7 @@ impl PipelineController {
     /// 阻塞地确保流水线在跑：已有实例时保留它并返回 `false`，本次启动则返回 `true`。
     ///
     /// 供同步初始化场景使用。窗口加载可能早于 `setup` 钩子，前端极早的 `save_config`
-    /// 会先起流水线；`setup` 不应把它当作致命错误（返回 Err 会让 Tauri 直接 panic），
+    /// 会先起流水线，`setup` 不应把它当作致命错误（返回 Err 会让 Tauri 直接 panic），
     /// 也不该重复启动。检查与启动在同一次持锁内完成，不留竞态窗口。
     pub fn ensure_started_with_blocking<F: FnOnce() -> PipelineHandle>(&self, spawn: F) -> bool {
         let mut guard = self.handle.blocking_lock();
@@ -85,7 +85,7 @@ impl PipelineController {
         if let Some(h) = handle {
             let _ = h.stop_tx.send(());
             // 等待旧 pipeline 线程完全退出，释放 OS 资源（子进程、设备节点、hook）。
-            // 不阻塞 tokio 运行时——把阻塞的 join 移到专用线程池。
+            // 不阻塞 tokio 运行时，把阻塞的 join 移到专用线程池。
             let _ = tokio::task::spawn_blocking(move || {
                 let _ = h.thread_handle.join();
             })
@@ -130,7 +130,7 @@ mod tests {
         let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let stopped_clone = Arc::clone(&stopped);
         let thread_handle = std::thread::spawn(move || {
-            // 阻塞等待 stop 信号；永不主动退出（模拟长生命周期管道线程）。
+            // 阻塞等待 stop 信号，永不主动退出（模拟长生命周期管道线程）。
             let _ = stop_rx.blocking_recv();
             stopped_clone.store(true, std::sync::atomic::Ordering::SeqCst);
         });

@@ -23,26 +23,26 @@ title: 常见问题
 
 **Linux：**
 
-1. **用户是否在 `input` 组并已重新登录？** 无法读取 `/dev/input/event*` 时，按键监听会失败：`sudo usermod -aG input "$USER"` 后注销/重启再试。
+1. 用户是否在 `input` 组并已重新登录？无法读取 `/dev/input/event*` 时，按键监听会失败：`sudo usermod -aG input "$USER"` 后注销/重启再试。
 2. 确认 `xinput` 可用：`which xinput`（X11 路径）。
-3. 检查 Alt 绑定：`xmodmap -pke | grep Alt`；配置里默认 `key_name = "Alt_R"`，与设置页“按下以设置”一致即可。
-4. **Wayland**：仍依赖能访问 evdev；若仅用 XWayland 且无权限，现象与未加 `input` 组类似。剪贴板在 Wayland 上建议安装 **`wl-copy`**（或 `xclip`/`xsel` 经 XWayland）。
-5. 若使用 IME，可适当增大 `min_press_duration_ms` 减轻误触。
+3. 检查 Alt 绑定：`xmodmap -pke | grep Alt`。配置里默认 `key_name = "Alt_R"`，与设置页“按下以设置”一致即可。
+4. **Wayland**：仍依赖能访问 evdev。若仅用 XWayland 且无权限，现象与未加 `input` 组类似。剪贴板在 Wayland 上建议安装 `wl-copy`（或 `xclip`/`xsel` 经 XWayland）。
+5. 若使用 IME，可适当增大 `min_press_duration` 减轻误触。
 
 ### 误触发 / IME 冲突
 
-增加 `min_press_duration_ms` 的值（默认 100ms）来过滤短按抖动：
+增加 `min_press_duration` 的值（默认 100 ms）来过滤短按抖动：
 
 ```toml
 [key_listener]
-min_press_duration_ms = 200
+min_press_duration = 200
 ```
 
 ## 转写相关
 
 ### 能录音但没有转写结果
 
-1. 确认录音结束后**悬浮窗**是否进入“处理中”。
+1. 确认录音结束后悬浮窗是否进入“处理中”。
 2. 确认已在设置页下载本地模型（SenseVoice）。
 3. 查看日志：`RUST_LOG=altgo=debug altgo`，检查 `transcription failed`、模型路径与润色服务请求失败信息。
 
@@ -53,13 +53,13 @@ min_press_duration_ms = 200
 
 ### 本地模型在哪里下载？
 
-在设置页的“本地模型”中点击下载即可（SenseVoice int8，约 230MB，中/英/日/韩/粤自动检测）。也可从 Hugging Face 仓库 `csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17` 手动下载 `model.int8.onnx` 与 `tokens.txt` 放入模型目录。
+在设置页的“本地模型”中点击下载即可（SenseVoice int8，约 230 MB，中/英/日/韩/粤自动检测）。也可从 Hugging Face 仓库 `csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17` 手动下载 `model.int8.onnx` 与 `tokens.txt` 放入模型目录。
 
 ## 润色相关
 
 ### 润色太慢
 
-1. 降低润色级别（`heavy` → `medium` → `light`）
+1. 降低润色级别（`heavy`、`medium`、`light` 逐级降低）
 2. 使用更快的模型或本地 Ollama
 3. 设置 `level = "none"` 关闭润色
 
@@ -79,7 +79,7 @@ system_prompt = "只修正标点和错别字，不要改变原文的意思和语
 
 1. 安装 `xclip`、`xsel` 或 `wl-copy` 之一，并确保在图形会话内运行 altgo。
 2. 若其他程序锁定了剪贴板，稍后重试即可。
-3. 在**历史**页使用复制按钮（WebView 手势复制有时比后端剪贴板更稳）；悬浮窗只作展示，结果已自动写入剪贴板。
+3. 在历史页使用复制按钮（WebView 手势复制有时比后端剪贴板更稳）。悬浮窗只作展示，结果已自动写入剪贴板。
 4. 调试：`RUST_LOG=altgo=debug altgo` 查看是否有 clipboard 相关错误。
 
 ## 通用

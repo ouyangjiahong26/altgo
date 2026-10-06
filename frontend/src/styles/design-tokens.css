@@ -1,5 +1,5 @@
 /* ============================================
-   altgo — 结构性令牌 + 浅色 / 深色配色
+   altgo：结构性令牌 + 浅色 / 深色配色
 
    基调参照 Obsidian 这类桌面笔记工具：中性灰承担全部结构，颜色只用来表达
    含义（成功 / 警告 / 危险），强调色只出现在主操作与当前选中态。界面不去
@@ -8,7 +8,7 @@
 
 :root {
   /* ── 排版（深浅主题共用） ───────────────── */
-  /* UI 字体优先 Inter；离线时逐级回退到各平台系统 UI 字体，仍是同一类观感。 */
+  /* UI 字体优先 Inter，离线时逐级回退到各平台系统 UI 字体，仍是同一类观感。 */
   --font-sans: "Inter", "Plus Jakarta Sans", system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
@@ -34,6 +34,7 @@
 
   /* ── 间距：桌面 UI 用 2px 递进，避免起步太大导致控件松散 ── */
   --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
@@ -118,6 +119,8 @@
   --color-hover-surface: rgba(255, 255, 255, 0.05);
   --color-active-surface: rgba(255, 255, 255, 0.08);
   --color-on-primary: #ffffff;
+  --color-scrim: rgba(0, 0, 0, 0.5);
+  --color-icon-fallback: #6b7280;
 
   /* 投影极克制：只让浮层离开平面，不做光晕 */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
@@ -193,6 +196,8 @@
   --color-hover-surface: rgba(31, 31, 31, 0.045);
   --color-active-surface: rgba(31, 31, 31, 0.08);
   --color-on-primary: #ffffff;
+  --color-scrim: rgba(0, 0, 0, 0.5);
+  --color-icon-fallback: #6b7280;
 
   --shadow-sm: 0 1px 2px rgba(31, 31, 31, 0.06);
   --shadow-md: 0 3px 10px rgba(31, 31, 31, 0.08);

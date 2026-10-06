@@ -98,7 +98,7 @@ h4 {
    焦点样式
    ============================================ */
 
-/* 键盘焦点才画环；鼠标点击不画，避免桌面软件里到处都是蓝框。 */
+/* 键盘焦点才画环，鼠标点击不画，避免桌面软件里到处都是蓝框。 */
 :focus-visible {
   outline: var(--focus-ring-width) solid var(--color-accent);
   outline-offset: var(--focus-ring-offset);
@@ -112,7 +112,7 @@ h4 {
    CJK 字距
    ============================================ */
 
-/* tracking-caps 是为英文大写小标题设计的；中文界面下字距松散，恢复正常字距 */
+/* tracking-caps 是为英文大写小标题设计的，中文界面下字距松散，恢复正常字距 */
 :lang(zh) .settings-section-title,
 :lang(zh) .layout-subtitle,
 :lang(zh) .settings-section-toggle,

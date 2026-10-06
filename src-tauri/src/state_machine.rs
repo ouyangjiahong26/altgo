@@ -6,7 +6,7 @@
 //! - `PotentialPress`（潜在按下）→ 按下后等待是否达到长按阈值
 //! - `Recording`（录音中）→ 长按触发，松开即停止
 //! - `WaitSecondClick`（等待第二次点击）→ 短按松开后等待双击
-//! - `ContinuousRecording`（连续录音）→ 双击触发，再按一次停止；按住第二次时忽略系统按键连发直至松开
+//! - `ContinuousRecording`（连续录音）→ 双击触发，再按一次停止。按住第二次时忽略系统按键连发直至松开
 //!
 //! 状态机提供同步接口（`process`、`poll_timeout`、`next_deadline`），
 //! 由调用方（`voice_pipeline::PipelineContext`）在 `tokio::select!` 主循环中驱动。
@@ -50,7 +50,7 @@ pub struct Machine {
     press_time: Option<Instant>,
     /// 连续录音开始后直到出现一次松开前，忽略再次“按下”（避免系统按键重复在按住第二次时误触发停止）。
     continuous_hold: bool,
-    /// 用“再按一次”结束连续录音后，键可能仍被按住；在收到松开前忽略按下，避免误进长按检测。
+    /// 用“再按一次”结束连续录音后，键可能仍被按住，在收到松开前忽略按下，避免误进长按检测。
     idle_suppress_press_until_release: bool,
 }
 
@@ -96,10 +96,10 @@ impl Machine {
             State::PotentialPress => {
                 if !event.pressed {
                     // 在长按阈值前松开。
-                    // 若按下时长过短则拒绝——多半是输入法噪音。
+                    // 若按下时长过短则拒绝，多半是输入法噪音。
                     if let Some(pt) = self.press_time {
                         if Instant::now().duration_since(pt) < self.min_press_duration {
-                            // 过快——视为输入法的虚假松开。
+                            // 过快，视为输入法的虚假松开。
                             // 回到 Idle，让后续的虚假松开
                             // 不致在没有真实按下的情况下推进到 WaitSecondClick。
                             self.state = State::Idle;
@@ -426,7 +426,7 @@ mod tests {
         assert_eq!(sm.process(press()), None);
         assert_eq!(sm.state, State::Idle);
 
-        // 松开会重置标志；其后的按下照常处理。
+        // 松开会重置标志，其后的按下照常处理。
         assert_eq!(sm.process(release()), None);
         assert!(!sm.idle_suppress_press_until_release);
         assert_eq!(sm.process(press()), None);

@@ -1,11 +1,11 @@
 //! Tauri 管道事件接收器实现。
 //!
-//! 将管道事件转发为 Tauri 事件与浮窗状态切换：sink 只做 emit + 状态切换，
+//! 将管道事件转发为 Tauri 事件与悬浮窗状态切换：sink 只做 emit + 状态切换，
 //! 不再持有 `Output` / `HistoryStore` 等业务依赖。
 //!
 //! 剪贴板写入与历史追加业务由 `voice_pipeline::TranscriptionDispatch`
-//! trait 注入（本模块不直接调用 `process_transcription_result`）；
-//! 浮窗物理操作由 `OverlaySink` trait 注入（本模块只描述阶段意图）；
+//! trait 注入（本模块不直接调用 `process_transcription_result`）。
+//! 悬浮窗物理操作由 `OverlaySink` trait 注入（本模块只描述相位意图）。
 //! 框架事件发射由 `PipelineEventEmitter` trait 注入，方便测试注入 fake，
 //! 无需构造真实 Wry app。
 
@@ -110,15 +110,15 @@ fn emit_pipeline_status(
 
 /// `audio-level` 事件的固定派发间隔。
 ///
-/// 与前端 `frontend/src/overlay.tsx` 的 `TRACE_SAMPLE_INTERVAL_MS`（100ms）对齐，
+/// 与前端 `frontend/src/overlay.tsx` 的 `TRACE_SAMPLE_INTERVAL_MS`（100 ms）对齐，
 /// 使 `audio-level` 事件频率成为固定 10 次/秒的跨平台契约，
-/// 不再依赖平台音频后端的块/回调节奏（Linux parecord 约 31.8ms/块，
+/// 不再依赖平台音频后端的块/回调节奏（Linux parecord 约 31.8 ms/块，
 /// Windows cpal 回调节奏不同）。
 const AUDIO_LEVEL_EMIT_INTERVAL: Duration = Duration::from_millis(100);
 
 /// `audio-level` 定时派发状态：最新电平与 ticker 任务句柄。
 ///
-/// `on_audio_level` 只写入 `latest`、从不直接派发；派发时机完全由 ticker
+/// `on_audio_level` 只写入 `latest`、从不直接派发，派发时机完全由 ticker
 /// 任务的定时器驱动。`interval` 为派发周期（生产环境取
 /// `AUDIO_LEVEL_EMIT_INTERVAL`，测试可注入更短值），`ticker` 保存当前任务
 /// 句柄供状态切换时 abort。
@@ -131,11 +131,9 @@ struct AudioLevelState {
 /// `audio-level` 定时派发循环：每 `interval` 短暂持锁读取最新电平，`Some` 则派发。
 ///
 /// 事件频率由定时器严格驱动（生产 interval 下固定 10 次/秒），与平台音频块/回调
-/// 节奏完全解耦：Linux parecord 约 31.8ms/块的到达时刻不再量化派发间隔（此前
-/// leading-edge 节流实际间隔 127.2ms、前端 100ms 采样窗退化为透传），前端采样
-/// 窗口每窗恰好采到一个事件，轨迹保持 10 帧/秒、10 秒窗口；Recording 期间首个
-/// 事件最迟一个 interval 内到达。每 tick 拷贝 `latest` 后立即释放锁，锁不跨
-/// await。
+/// 的到达节奏完全解耦，前端采样窗口每窗恰好采到一个事件，轨迹保持 10 帧/秒、
+/// 10 秒窗口。Recording 期间首个事件最迟一个 interval 内到达。每 tick 拷贝
+/// `latest` 后立即释放锁，锁不跨 await。
 async fn run_audio_level_ticker(
     audio_level: Arc<std::sync::Mutex<AudioLevelState>>,
     emitter: Arc<dyn PipelineEventEmitter>,
@@ -151,7 +149,7 @@ async fn run_audio_level_ticker(
     }
 }
 
-/// Tauri 管道事件接收器 — 将管道事件转发为 Tauri 事件和浮窗状态切换。
+/// Tauri 管道事件接收器：将管道事件转发为 Tauri 事件和悬浮窗状态切换。
 ///
 /// 只持有 `dispatch: Arc<dyn TranscriptionDispatch>` 与 overlay / emitter 抽象，
 /// 业务侧由调用方在构造时一次性注入。
@@ -193,7 +191,7 @@ impl PipelineSink for TauriPipelineSink {
 
         // audio-level 派发与录音状态绑定。Recording 启动定时派发任务：先 abort
         // 旧任务防止重复派发，并清空上一段录音遗留的 latest，避免新录音先派发
-        // 旧值；非 Recording（Idle/Stopped/Processing/Done）abort 任务并清空
+        // 旧值。非 Recording（Idle/Stopped/Processing/Done）abort 任务并清空
         // latest，事件流随录音结束严格终止（Done 在下方 overlay 映射处提前
         // 返回，故须在此之前处理）。
         if status == PipelineStatus::Recording {
@@ -216,9 +214,9 @@ impl PipelineSink for TauriPipelineSink {
             state.latest = None;
         }
 
-        // 通过 OverlaySink 统一设置悬浮窗状态 —— 一次性 emit + resize + position + show/hide。
-        // recording/processing/idle/stopped 各自映射到一个 overlay 阶段；
-        // Done 不在此驱动（done 浮窗由转写完成路径异步设置）。
+        // 通过 OverlaySink 统一设置悬浮窗状态：一次性 emit + resize + position + show/hide。
+        // recording/processing/idle/stopped 各自映射到一个 overlay 相位。
+        // Done 不在此驱动（done 悬浮窗由转写完成路径异步设置）。
         let overlay_state = match status {
             PipelineStatus::Recording => OverlayState::recording(),
             PipelineStatus::Processing => OverlayState::processing(),
@@ -256,8 +254,8 @@ impl PipelineSink for TauriPipelineSink {
 
                     emit_pipeline_status(&*emitter, &status, PipelineStatus::Done);
 
-                    // 润色失败先于结果文本告知前端，让悬浮窗在 done 阶段能同时
-                    // 展示“已回退原文”提示；文案由前端按错误码翻译。
+                    // 润色失败先于结果文本告知前端，让悬浮窗在 done 相位能同时
+                    // 展示“已回退原文”提示，文案由前端按错误码翻译。
                     if let Some(err) = output_clone.polish_error.as_ref() {
                         emitter.emit_polish_failed(err);
                     }
@@ -537,7 +535,7 @@ mod tests {
         fx.sink.on_status_change(PipelineStatus::Done);
 
         assert_eq!(*fx.status.read().unwrap(), PipelineStatus::Done);
-        // Done 不在此驱动 overlay（done 浮窗由转写完成路径异步设置）
+        // Done 不在此驱动 overlay（done 悬浮窗由转写完成路径异步设置）
         assert!(fx.overlay.recorded_states().is_empty());
         assert_eq!(
             fx.emitter.recorded_events(),
@@ -650,7 +648,7 @@ mod tests {
         });
 
         // spawned 任务跑在 tauri::async_runtime 的全局 runtime 上，
-        // 与 #[tokio::test] 的 runtime 不同；轮询等待它完成。
+        // 与 #[tokio::test] 的 runtime 不同，轮询等待它完成。
         for _ in 0..100 {
             if fx.emitter.recorded_events().len() >= 3 {
                 break;
@@ -664,7 +662,7 @@ mod tests {
         assert_eq!(overlay_states.len(), 1);
         assert_eq!(overlay_states[0].phase, OverlayPhase::Done);
 
-        // 真实代码顺序：history-updated → pipeline-status(Done) → transcription-result(text)
+        // 真实代码顺序依次为 history-updated、pipeline-status(Done)、transcription-result(text)
         // 先送文本再切 done，前端收到 done 时已有结果，避免空 island 闪烁。
         assert_eq!(
             fx.emitter.recorded_events(),
@@ -706,7 +704,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
 
-        // 失败事件先于结果文本，悬浮窗 done 阶段可同时展示回退提示。
+        // 失败事件先于结果文本，悬浮窗 done 相位可同时展示回退提示。
         assert_eq!(
             fx.emitter.recorded_events(),
             vec![
@@ -740,7 +738,7 @@ mod tests {
             .collect()
     }
 
-    /// 轮询等待指定电平出现在事件流中（上限约 500ms）。
+    /// 轮询等待指定电平出现在事件流中（上限约 500 ms）。
     async fn wait_for_audio_level(fx: &TestFixture, level: f32) -> bool {
         for _ in 0..100 {
             if audio_level_events(fx).contains(&level) {
@@ -781,7 +779,7 @@ mod tests {
         );
 
         // 周期派发持续存在：latest 不变时同一电平按 interval 节奏重复派发
-        // （100ms ≈ 5 个 20ms tick，断下界防 flaky）。
+        // （100 ms ≈ 5 个 20 ms tick，断下界防 flaky）。
         tokio::time::sleep(Duration::from_millis(100)).await;
         let emitted_05 = audio_level_events(&fx)
             .iter()
@@ -800,8 +798,8 @@ mod tests {
             audio_level_events(&fx)
         );
 
-        // 切 Idle 后 ticker 被 abort：事件计数不再增长（先等 100ms 宽限吸收与
-        // abort 竞态的在途派发，再观察 200ms ≈ 10 个 tick 的静默）。
+        // 切 Idle 后 ticker 被 abort：事件计数不再增长（先等 100 ms 宽限吸收与
+        // abort 竞态的在途派发，再观察 200 ms ≈ 10 个 tick 的静默）。
         fx.sink.on_status_change(PipelineStatus::Idle);
         tokio::time::sleep(Duration::from_millis(100)).await;
         let baseline = audio_level_events(&fx).len();

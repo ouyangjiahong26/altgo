@@ -54,7 +54,7 @@ describe("tError", () => {
   it("params 插值 {status} 占位符", () => {
     localStorage.setItem("altgo-lang", "zh");
     expect(tError("transcriber.api_error", { status: "429", body: "busy" })).toBe(
-      "在线识别 API 错误（HTTP 429）: busy"
+      "在线识别 API 错误（HTTP 429）：busy"
     );
   });
 

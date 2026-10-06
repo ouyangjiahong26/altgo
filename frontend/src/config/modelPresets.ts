@@ -1,7 +1,7 @@
 /**
  * 模型预设配置。
  *
- * 当前只保留文本润色供应商预设；本地转写使用 SenseVoice，无云端供应商。
+ * 当前只保留文本润色供应商预设。本地转写使用 SenseVoice，无云端供应商。
  */
 
 export type ModelType = "polisher";

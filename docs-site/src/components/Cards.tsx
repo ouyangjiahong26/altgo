@@ -44,7 +44,7 @@ const features: FeatureItem[] = [
   },
   {
     title: '剪贴板与悬浮窗',
-    description: '成功后写入系统剪贴板并弹出悬浮窗核对；全文可在主窗历史中查看、复制。',
+    description: '成功后写入系统剪贴板并弹出悬浮窗核对。全文可在主窗历史中查看、复制。',
     icon: ClipboardCopy,
   },
 ];

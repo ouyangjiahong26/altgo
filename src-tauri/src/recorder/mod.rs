@@ -41,10 +41,8 @@ mod tests {
     use crate::error::RecorderError;
     use crate::recorder::Recorder;
 
-    /// 验证类型化错误变体能穿透 trait 边界——
-    /// （issue #45 移除了 `from anyhow::Error` 的逃生口），因此
-    /// `start_recording` / `stop_recording` 必须直接交还
-    /// `RecorderError`。任何在这里包一层 `anyhow` 的写法都是回归。
+    /// 验证类型化错误变体能穿透 trait 边界：录音器必须直接交还 `RecorderError`，
+    /// 任何在这里包一层 `anyhow` 的写法都是回归。
     #[test]
     fn pulse_recorder_returns_typed_recorder_error_on_empty_stop() {
         let rec = PulseRecorder::new(SAMPLE_RATE);

@@ -1,6 +1,6 @@
-//! 浮窗窗口接缝。
+//! 悬浮窗窗口接缝。
 //!
-//! 定义 `OverlayWindow` 接口——`OverlayManager` 与窗口系统交互的唯一通道。平台相关的
+//! 定义 `OverlayWindow` 接口：`OverlayManager` 与窗口系统交互的唯一通道。平台相关的
 //! Tauri 调用收进真正的 seam 后面，manager 的行为即可用 fake adapter 测试。
 
 use tauri::{LogicalSize, PhysicalPosition};
@@ -45,12 +45,9 @@ pub enum OverlayError {
     PrepareForShowFailed(String),
 }
 
-/// Overlay 阶段 —— Rust 内部用枚举流通，仅在序列化给前端时转字符串。
-///
-/// 序列化为 `"recording"` / `"processing"` / `"done"` / `"hidden"`，
+/// Overlay 相位。Rust 内部以枚举流通，仅在序列化给前端时转成字符串：
+/// `"recording"` / `"processing"` / `"done"` / `"hidden"`，
 /// 与前端 `overlay-state` 事件协议保持一致。
-///
-/// Overlay 相位 —— 在 Rust 内部以枚举流通，仅在序列化给前端时转成字符串。
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OverlayPhase {
@@ -72,7 +69,7 @@ impl OverlayPhase {
     }
 }
 
-/// 从 Rust 发往前端浮窗的视觉状态。
+/// 从 Rust 发往前端悬浮窗的视觉状态。
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OverlayState {
@@ -113,22 +110,22 @@ pub trait OverlayWindow: Send + Sync + Clone {
     /// 经 Tauri 事件（或等价通道）把视觉状态发给前端。
     fn emit_state(&self, state: &OverlayState) -> Result<(), OverlayError>;
 
-    /// 把浮窗调整为指定的逻辑尺寸。
+    /// 把悬浮窗调整为指定的逻辑尺寸。
     fn set_size(&self, size: LogicalSize<f64>) -> Result<(), OverlayError>;
 
-    /// 把浮窗移动到指定的物理位置。
+    /// 把悬浮窗移动到指定的物理位置。
     fn set_position(&self, position: PhysicalPosition<i32>) -> Result<(), OverlayError>;
 
-    /// 在浮窗显示前准备原生窗口标志。
+    /// 在悬浮窗显示前准备原生窗口标志。
     fn prepare_for_show(&self) -> Result<(), OverlayError>;
 
-    /// 显示浮窗。
+    /// 显示悬浮窗。
     fn show(&self) -> Result<(), OverlayError>;
 
-    /// 隐藏浮窗。
+    /// 隐藏悬浮窗。
     fn hide(&self) -> Result<(), OverlayError>;
 
-    /// 返回浮窗所在显示器的缩放系数。
+    /// 返回悬浮窗所在显示器的缩放系数。
     fn scale_factor(&self) -> Result<f64, OverlayError>;
 
     /// 以 `(x, y, width, height)` 物理像素形式返回主显示器几何信息。
@@ -146,7 +143,7 @@ pub enum OverlayPosition {
 }
 
 impl OverlayPosition {
-    /// 从配置字符串解析；未知值回退到底部居中，保证旧配置与手误值可用。
+    /// 从配置字符串解析，未知值回退到底部居中，保证旧配置与手误值可用。
     pub fn effective(value: &str) -> Self {
         match value {
             "top_center" => Self::TopCenter,

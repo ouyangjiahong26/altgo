@@ -26,7 +26,7 @@ pub fn expand_tilde(path: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
-/// 在系统 PATH 上查找命令，返回其绝对路径；找不到返回 `None`。
+/// 在系统 PATH 上查找命令，返回其绝对路径，找不到返回 `None`。
 pub fn which_binary(name: &str) -> Option<PathBuf> {
     let output = std::process::Command::new("which")
         .arg(name)

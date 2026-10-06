@@ -41,7 +41,7 @@ function walk(dir) {
 }
 
 // updater 产物文件名后缀 → updater 平台键（{os}-{arch}，见 tauri-plugin-updater）。
-// Linux 用裸 .AppImage；Windows 在 createUpdaterArtifacts 为 true（v2 原生）
+// Linux 用裸 .AppImage。Windows 在 createUpdaterArtifacts 为 true（v2 原生）
 // 时 updater 产物就是签名后的 NSIS 安装包本体，只有 v1Compatible 模式才额外
 // 生成 .nsis.zip，altgo 不使用。
 const RULES = [

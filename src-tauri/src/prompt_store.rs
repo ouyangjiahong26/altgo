@@ -5,7 +5,7 @@
 //! - `{level}-suffix.txt`：各档位专属指令
 //!
 //! 运行时组合：`base.txt` + `{level}-suffix.txt` → 完整 system prompt。
-//! 模板启动时加载一次；修改文件需重启应用生效。
+//! 模板启动时加载一次。修改文件需重启应用生效。
 
 use crate::polisher::PolishLevel;
 use std::collections::HashMap;
@@ -53,7 +53,7 @@ impl std::fmt::Debug for PromptCache {
 impl PromptStore {
     /// 为给定 prompts 目录创建新的 PromptStore。
     ///
-    /// 不会立即加载 prompt——调用 `load()` 或 `ensure_loaded()` 加载。
+    /// 不会立即加载 prompt，调用 `load()` 或 `ensure_loaded()` 加载。
     pub fn new(prompts_dir: PathBuf) -> Self {
         Self {
             prompts_dir,

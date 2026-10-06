@@ -59,7 +59,7 @@ try {
   // 首次运行没有清单
 }
 
-/** 生成单张图；失败按指数退避重试 3 次后放弃。 */
+/** 生成单张图，失败按指数退避重试 3 次后放弃。 */
 async function generate(item) {
   const size = item.size || '1024x1024';
   const file = path.join(modelDir, `${item.id}.png`);

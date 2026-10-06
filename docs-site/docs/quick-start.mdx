@@ -5,43 +5,43 @@ title: 快速开始
 
 # 快速开始
 
-本软件支持 **Linux**（Ubuntu 22.04+）的 **x86_64** 与 **aarch64** 架构，以及 **Windows 10+**（x86_64 与 arm64）。Linux 构建和 Release 在 **Ubuntu 22.04** 上验证；其他发行版可能可用但未保证。目前不支持 macOS。
+本软件支持 Linux（Ubuntu 22.04+）的 x86_64 与 aarch64 架构，以及 Windows 10+（x86_64 与 arm64）。Linux 构建和 Release 在 Ubuntu 22.04 上验证。其他发行版可能可用但未保证。目前不支持 macOS。
 
 转写引擎内嵌 sherpa-onnx（SenseVoice），无需单独安装任何二进制。
 
 ## Linux：安装前必做（input 组）
 
-**必须**将当前用户加入 `input` 组，否则无法读取 `/dev/input/event*`，按键监听会失败。执行后**须重新登录**：
+必须将当前用户加入 `input` 组，否则无法读取 `/dev/input/event*`，按键监听会失败。执行后须重新登录：
 
 ```bash
 sudo usermod -aG input "$USER"
 ```
 
-其余与桌面、音频相关的系统库，**`.deb` 会通过依赖声明自动拉取**；若安装器提示缺包，按提示补装即可，不必自行对照长清单。
+其余与桌面、音频相关的系统库，`.deb` 会通过依赖声明自动拉取。若安装器提示缺包，按提示补装即可，不必自行对照长清单。
 
 ## 最终用户：装好后在“设置”里完成一切
 
 ### Linux
 
-1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载对应发行版的安装包：**`.deb`**（Ubuntu/Debian）或 **`.rpm`**（Fedora/RHEL）。
-2. 完成上文 **input 组**。
-3. 启动应用，打开 **设置**：
-   - 在 **转写** 中下载并启用本地模型，或填写高级路径；
-   - 按需配置 **润色**、**外观**、**触发键**（可用“按下以设置”）；
-   - 点击 **保存**。
-4. 识别结果会**写入剪贴板**并在**悬浮窗**中单行展示，直接到目标应用粘贴即可；全文可在主窗**历史**中查看、复制。
+1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载对应发行版的安装包：`.deb`（Ubuntu/Debian）或 `.rpm`（Fedora/RHEL）。
+2. 完成上文 input 组。
+3. 启动应用，打开设置：
+   - 在转写中下载并启用本地模型，或填写高级路径。
+   - 按需配置润色、外观、触发键（可用“按下以设置”）。
+   - 点击保存。
+4. 识别结果会写入剪贴板并在悬浮窗中单行展示，直接到目标应用粘贴即可。全文可在主窗历史中查看、复制。
 
 ### Windows
 
-1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载与设备架构（x64 或 arm64）对应的 **`*-setup.exe`**（NSIS 安装器）。
+1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载与设备架构（x64 或 arm64）对应的 `*-setup.exe`（NSIS 安装器）。
 2. 双击安装，在开始菜单启动 altgo。
-3. 打开 **设置**，完成模型下载、润色、触发键等配置后点击 **保存**。
+3. 打开设置，完成模型下载、润色、触发键等配置后点击保存。
 
-**不要**把“先复制 `configs/altgo.toml` 再手改”当作默认路径——那是高级用法。日常用户只使用界面即可。
+不要把“先复制 `configs/altgo.toml` 再手改”当作默认路径，那是高级用法。日常用户只使用界面即可。
 
 ## 开发者：从源码构建
 
-与主仓库一致，使用 **`make build`** 打包。**日常验证也建议以 `make build` 为主**。
+与主仓库一致，使用 `make build` 打包。日常验证也建议以 `make build` 为主。
 
 ```bash
 git clone https://github.com/ouyangjiahong26/altgo.git
@@ -50,7 +50,7 @@ cd frontend && npm install && cd ..
 make build
 ```
 
-若需快速改前端 UI，可临时使用 `cargo tauri dev`；完整链路仍以 `make build` 为准。
+若需快速改前端 UI，可临时使用 `cargo tauri dev`。完整链路仍以 `make build` 为准。
 
 ## 高级：仅当你要手改配置文件时
 
@@ -58,4 +58,4 @@ make build
 
 ## 启动
 
-运行 `altgo` 或安装目录下的可执行文件。按住 **右 Alt** 说话，松开后在**悬浮窗**查看结果；触发键在 **设置** 中修改。
+运行 `altgo` 或安装目录下的可执行文件。按住右 Alt 说话，松开后在悬浮窗查看结果。触发键在设置中修改。

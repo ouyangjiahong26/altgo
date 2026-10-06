@@ -9,7 +9,7 @@ import { isOnboarded } from "./onboarding";
 export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
 
-  // 首次安装向导是整窗流程，不套主窗导航；完成后才进入正常两页界面。
+  // 首次安装向导是整窗流程，不套主窗导航，完成后才进入正常两页界面。
   if (showOnboarding) {
     return <Onboarding onDone={() => setShowOnboarding(false)} />;
   }

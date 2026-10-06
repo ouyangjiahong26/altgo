@@ -59,7 +59,7 @@ fn save_raw(path: &std::path::Path, data: &HistoryFile) -> Result<(), HistoryErr
 }
 
 /// 持有历史文件路径并提供具名操作。
-/// 调用方从不直接接触路径——所有 I/O 一律经由 store 完成。
+/// 调用方从不直接接触路径，所有 I/O 一律经由 store 完成。
 #[derive(Clone)]
 pub struct HistoryStore {
     path: std::path::PathBuf,

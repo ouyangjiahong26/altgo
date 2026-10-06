@@ -13,9 +13,9 @@ altgo 采用线性流水线架构，由键盘事件驱动：
 按键监听 → 状态机 → 录音 → ASR 转写 → LLM 润色 → 剪贴板 + 悬浮窗 + 本地转写历史（纯文本 JSON）
 ```
 
-**转写历史**：仅保存文本（原始转写 `rawText` 与当前展示 `text`），不保存录音；数据文件为 `~/.config/altgo/history.json`。转写成功后（以 `raw_text` 非空为准）写入一条记录并广播 `history-updated` 事件，供主窗口主页的历史列表刷新。
+**转写历史**：仅保存文本（原始转写 `rawText` 与当前展示 `text`），不保存录音。数据文件为 `~/.config/altgo/history.json`。转写成功后（以 `raw_text` 非空为准）写入一条记录并广播 `history-updated` 事件，供主窗口主页的历史列表刷新。
 
-按键监听器经无界通道把按键事件送入主循环；状态机同步返回命令，由 `tokio::select!` 分支就地执行，单次转写互斥（详见 [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md)）。
+按键监听器经无界通道把按键事件送入主循环。状态机同步返回命令，由 `tokio::select!` 分支就地执行，单次转写互斥（详见 [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md)）。
 
 ## 模块结构
 
@@ -66,15 +66,15 @@ src-tauri/src/
    └──────── ContinuousRecording ←─┘
 ```
 
-- **长按**（> 200ms）→ 进入 `Recording`，松开停止
-- **双击**（< 300ms 间隔）→ 进入 `ContinuousRecording`，单击停止
+- **长按**（> 200 ms）进入 `Recording`，松开停止
+- **双击**（< 300 ms 间隔）进入 `ContinuousRecording`，单击停止
 - 使用 `tokio::select!` 同时等待按键事件和超时
 
 ## 平台策略
 
 **Linux**：通过子进程调用 CLI 工具（`xinput`/`evtest`、`parecord`、`xclip`），简化构建和依赖管理。
 
-**Windows**：走原生 API——WH_KEYBOARD_LL 键盘钩子、cpal/WASAPI 录音、arboard 剪贴板 + SendInput 文本注入。
+**Windows**：走原生 API（WH_KEYBOARD_LL 键盘钩子、cpal/WASAPI 录音、arboard 剪贴板 + SendInput 文本注入）。
 
 平台模块暴露统一 trait（`KeyListener`、`Recorder`、`Output`），各平台实现在各自模块的 `linux.rs` / `windows.rs` 中，管道消费 `Box<dyn Trait>` 实现与平台解耦。
 
@@ -88,7 +88,7 @@ src-tauri/src/
 - 支持 OpenAI 兼容 chat API 与 Anthropic Messages API
 - 指数退避重试（最多 3 次）
 
-主页的历史列表可对单条记录基于 **`rawText`** 再次调用当前润色配置（`polish_history_entry`）。
+主页的历史列表可对单条记录基于 `rawText` 再次调用当前润色配置（`polish_history_entry`）。
 
 ## 前端路由（主窗口）
 
@@ -96,8 +96,8 @@ src-tauri/src/
 
 ## 测试策略
 
-- `config.rs` / `audio.rs` / `history.rs` — 全面的单元测试
-- `sherpa.rs` — SenseVoice 模型存在性与加载失败路径
-- `polisher.rs` — 使用 `mockito` 模拟 OpenAI/Anthropic 润色 API
-- 平台模块 — 仅构造/冒烟测试
-- CI 共三个 job：Linux `amd64` 与 `arm64` 都跑 `cargo test --lib`；Windows job 在 x64 上跑测试并构建 NSIS 安装包，arm64 仅交叉编译检查
+- `config.rs` / `audio.rs` / `history.rs`：全面的单元测试
+- `sherpa.rs`：SenseVoice 模型存在性与加载失败路径
+- `polisher.rs`：使用 `mockito` 模拟 OpenAI/Anthropic 润色 API
+- 平台模块：仅构造/冒烟测试
+- CI 共三个 job：Linux `amd64` 与 `arm64` 都跑 `cargo test --lib`。Windows job 在 x64 上跑测试并构建 NSIS 安装包，arm64 仅交叉编译检查

@@ -21,7 +21,7 @@ pub struct TranscriptionResult {
 
 /// 管道事件接收器。
 ///
-/// 所有方法均为同步——实现方内部处理异步操作（如 `tokio::spawn`）。
+/// 所有方法均为同步，实现方内部处理异步操作（如 `tokio::spawn`）。
 /// 实现方必须是 `Send + Sync + 'static`，以支持跨线程使用。
 pub trait PipelineSink: Send + Sync + 'static {
     /// 管道状态变化（idle / recording / processing / done / stopped）。

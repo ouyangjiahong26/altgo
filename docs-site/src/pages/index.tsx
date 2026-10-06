@@ -67,7 +67,7 @@ export default function Home(): JSX.Element {
       title: translate({id: 'home.feature.clipboard.title', message: '剪贴板 + 悬浮窗'}),
       description: translate({
         id: 'home.feature.clipboard.description',
-        message: '转写成功后写入剪贴板并弹出悬浮窗；全文可在主窗历史中查看、复制。',
+        message: '转写成功后写入剪贴板并弹出悬浮窗。全文可在主窗历史中查看、复制。',
       }),
     },
   ];
@@ -210,7 +210,7 @@ export default function Home(): JSX.Element {
                 <h3><Translate id="home.steps.speak.title">按住 Alt 说话</Translate></h3>
                 <p>
                   <Translate id="home.steps.speak.description">
-                    长按右 Alt 开始录音，松开自动转写；双击进入连续模式。
+                    长按右 Alt 开始录音，松开自动转写。双击进入连续模式。
                   </Translate>
                 </p>
               </div>

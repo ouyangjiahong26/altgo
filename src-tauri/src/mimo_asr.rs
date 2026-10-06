@@ -24,7 +24,7 @@ pub struct MimoAsr {
 }
 
 impl MimoAsr {
-    /// 从在线 ASR 配置构造；不发任何网络请求。
+    /// 从在线 ASR 配置构造，不发任何网络请求。
     pub fn new(
         api_key: &str,
         api_base_url: &str,
@@ -51,7 +51,7 @@ impl MimoAsr {
     /// 组装请求体。
     ///
     /// 网关硬约束：`content` 只允许一个 `input_audio` 块，带文本块会被 400 拒绝
-    /// （text prompt 由网关注入）；语言为空时传 "auto"。
+    /// （text prompt 由网关注入）。语言为空时传 "auto"。
     fn request_body(&self, audio_b64: String) -> serde_json::Value {
         let language = {
             let t = self.language.trim();
@@ -73,6 +73,50 @@ impl MimoAsr {
             "asr_options": { "language": language }
         })
     }
+
+    /// 发送请求体并取回状态码与响应文本。
+    async fn send_request(
+        &self,
+        body: &serde_json::Value,
+    ) -> Result<(u16, String), TranscriberError> {
+        let resp = self
+            .client
+            .post(&self.endpoint)
+            .bearer_auth(&self.api_key)
+            .json(body)
+            .send()
+            .await
+            .map_err(|e| TranscriberError::HttpError(e.to_string()))?;
+        let status = resp.status().as_u16();
+        let resp_text = resp
+            .text()
+            .await
+            .map_err(|e| TranscriberError::HttpError(e.to_string()))?;
+        Ok((status, resp_text))
+    }
+}
+
+/// 非 2xx 响应映射为 API 错误，body 截断防止超大响应刷爆悬浮窗。
+fn api_error_from_response(status: u16, resp_text: String) -> TranscriberError {
+    let mut body_text = resp_text;
+    if body_text.chars().count() > 500 {
+        body_text = body_text.chars().take(500).collect();
+    }
+    TranscriberError::ApiError {
+        status,
+        body: body_text,
+    }
+}
+
+/// 从 chat.completion 响应中取出文本，文本在 choices[0].message.content。
+fn extract_text(resp_text: &str) -> Result<String, TranscriberError> {
+    let parsed: ChatResponse =
+        serde_json::from_str(resp_text).map_err(|e| TranscriberError::JsonError(e.to_string()))?;
+    Ok(parsed
+        .choices
+        .first()
+        .map(|c| c.message.content.trim().to_string())
+        .unwrap_or_default())
 }
 
 impl Transcriber for MimoAsr {
@@ -92,41 +136,16 @@ impl Transcriber for MimoAsr {
             let audio_b64 = base64::engine::general_purpose::STANDARD.encode(audio);
             let body = self.request_body(audio_b64);
 
-            let resp = self
-                .client
-                .post(&self.endpoint)
-                .bearer_auth(&self.api_key)
-                .json(&body)
-                .send()
-                .await
-                .map_err(|e| TranscriberError::HttpError(e.to_string()))?;
-
-            let status = resp.status().as_u16();
-            let resp_text = resp
-                .text()
-                .await
-                .map_err(|e| TranscriberError::HttpError(e.to_string()))?;
-
+            let (status, resp_text) = self.send_request(&body).await?;
             if !(200..300).contains(&status) {
-                // 错误 body 截断，防止超大响应刷爆悬浮窗。
-                let mut body_text = resp_text;
-                if body_text.chars().count() > 500 {
-                    body_text = body_text.chars().take(500).collect();
-                }
-                return Err(TranscriberError::ApiError {
-                    status,
-                    body: body_text,
-                });
+                return Err(api_error_from_response(status, resp_text));
             }
 
-            // 标准 chat.completion 响应，文本在 choices[0].message.content。
-            let parsed: ChatResponse = serde_json::from_str(&resp_text)
-                .map_err(|e| TranscriberError::JsonError(e.to_string()))?;
-            let text = parsed
-                .choices
-                .first()
-                .map(|c| c.message.content.trim().to_string())
-                .ok_or_else(|| TranscriberError::JsonError("empty choices".to_string()))?;
+            let text = extract_text(&resp_text)?;
+            // 响应合法但没有可用内容，与润色器的 EmptyResponse 同口径。
+            if text.is_empty() {
+                return Err(TranscriberError::EmptyResponse);
+            }
 
             (on_progress)(1.0);
             Ok(TranscribeResult {

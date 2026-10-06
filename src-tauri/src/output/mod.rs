@@ -29,7 +29,7 @@ pub trait Output: Send + Sync {
 
     /// 将文本注入到当前焦点窗口（模拟键盘输入）。
     ///
-    /// 仅 Windows 实现为 SendInput 注入；其他平台默认 no-op。
+    /// 仅 Windows 实现为 SendInput 注入，其他平台默认 no-op。
     fn inject_text(&self, _text: &str) -> Result<(), OutputError> {
         Ok(())
     }

@@ -5,7 +5,7 @@
 ## 核心流水线
 
 **语音流水线（Voice Pipeline）**
-端到端处理链：按键 → 录音 → 转写 → 润色 → 输出。由状态机驱动，运行时由 `PipelineController` 管理。
+端到端处理链：从按键开始，依次录音、转写、润色，最后输出。由状态机驱动，运行时由 `PipelineController` 管理。
 
 **转写引擎（Transcription Engine）**
 把 WAV 音频转成文本的后端，由 `[transcriber] backend` 选择。两个实现：本地 `SherpaTranscriber`（内嵌 sherpa-onnx 的 SenseVoice，离线可用，模型需先下载）与在线 `MimoAsr`（MiMo ASR 云服务，需配置 API Key）。
@@ -26,10 +26,10 @@
 语音管道任意时刻的生命周期阶段：`Idle`、`Recording`、`Processing`、`Done`、`Stopped`。在 Rust 后端以 `PipelineStatus` 枚举表示，跨 IPC 边界序列化为小写字符串给前端。
 
 **PipelineController**
-拥有管道运行句柄与共享的 `PipelineStatus` Arc。负责 start、stop、restart。不知道如何生成管道——调用方注入 spawn 闭包，使本模块不依赖 Tauri 与 sink。位于 `pipeline_controller.rs`。
+拥有管道运行句柄与共享的 `PipelineStatus` Arc。负责 start、stop、restart。不知道如何生成管道：由调用方注入 spawn 闭包，使本模块不依赖 Tauri 与 sink。位于 `pipeline_controller.rs`。
 
 **PipelineSink**
-接收运行中管道事件的 trait：状态变更、进度、错误、转写结果。`tauri_sink.rs` 的 `TauriPipelineSink` 是生产环境唯一的实体适配器。转写结果路径把业务工作（剪贴板写入 + 历史追加）委托给构造时注入的 `TranscriptionDispatch` trait 对象；sink 本身只发 Tauri 事件并切换浮窗状态。
+接收运行中管道事件的 trait：状态变更、进度、错误、转写结果。`tauri_sink.rs` 的 `TauriPipelineSink` 是生产环境唯一的实体适配器。转写结果路径把业务工作（剪贴板写入 + 历史追加）委托给构造时注入的 `TranscriptionDispatch` trait 对象。sink 本身只发 Tauri 事件并切换悬浮窗状态。
 
 ## 配置
 
@@ -48,18 +48,18 @@
 单条转写记录：`id`、`createdAtMs`、`rawText`（转写原文）、`text`（润色后，或与原文相同）。永不存音频。
 
 **重新润色（带指令）（Repolish with Instruction）**
-对历史条目以原始转写（raw_text）为输入手动重新润色的动作，可选附带用户补充指令；补充指令以“补充要求”段追加到润色 system prompt 末尾，手动重润固定 medium 档、不受全局 none 档限制。
+对历史条目以原始转写（raw_text）为输入手动重新润色的动作，可选附带用户补充指令。补充指令以“补充要求”段追加到润色 system prompt 末尾，手动重润固定 medium 档、不受全局 none 档限制。
 
 ## 输出
 
 **悬浮窗（Overlay）**
-录音、处理与结果显示时出现的悬浮状态窗口。定位在主显示器（Linux 解析 `xrandr` 输出，Windows 用 Tauri `primary_monitor()`），位置可配置（`gui.overlay_position`：`bottom_center` 默认 / `top_center`），对全部阶段生效。Wayland 协议不允许客户端定位窗口（`set_position` 为 no-op），因此启动时检测会话：Wayland 且未显式设置 `GDK_BACKEND` 时切到 X11 后端（XWayland），定位才能生效。状态切换时由 `TauriPipelineSink` 经 `OverlaySink` 抽象管理；`TauriPipelineSink` 只描述意图（"recording" / "processing" / "hidden" / "done"），浮窗管理器把它转成窗口尺寸、位置、显示与隐藏。窗口在全部阶段使用一个固定尺寸——会话中调整透明窗口尺寸会在 Linux 合成器上产生黑色边缘，所以阶段切换只替换前端内容（CSS 交叉淡入）。`hidden` 先发出，实际隐藏延迟约 220ms 以便退出动画可见。转写结果路径上，`transcription-result` 在 `done` 浮窗状态之前发出，前端不会渲染出空 island。island 不使用 `box-shadow`——半透明阴影叠加在透明窗口上会在某些 Linux 合成器上合成出暗色光晕。
+录音、处理与结果显示时出现的悬浮状态窗口。定位在主显示器（Linux 解析 `xrandr` 输出，Windows 用 Tauri `primary_monitor()`），位置可配置（`gui.overlay_position`：`bottom_center` 默认 / `top_center`），对全部相位生效。Wayland 协议不允许客户端定位窗口（`set_position` 为 no-op），因此启动时检测会话：Wayland 且未显式设置 `GDK_BACKEND` 时切到 X11 后端（XWayland），定位才能生效。状态切换时由 `TauriPipelineSink` 经 `OverlaySink` 抽象管理。`TauriPipelineSink` 只描述意图（"recording" / "processing" / "hidden" / "done"），悬浮窗管理器把它转成窗口尺寸、位置、显示与隐藏。窗口在全部相位使用一个固定尺寸：会话中调整透明窗口尺寸会在 Linux 合成器上产生黑色边缘，所以相位切换只替换前端内容（CSS 交叉淡入）。`hidden` 先发出，实际隐藏延迟约 220 ms 以便退出动画可见。转写结果路径上，`transcription-result` 在 `done` 悬浮窗状态之前发出，前端不会渲染出空 island。island 不使用 `box-shadow`：半透明阴影叠加在透明窗口上会在某些 Linux 合成器上合成出暗色光晕。
 
 **自动淡出（Auto-fade）**
-结果浮窗（done 阶段）的退出策略：无用户输入活动时无限保留，检测到输入活动后延时数秒自动隐藏。_Avoid_: 自动关闭、auto-hide。
+结果悬浮窗（done 相位）的退出策略：无用户输入活动时无限保留，检测到输入活动后延时数秒自动隐藏。_Avoid_: 自动关闭、auto-hide。
 
 **文本注入（Text Injection）**
-转写完成后把最终文本一次性输入到当前焦点窗口光标处的输出动作，仅 Windows 提供；由 `inject_text` 配置控制，默认关闭。_Avoid_: 自动粘贴、流式插入。
+转写完成后把最终文本一次性输入到当前焦点窗口光标处的输出动作，仅 Windows 提供。由 `inject_text` 配置控制，默认关闭。_Avoid_: 自动粘贴、流式插入。
 
 **润色器（Polisher）**
 可选的 LLM 后处理步骤。由 `PolishLevel`（`none`/`light`/`medium`/`heavy`）控制。与任意 OpenAI 兼容聊天 API 或 Anthropic Messages API 通信。
@@ -76,23 +76,23 @@
 ## 录音
 
 **录音输出格式（Recorder Output Format）**
-语音管道期望录音器以固定的 16kHz、单声道、16 位 PCM WAV 字节返回音频。SenseVoice 只接受这一采样率，其他配置值会在管道启动前被拒绝。
+语音管道期望录音器以固定的 16 kHz、单声道、16 位 PCM WAV 字节返回音频。SenseVoice 只接受这一采样率，其他配置值会在管道启动前被拒绝。
 
 **音频电平（Audio Level）**
-录音期间由录音器从实时 PCM 音频块计算出的感知音量大小（范围 0.0 ~ 1.0）。录音线程在读取音频流时计算均方根（RMS）并通过非线性增益映射为感知电平，经 `PipelineSink::on_audio_level` 记录最新电平，录音期间由 Tauri `audio-level` 事件以固定 100ms 间隔（10 次/秒）定时派发给悬浮窗，作为电平轨迹的实时采样来源。
+录音期间由录音器从实时 PCM 音频块计算出的感知音量大小（范围 0.0 ~ 1.0）。录音线程在读取音频流时计算均方根（RMS）并通过非线性增益映射为感知电平，经 `PipelineSink::on_audio_level` 记录最新电平，录音期间由 Tauri `audio-level` 事件以固定 100 ms 间隔（10 次/秒）定时派发给悬浮窗，作为电平轨迹的实时采样来源。
 
 **电平轨迹（Level Trace）**
-录音期间由连续音频电平采样累积成的滚动历史，显示最近一段时间的说话痕迹；仅在录音相位渲染，松开激活键后随相位切换移除。_Avoid_: 声纹、波形图。
+录音期间由连续音频电平采样累积成的滚动历史，显示最近一段时间的说话痕迹。仅在录音相位渲染，松开激活键后随相位切换移除。_Avoid_: 声纹、波形图。
 
 
 ## 按键输入
 
 **按键监听器（KeyListener）**
-管道运行期间持续监听配置的激活键并发出 `KeyEvent` 的接口。Linux 实现（`X11Listener`）在 X11 用 `xinput test-xi2`、失败回退 `evtest`，Wayland 会话优先 `evtest`；Windows 用 WH_KEYBOARD_LL 低级键盘钩子。管道以 `Box<dyn KeyListener>` 消费它。
+管道运行期间持续监听配置的激活键并发出 `KeyEvent` 的接口。Linux 实现（`X11Listener`）在 X11 用 `xinput test-xi2`、失败回退 `evtest`，Wayland 会话优先 `evtest`。Windows 用 WH_KEYBOARD_LL 低级键盘钩子。管道以 `Box<dyn KeyListener>` 消费它。
 _Avoid_: key listener（指概念时小写）、platform listener。
 
 **按键捕获（KeyCapture）**
-设置配置期间一次性捕获任意物理键的接口，返回 `KeyListenerConfig` 所需的键标识符（`key_name`、`linux_evdev_code`）。Linux 通过 `evtest` 子进程监听 `/dev/input/event*`；Windows 临时挂 WH_KEYBOARD_LL 钩子等待一次按键。暴露同步阻塞式 API。
+设置配置期间一次性捕获任意物理键的接口，返回 `KeyListenerConfig` 所需的键标识符（`key_name`、`linux_evdev_code`）。Linux 通过 `evtest` 子进程监听 `/dev/input/event*`。Windows 临时挂 WH_KEYBOARD_LL 钩子等待一次按键。暴露同步阻塞式 API。
 _Avoid_: capture mode、key capture mode。
 
 **激活键（Activation Key）**
@@ -110,10 +110,10 @@ _Avoid_: capture mode、key capture mode。
 检查更新的触发模式：`Silent`（静默模式，启动时触发，失败时不打扰用户，发现新版本时以轻量徽标提示）与 `Manual`（手动模式，用户主动点击触发，带加载状态并在超时或失败时反馈具体原因）。
 
 **更新说明（Release Notes）**
-手动检查发现新版本时弹出的独立窗口（label `update-notes`），展示该版本的分类变更条目，并就地提供更新操作（就地更新或打开下载页）。内容取自 CHANGELOG.md 当前版本小节，经 latest.json 的 `notes` 字段随检查结果到达前端；`## vX.Y.Z` 版本行与末尾的对比样板行不渲染，版本信息由窗口头部展示。_Avoid_: 更新内容弹窗、changelog 窗口。
+手动检查发现新版本时弹出的独立窗口（label `update-notes`），展示该版本的分类变更条目，并就地提供更新操作（就地更新或打开下载页）。内容取自 CHANGELOG.md 当前版本小节，经 latest.json 的 `notes` 字段随检查结果到达前端。`## vX.Y.Z` 版本行与末尾的对比样板行不渲染，版本信息由窗口头部展示。_Avoid_: 更新内容弹窗、changelog 窗口。
 
 **更新产物（Updater Artifact）**
-应用更新器在 InPlace 平台自动下载并校验的发布产物：Linux 直接使用 AppImage 本体，Windows 使用 NSIS 安装器的 zip 形态；minisign 签名内嵌于 latest.json，不依赖产物旁的独立签名文件。_Avoid_: 签名包、更新包。
+应用更新器在 InPlace 平台自动下载并校验的发布产物：Linux 直接使用 AppImage 本体，Windows 使用 NSIS 安装器的 zip 形态。minisign 签名内嵌于 latest.json，不依赖产物旁的独立签名文件。_Avoid_: 签名包、更新包。
 
 **更新支持级别（Update Support Tier）**
 不同平台及打包分发方式下的更新能力分级：
@@ -134,7 +134,7 @@ _Avoid_: capture mode、key capture mode。
 _Avoid_: 显示语言、应用语言。
 
 **语言自动检测（Language Auto-detection）**
-界面语言为自动时每次启动跟随系统语言的行为：中文环境用中文，其余回退英文；检测结果不写入配置，显式选择后不再检测。
+界面语言为自动时每次启动跟随系统语言的行为：中文环境用中文，其余回退英文。检测结果不写入配置，显式选择后不再检测。
 _Avoid_: 首启检测落盘。
 
 **识别语言（Transcription Language）**

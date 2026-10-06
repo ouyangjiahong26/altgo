@@ -1,8 +1,8 @@
 //! SenseVoice 本地语音识别后端（sherpa-onnx 内嵌）。
 //!
 //! sherpa-onnx 编译进主程序：模型在管道启动时加载一次并常驻内存，
-//! 之后每句话只做波形解码与推理。不走子进程方案——SenseVoice int8 模型
-//! 约 230MB，每次冷载往往比转写本身还久。
+//! 之后每句话只做波形解码与推理。不走子进程方案：SenseVoice int8 模型
+//! 约 230 MB，每次冷载往往比转写本身还久。
 //!
 //! 推理是 CPU 密集的同步操作，通过 `tokio::task::spawn_blocking` 放进
 //! blocking 线程池，避免阻塞异步 runtime。
@@ -34,7 +34,7 @@ impl std::fmt::Debug for SherpaTranscriber {
     }
 }
 
-/// 把配置语言归一化为 SenseVoice 可接受的值；空字符串按自动检测处理。
+/// 把配置语言归一化为 SenseVoice 可接受的值，空字符串按自动检测处理。
 fn normalize_language(language: &str) -> &str {
     match language.trim() {
         "" => "auto",
@@ -48,7 +48,7 @@ impl SherpaTranscriber {
     /// `model_dir` 应包含 SenseVoice 模型的 `model.int8.onnx` 与 `tokens.txt`
     /// （见 `crate::model` 的下载逻辑）。
     /// `language`：`"auto"` 自动检测（中/英/日/韩/粤），或 `"zh"` / `"en"` /
-    /// `"ja"` / `"ko"` / `"yue"` 指定；空字符串按 `"auto"` 处理。
+    /// `"ja"` / `"ko"` / `"yue"` 指定，空字符串按 `"auto"` 处理。
     pub fn new(
         model_dir: PathBuf,
         language: String,
@@ -89,16 +89,13 @@ impl SherpaTranscriber {
     }
 
     /// 同步转写：WAV 解码 → 推理 → 返回文本。调用方应放入 blocking 线程池。
-    pub fn transcribe_blocking(
-        &self,
-        audio_data: &[u8],
-    ) -> Result<TranscribeResult, TranscriberError> {
+    fn transcribe_blocking(&self, audio_data: &[u8]) -> Result<TranscribeResult, TranscriberError> {
         if audio_data.is_empty() {
             return Err(TranscriberError::EmptyAudio);
         }
 
         let samples = crate::audio::decode_wav_to_f32(audio_data)
-            .map_err(TranscriberError::WavDecodeFailed)?;
+            .map_err(|e| TranscriberError::WavDecodeFailed(e.to_string()))?;
 
         let stream = self.recognizer.create_stream();
         stream.accept_waveform(crate::recorder::SAMPLE_RATE as i32, &samples);

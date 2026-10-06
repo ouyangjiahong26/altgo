@@ -111,7 +111,7 @@ export function ProviderPresetSelector({
         <div className="provider-preset-summary-main">
           <span
             className="provider-preset-icon"
-            style={{ backgroundColor: currentPreset?.iconColor || "#6B7280" }}
+            style={{ backgroundColor: currentPreset?.iconColor || undefined }}
           >
             {currentPreset?.name.charAt(0) || "?"}
           </span>
@@ -196,7 +196,7 @@ export function ProviderPresetSelector({
                         >
                           <span
                             className="provider-preset-icon"
-                            style={{ backgroundColor: preset.iconColor || "#6B7280" }}
+                            style={{ backgroundColor: preset.iconColor || undefined }}
                           >
                             {preset.name.charAt(0)}
                           </span>

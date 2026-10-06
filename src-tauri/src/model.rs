@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::Duration;
 
-/// HF 官方域名与国内镜像域名；各模型的仓库路径记录在 `ModelInfo::repo_path`，
+/// HF 官方域名与国内镜像域名。各模型的仓库路径记录在 `ModelInfo::repo_path`，
 /// 下载 URL = `<域名>/<repo_path>/resolve/main/<文件名>`。
 const HF_DOMAINS: &[&str] = &["https://huggingface.co", "https://hf-mirror.com"];
 
@@ -65,7 +65,7 @@ fn model_download_client() -> &'static Client {
             .build()
             .unwrap_or_else(|e| {
                 tracing::error!(error = %e, "failed to build model download client");
-                // 回退到默认 client——下载仍可能成功，只是设置不够优。
+                // 回退到默认 client，下载仍可能成功，只是设置不够优。
                 Client::new()
             })
     })
@@ -75,7 +75,7 @@ fn model_download_client() -> &'static Client {
 #[derive(Clone)]
 pub struct ModelFile {
     pub filename: &'static str,
-    /// 近似大小（用于进度条；与 Content-Length 接近即可）。
+    /// 近似大小（用于进度条，与 Content-Length 接近即可）。
     pub size_bytes: u64,
     /// 官方发布文件的 SHA-256，用于识别中断下载和损坏缓存。
     pub sha256: Cow<'static, str>,
@@ -192,6 +192,15 @@ fn model_file_ready(file: &ModelFile, path: &Path) -> bool {
         && file_sha256(path).is_ok_and(|sha256| sha256 == file.sha256)
 }
 
+/// 校验放到阻塞线程池：主模型文件可达 237 MB，同步哈希会占住 current_thread 运行时。
+async fn model_file_ready_blocking(file: &ModelFile, path: &Path) -> Result<bool, ModelError> {
+    let file = file.clone();
+    let path = path.to_path_buf();
+    tokio::task::spawn_blocking(move || model_file_ready(&file, &path))
+        .await
+        .map_err(|e| ModelError::DownloadFailed(e.to_string()))
+}
+
 fn model_files_ready_with<F>(dir: &Path, files: &[ModelFile], is_ready: F) -> bool
 where
     F: Fn(&ModelFile, &Path) -> bool,
@@ -298,7 +307,7 @@ pub fn delete(name: &str) -> Result<(), ModelError> {
 /// 解析配置中的模型值，返回模型目录（含 `model.int8.onnx` 与 `tokens.txt`）。
 ///
 /// 如果 `config_model` 是模型名称（如 "sense-voice"），返回已下载的模型目录。
-/// 如果是目录路径，直接返回；如果是 `.onnx` 文件路径，返回其父目录。
+/// 如果是目录路径，直接返回。如果是 `.onnx` 文件路径，返回其父目录。
 /// 如果为空或目录不完整，返回 None。
 pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
     if config_model.is_empty() {
@@ -416,7 +425,7 @@ where
     F: FnMut(u64, u64),
 {
     let dest = dir.join(file.filename);
-    if model_file_ready(file, &dest) {
+    if model_file_ready_blocking(file, &dest).await? {
         return Ok(file.size_bytes);
     }
     remove_invalid_model_file(&dest)?;
@@ -469,9 +478,13 @@ where
         }
         for base in bases {
             let url = format!("{}/{}", base, file.filename);
-            let result = download_once_to_tmp(&url, done_bytes, total_bytes, tmp_path, on_progress)
-                .await
-                .and_then(|()| finalize_model_download(file, tmp_path, dest));
+            let result =
+                match download_once_to_tmp(&url, done_bytes, total_bytes, tmp_path, on_progress)
+                    .await
+                {
+                    Ok(()) => finalize_model_download_blocking(file, tmp_path, dest).await,
+                    Err(error) => Err(error),
+                };
             match result {
                 Ok(()) => return Ok(()),
                 Err(error) => {
@@ -491,12 +504,26 @@ fn finalize_model_download(
 ) -> Result<(), ModelError> {
     if !model_file_ready(file, tmp_path) {
         return Err(ModelError::DownloadFailed(format!(
-            "下载的模型文件校验失败: {}",
+            "下载的模型文件校验失败：{}",
             file.filename
         )));
     }
     std::fs::rename(tmp_path, dest)?;
     Ok(())
+}
+
+/// 校验与落盘放阻塞线程池，理由同 `model_file_ready_blocking`。
+async fn finalize_model_download_blocking(
+    file: &ModelFile,
+    tmp_path: &Path,
+    dest: &Path,
+) -> Result<(), ModelError> {
+    let file = file.clone();
+    let tmp_path = tmp_path.to_path_buf();
+    let dest = dest.to_path_buf();
+    tokio::task::spawn_blocking(move || finalize_model_download(&file, &tmp_path, &dest))
+        .await
+        .map_err(|e| ModelError::DownloadFailed(e.to_string()))?
 }
 
 async fn download_once_to_tmp<F>(
@@ -515,7 +542,7 @@ where
 
     if !response.status().is_success() {
         return Err(ModelError::DownloadFailed(format!(
-            "下载失败: HTTP {} — {}\n可尝试设置环境变量 {} 使用镜像基址。",
+            "下载失败（HTTP {}）：{}\n可尝试设置环境变量 {} 使用镜像基址。",
             response.status(),
             url,
             ENV_MODEL_BASE_URL
@@ -537,447 +564,5 @@ where
     Ok(())
 }
 
-/// 把字节数格式化为人类可读的大小。
 #[cfg(test)]
-fn format_size(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = 1024 * KB;
-    const GB: u64 = 1024 * MB;
-
-    if bytes >= GB {
-        format!("{:.1} GB", bytes as f64 / GB as f64)
-    } else if bytes >= MB {
-        format!("{:.0} MB", bytes as f64 / MB as f64)
-    } else {
-        format!("{:.0} KB", bytes as f64 / KB as f64)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn test_model_info(model_payload: &[u8], tokens_payload: &[u8]) -> ModelInfo {
-        let model_sha256 = Cow::Owned(bytes_to_hex(&Sha256::digest(model_payload)));
-        let tokens_sha256 = Cow::Owned(bytes_to_hex(&Sha256::digest(tokens_payload)));
-        let files = vec![
-            ModelFile {
-                filename: MAIN_MODEL_FILENAME,
-                size_bytes: model_payload.len() as u64,
-                sha256: model_sha256,
-            },
-            ModelFile {
-                filename: TOKENS_FILENAME,
-                size_bytes: tokens_payload.len() as u64,
-                sha256: tokens_sha256,
-            },
-        ];
-
-        ModelInfo {
-            name: "sense-voice",
-            repo_path: "test/repo",
-            files: Cow::Owned(files),
-            description: "test model",
-        }
-    }
-
-    #[test]
-    fn test_format_size() {
-        assert_eq!(format_size(75 * 1024 * 1024), "75 MB");
-        assert_eq!(format_size(230 * 1024 * 1024), "230 MB");
-        assert_eq!(format_size(2900 * 1024 * 1024), "2.8 GB");
-        assert_eq!(format_size(500 * 1024), "500 KB");
-    }
-
-    #[test]
-    fn test_resolve_model_dir_empty() {
-        assert!(resolve_model_dir("").is_none());
-    }
-
-    #[test]
-    fn test_resolve_model_dir_nonexistent() {
-        assert!(resolve_model_dir("/nonexistent/model").is_none());
-    }
-
-    #[test]
-    fn test_resolve_model_dir_unknown_name() {
-        assert!(resolve_model_dir("nonexistent-name").is_none());
-    }
-
-    #[test]
-    fn test_resolve_model_dir_incomplete_dir() {
-        let dir = tempfile::tempdir().unwrap();
-        // 只有 tokens.txt 没有主模型 → 视为未下载
-        std::fs::write(dir.path().join("tokens.txt"), b"tok").unwrap();
-        assert!(resolve_model_dir(dir.path().to_str().unwrap()).is_none());
-    }
-
-    #[test]
-    fn test_resolve_model_dir_missing_tokens() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join(MAIN_MODEL_FILENAME), b"model").unwrap();
-        assert!(resolve_model_dir(dir.path().to_str().unwrap()).is_none());
-    }
-
-    #[test]
-    fn test_resolve_model_dir_rejects_small_model() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join(MAIN_MODEL_FILENAME), b"model").unwrap();
-        std::fs::write(dir.path().join(TOKENS_FILENAME), b"tok").unwrap();
-        assert!(resolve_model_dir(dir.path().to_str().unwrap()).is_none());
-    }
-
-    #[test]
-    fn test_resolve_model_dir_rejects_empty_tokens() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(
-            dir.path().join(MAIN_MODEL_FILENAME),
-            vec![0; MIN_MODEL_FILE_BYTES as usize],
-        )
-        .unwrap();
-        std::fs::write(dir.path().join(TOKENS_FILENAME), b"").unwrap();
-        assert!(resolve_model_dir(dir.path().to_str().unwrap()).is_none());
-    }
-
-    #[test]
-    fn test_resolve_custom_model_dir_uses_structural_checks() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(
-            dir.path().join(MAIN_MODEL_FILENAME),
-            vec![0; MIN_MODEL_FILE_BYTES as usize],
-        )
-        .unwrap();
-        std::fs::write(dir.path().join(TOKENS_FILENAME), b"custom tokens").unwrap();
-        assert_eq!(
-            resolve_model_dir(dir.path().to_str().unwrap()),
-            Some(dir.path().to_path_buf())
-        );
-    }
-
-    #[test]
-    fn test_model_file_ready_requires_matching_checksum() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("test-model");
-        std::fs::write(&path, b"valid model").unwrap();
-        let sha256 = Cow::Owned(bytes_to_hex(&Sha256::digest(b"valid model")));
-        let file = ModelFile {
-            filename: "test-model",
-            size_bytes: 11,
-            sha256,
-        };
-
-        assert!(model_file_ready(&file, &path));
-        std::fs::write(&path, b"corrupted model").unwrap();
-        assert!(!model_file_ready(&file, &path));
-    }
-
-    #[test]
-    fn test_models_dir_contains_altgo() {
-        let dir = models_dir();
-        assert!(dir.to_string_lossy().contains("altgo"));
-        assert!(dir.to_string_lossy().contains("models"));
-    }
-
-    #[test]
-    fn test_validate_name_known() {
-        assert!(validate_name("sense-voice").is_ok());
-    }
-
-    #[test]
-    fn test_validate_name_unknown() {
-        assert!(validate_name("nonexistent").is_err());
-        assert!(validate_name("").is_err());
-    }
-
-    #[test]
-    fn test_list_all_with_status_count() {
-        let entries = list_all_with_status();
-        assert_eq!(entries.len(), models_info().len());
-        assert!(entries.iter().any(|e| e.name == "sense-voice"));
-        // 主模型文件名应暴露给前端展示
-        assert!(entries.iter().all(|e| e.filename == MAIN_MODEL_FILENAME));
-    }
-
-    #[test]
-    fn test_model_registry_entries() {
-        let names: Vec<_> = models_info().iter().map(|m| m.name).collect();
-        assert!(names.contains(&"sense-voice"));
-        assert!(names.contains(&"sense-voice-yue"));
-        // 模型名必须唯一，否则 models/ 下目录会互相覆盖
-        let unique: std::collections::HashSet<_> = names.iter().collect();
-        assert_eq!(unique.len(), names.len());
-
-        // 每个模型都要有自己的仓库路径，下载基址按它拼接
-        let repos: Vec<_> = models_info().iter().map(|m| m.repo_path).collect();
-        assert!(repos.iter().all(|r| !r.is_empty()));
-        let unique_repos: std::collections::HashSet<_> = repos.iter().collect();
-        assert_eq!(unique_repos.len(), repos.len());
-
-        // 两个模型的主模型校验和不同（tokens 词表相同）；若被"统一"成同一 SHA，
-        // 其中一个模型的 is_downloaded 会永远判 false
-        let sha_of =
-            |name: &str| &models_info().iter().find(|m| m.name == name).unwrap().files[0].sha256;
-        assert_ne!(sha_of("sense-voice"), sha_of("sense-voice-yue"));
-    }
-
-    #[test]
-    fn test_model_download_bases_per_repo() {
-        // 清掉外部覆盖，验证默认的官方 + 镜像双源拼接
-        std::env::remove_var(ENV_MODEL_BASE_URL);
-        assert_eq!(
-            model_download_bases("owner/repo"),
-            vec![
-                "https://huggingface.co/owner/repo/resolve/main".to_string(),
-                "https://hf-mirror.com/owner/repo/resolve/main".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_delete_unknown_model_errors() {
-        assert!(delete("nonexistent_model").is_err());
-    }
-
-    #[test]
-    fn test_delete_missing_dir_ok() {
-        let dir = tempfile::tempdir().unwrap();
-        delete_from_root("sense-voice", dir.path()).unwrap();
-        assert!(!dir.path().join("sense-voice").exists());
-    }
-
-    #[tokio::test]
-    async fn test_download_success_writes_dest_and_reports_progress() {
-        let mut server = mockito::Server::new_async().await;
-        let model_payload = vec![0u8; MIN_MODEL_FILE_BYTES as usize + 1];
-        let tokens_payload = b"token list";
-        let model_mock = server
-            .mock("GET", "/model.int8.onnx")
-            .with_status(200)
-            .with_header("content-type", "application/octet-stream")
-            .with_body(&model_payload)
-            .create_async()
-            .await;
-        let tokens_mock = server
-            .mock("GET", "/tokens.txt")
-            .with_status(200)
-            .with_body(tokens_payload)
-            .create_async()
-            .await;
-
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let dest_dir = tmp_dir.path().join("sense-voice");
-
-        let info = test_model_info(&model_payload, tokens_payload);
-        let progress_calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let calls = progress_calls.clone();
-        let result = download_model_with_progress_to(
-            &info,
-            vec![server.url()],
-            tmp_dir.path().to_path_buf(),
-            move |d, t| calls.lock().unwrap().push((d, t)),
-        )
-        .await;
-
-        let path = result.unwrap();
-        assert_eq!(path, dest_dir);
-        assert!(dest_dir.join(MAIN_MODEL_FILENAME).exists());
-        assert_eq!(
-            std::fs::metadata(dest_dir.join(MAIN_MODEL_FILENAME))
-                .unwrap()
-                .len(),
-            model_payload.len() as u64
-        );
-        assert_eq!(
-            std::fs::read(dest_dir.join("tokens.txt")).unwrap(),
-            tokens_payload
-        );
-        assert!(!dest_dir.join("model.int8.onnx.tmp").exists());
-        {
-            let calls = progress_calls.lock().unwrap();
-            assert!(!calls.is_empty());
-            // total 恒为声明总大小；进度按实际下载字节累计
-            let total = calls.last().unwrap().1;
-            assert_eq!(
-                total,
-                info.files.iter().map(|file| file.size_bytes).sum::<u64>()
-            );
-            assert!(calls.iter().any(|(d, _)| *d == model_payload.len() as u64));
-        }
-        model_mock.assert_async().await;
-        tokens_mock.assert_async().await;
-    }
-
-    #[tokio::test]
-    async fn test_download_replaces_incomplete_existing_model() {
-        let mut server = mockito::Server::new_async().await;
-        let model_payload = vec![0u8; MIN_MODEL_FILE_BYTES as usize + 1];
-        let tokens_payload = b"tok";
-        let model_mock = server
-            .mock("GET", "/model.int8.onnx")
-            .with_status(200)
-            .with_body(&model_payload)
-            .create_async()
-            .await;
-
-        let info = test_model_info(&model_payload, tokens_payload);
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let dest_dir = tmp_dir.path().join("sense-voice");
-        std::fs::create_dir_all(&dest_dir).unwrap();
-        std::fs::write(dest_dir.join(MAIN_MODEL_FILENAME), b"incomplete").unwrap();
-        std::fs::write(dest_dir.join(TOKENS_FILENAME), tokens_payload).unwrap();
-
-        download_model_with_progress_to(
-            &info,
-            vec![server.url()],
-            tmp_dir.path().to_path_buf(),
-            |_d, _t| {},
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(
-            std::fs::metadata(dest_dir.join(MAIN_MODEL_FILENAME))
-                .unwrap()
-                .len(),
-            model_payload.len() as u64
-        );
-        model_mock.assert_async().await;
-    }
-
-    #[tokio::test]
-    async fn test_download_http_error_clears_tmp() {
-        let mut server = mockito::Server::new_async().await;
-        let mock = server
-            .mock("GET", "/model.int8.onnx")
-            .with_status(500)
-            .expect_at_least(1)
-            .create_async()
-            .await;
-
-        let model_payload = vec![0u8; MIN_MODEL_FILE_BYTES as usize + 1];
-        let info = test_model_info(&model_payload, b"tok");
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let dest_dir = tmp_dir.path().join("sense-voice");
-
-        let result = download_model_with_progress_to(
-            &info,
-            vec![server.url()],
-            tmp_dir.path().to_path_buf(),
-            |_d, _t| {},
-        )
-        .await;
-
-        assert!(result.is_err());
-        assert!(!dest_dir.join(MAIN_MODEL_FILENAME).exists());
-        assert!(!dest_dir.join("model.int8.onnx.tmp").exists());
-        mock.assert_async().await;
-    }
-
-    #[tokio::test]
-    async fn test_download_too_small_detected_as_corrupt() {
-        let mut server = mockito::Server::new_async().await;
-        let model_payload = vec![0u8; 1024];
-        let mock = server
-            .mock("GET", "/model.int8.onnx")
-            .with_status(200)
-            .with_body(&model_payload)
-            .expect_at_least(1)
-            .create_async()
-            .await;
-
-        let info = test_model_info(&model_payload, b"tok");
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let dest_dir = tmp_dir.path().join("sense-voice");
-
-        let result = download_model_with_progress_to(
-            &info,
-            vec![server.url()],
-            tmp_dir.path().to_path_buf(),
-            |_d, _t| {},
-        )
-        .await;
-
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("校验失败"));
-        assert!(!dest_dir.join(MAIN_MODEL_FILENAME).exists());
-        assert!(!dest_dir.join("model.int8.onnx.tmp").exists());
-        mock.assert_async().await;
-    }
-
-    #[tokio::test]
-    async fn test_download_retries_then_succeeds() {
-        let mut server = mockito::Server::new_async().await;
-        let model_payload = vec![0u8; MIN_MODEL_FILE_BYTES as usize + 1];
-        let tokens_payload = b"tok";
-        let fail_mock = server
-            .mock("GET", "/model.int8.onnx")
-            .with_status(500)
-            .expect_at_least(1)
-            .create_async()
-            .await;
-        let success_mock = server
-            .mock("GET", "/model.int8.onnx")
-            .with_status(200)
-            .with_body(&model_payload)
-            .create_async()
-            .await;
-        let tokens_mock = server
-            .mock("GET", "/tokens.txt")
-            .with_status(200)
-            .with_body(tokens_payload)
-            .create_async()
-            .await;
-
-        let info = test_model_info(&model_payload, tokens_payload);
-        let tmp_dir = tempfile::tempdir().unwrap();
-
-        let result = download_model_with_progress_to(
-            &info,
-            vec![server.url()],
-            tmp_dir.path().to_path_buf(),
-            |_d, _t| {},
-        )
-        .await;
-
-        // mockito 同名 mock 按创建顺序匹配，只要最终成功即可验证重试语义。
-        assert!(result.is_ok());
-        assert_eq!(
-            std::fs::metadata(result.unwrap().join(MAIN_MODEL_FILENAME))
-                .unwrap()
-                .len(),
-            model_payload.len() as u64
-        );
-        fail_mock.assert_async().await;
-        success_mock.assert_async().await;
-        tokens_mock.assert_async().await;
-    }
-
-    #[tokio::test]
-    async fn test_download_skips_when_dest_exists() {
-        let model_payload = vec![0; MIN_MODEL_FILE_BYTES as usize];
-        let tokens_payload = b"tok";
-        let info = test_model_info(&model_payload, tokens_payload);
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let dest_dir = tmp_dir.path().join("sense-voice");
-        std::fs::create_dir_all(&dest_dir).unwrap();
-        std::fs::write(dest_dir.join(MAIN_MODEL_FILENAME), &model_payload).unwrap();
-        std::fs::write(dest_dir.join(TOKENS_FILENAME), tokens_payload).unwrap();
-
-        // 全部文件已存在：即使下载源不可达也应直接成功
-        let result = download_model_with_progress_to(
-            &info,
-            vec!["http://127.0.0.1:1".to_string()],
-            tmp_dir.path().to_path_buf(),
-            |_d, _t| {},
-        )
-        .await;
-
-        assert_eq!(result.unwrap(), dest_dir);
-        assert_eq!(
-            std::fs::metadata(dest_dir.join(MAIN_MODEL_FILENAME))
-                .unwrap()
-                .len(),
-            MIN_MODEL_FILE_BYTES
-        );
-    }
-}
+mod tests;

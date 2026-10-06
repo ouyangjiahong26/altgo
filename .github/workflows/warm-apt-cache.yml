@@ -29,7 +29,7 @@ jobs:
 
       # 包列表须与 CI check 和 release build 完全一致（含 rpm），缓存 key 才相同。
       # amd64 到公共 Ubuntu 镜像的带宽不稳定（实测从 9 分钟到 30+ 分钟），
-      # 缓存命中时安装仅数秒；GitHub 缓存 7 天未访问即逐出，故每日预热续期。
+      # 缓存命中时安装仅数秒。GitHub 缓存 7 天未访问即逐出，故每日预热续期。
       # 冷启动下载慢只发生在此处，不阻塞任何 CI 或 release。
       - uses: ./.github/actions/setup-linux-build
         with:

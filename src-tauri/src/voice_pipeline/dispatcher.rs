@@ -1,6 +1,6 @@
 //! 转写结果的业务调度 seam。
 //!
-//! `TauriPipelineSink` 只承担“事件 emit + 浮窗状态切换”，剪贴板写入
+//! `TauriPipelineSink` 只承担“事件 emit + 悬浮窗状态切换”，剪贴板写入
 //! 与历史追加由 `TranscriptionDispatch` 抽象注入。这是该 seam 的
 //! 生产实现和 trait 定义。
 
@@ -29,7 +29,7 @@ pub trait TranscriptionDispatch: Send + Sync + 'static {
 
 /// 生产实现：把转写结果转发给 `process_transcription_result`。
 ///
-/// `inject_text` 构造时从配置读入（仅 Windows 实现注入；关闭时仅写剪贴板）。
+/// `inject_text` 构造时从配置读入（仅 Windows 实现注入，关闭时仅写剪贴板）。
 pub struct TranscriptionDispatcherImpl {
     pub output: Arc<dyn Output>,
     pub history_store: HistoryStore,

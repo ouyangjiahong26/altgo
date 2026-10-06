@@ -27,7 +27,7 @@ process.stdout.write(packageInfo.version);
 CONFIG_VERSION="$(node -e 'process.stdout.write(require("./src-tauri/tauri.conf.json").version)' )"
 FRONTEND_VERSION="$(node -e 'process.stdout.write(require("./frontend/package.json").version)' )"
 # package-lock.json 顶层与 packages[""] 两个 version 都由 npm 依据 package.json 写入，发版时须一并跟上。
-# 只改 package.json 会让锁文件版本长期滞后——npm ci 不校验该字段，故不会报错，容易被漏掉。
+# 只改 package.json 会让锁文件版本长期滞后：npm ci 不校验该字段，故不会报错，容易被漏掉。
 LOCK_TOP_VERSION="$(node -e 'process.stdout.write(require("./frontend/package-lock.json").version)' )"
 LOCK_ROOT_VERSION="$(node -e '
 const lock = require("./frontend/package-lock.json");

@@ -101,7 +101,7 @@ fn which(cmd: &str) -> bool {
     crate::resource::which_binary(cmd).is_some()
 }
 
-/// Linux `Output` 适配器 —— 封装各类剪切板工具。
+/// Linux `Output` 适配器：封装各类剪切板工具。
 pub struct LinuxOutput {
     tool: Option<ClipboardTool>,
 }
@@ -129,12 +129,17 @@ impl super::Output for LinuxOutput {
 mod tests {
     use super::*;
 
+    /// 两种环境都要断言，与 `key_listener` 的系统工具测试一致：
+    /// 有工具时断言检测结果合法，无工具时断言返回 `None`，避免无显示服务器的 CI 恒通过。
     #[test]
     fn test_detect_clipboard_tool() {
+        let any_tool_present = ["wl-copy", "xclip", "xsel"].iter().any(|cmd| which(cmd));
         let tool = detect_clipboard_tool();
-        if let Some(t) = tool {
-            let s = t.to_string();
+        if any_tool_present {
+            let s = tool.expect("有剪贴板工具时必须检测出一种").to_string();
             assert!(s == "xclip" || s == "xsel" || s == "wl-copy");
+        } else {
+            assert!(tool.is_none(), "没有任何剪贴板工具时必须返回 None");
         }
     }
 }

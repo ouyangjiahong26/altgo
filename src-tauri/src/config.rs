@@ -4,7 +4,7 @@
 //! 因此部分配置文件也可以正常工作。
 //!
 //! 文本润色 API 密钥支持通过环境变量覆盖：
-//! - `ALTGO_POLISHER_API_KEY` — 覆盖文本润色 API 密钥
+//! - `ALTGO_POLISHER_API_KEY`：覆盖文本润色 API 密钥
 //!
 //! 默认配置路径为 `~/.config/altgo/altgo.toml`。
 
@@ -68,9 +68,9 @@ pub struct Config {
 pub struct KeyListenerConfig {
     /// 监听的按键名称（如 `Alt_L`、`Alt_R`），与 xmodmap keysym 一致
     pub key_name: String,
-    /// Linux evtest 回退路径使用的 evdev 键码（由“按下以设置”捕获）；`None` 时沿用 Alt 预设的启发式映射
+    /// Linux evtest 回退路径使用的 evdev 键码（由“按下以设置”捕获），`None` 时沿用 Alt 预设的启发式映射
     pub linux_evdev_code: Option<u16>,
-    /// Windows 使用的虚拟键码（由“按下以设置”捕获）；`None` 时由 `key_name` 解析
+    /// Windows 使用的虚拟键码（由“按下以设置”捕获），`None` 时由 `key_name` 解析
     pub windows_vk_code: Option<u16>,
     /// 长按阈值（毫秒），超过此时间视为长按录音
     #[serde(with = "duration_ms", alias = "long_press_threshold_ms")]
@@ -121,9 +121,9 @@ impl Default for RecorderConfig {
 pub struct TranscriberConfig {
     /// 模型名称（如 "sense-voice"）或模型目录路径
     pub model: String,
-    /// 语言代码（如 `"zh"`、`"en"`；空字符串表示自动检测）
+    /// 语言代码（如 `"zh"`、`"en"`，空字符串表示自动检测）
     pub language: String,
-    /// 本地引擎线程数；`0` 表示按 CPU 并行度自动取满
+    /// 本地引擎线程数，`0` 表示按 CPU 并行度自动取满
     pub threads: u32,
     /// 转写后端："local"（默认）或 "online"（小米 MiMo 在线识别）
     pub backend: String,
@@ -220,7 +220,7 @@ impl Default for PolisherConfig {
 pub struct OutputConfig {
     /// 注入/复制时是否优先使用润色后的文本
     pub prefer_polished: bool,
-    /// 转写完成后是否把文本注入到当前焦点窗口（仅 Windows 实现注入；默认关闭，仅写剪贴板）
+    /// 转写完成后是否把文本注入到当前焦点窗口（仅 Windows 实现注入，默认关闭，仅写剪贴板）
     pub inject_text: bool,
 }
 
@@ -281,7 +281,7 @@ impl Config {
     }
 
     /// 校验已加载的配置。
-    /// 在 `load()` 之后调用；润色开启时检查 [polisher] 的 API key。
+    /// 在 `load()` 之后调用，润色开启时检查 [polisher] 的 API key。
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.recorder.sample_rate != crate::recorder::SAMPLE_RATE {
             return Err(ConfigError::ValidationFailed(format!(
@@ -291,7 +291,7 @@ impl Config {
             )));
         }
 
-        // 转写后端取值校验；online 时逐项校验 [transcriber.online] 必填字段。
+        // 转写后端取值校验，online 时逐项校验 [transcriber.online] 必填字段。
         {
             let backend = self.transcriber.backend.trim().to_lowercase();
             if backend != "local" && backend != "online" {
@@ -313,7 +313,7 @@ impl Config {
                 }
                 if !missing.is_empty() {
                     return Err(ConfigError::ValidationFailed(format!(
-                        "在线转写已开启（backend = \"online\"），但缺少：{}。请在设置的“转写”分区补全；密钥也可通过环境变量 ALTGO_TRANSCRIBER_API_KEY 设置。",
+                        "在线转写已开启（backend = \"online\"），但缺少：{}。请在设置的“转写”分区补全。密钥也可通过环境变量 ALTGO_TRANSCRIBER_API_KEY 设置。",
                         missing.join("、")
                     )));
                 }
@@ -342,7 +342,7 @@ impl Config {
             }
             if !missing.is_empty() {
                 return Err(ConfigError::ValidationFailed(format!(
-                    "润色功能已开启（level = \"{}\"），但缺少：{}。请在设置的“润色”分区补全，或编辑配置文件 {} 的 [polisher] 段；不需要润色时把级别设为“关闭”。密钥也可通过环境变量 ALTGO_POLISHER_API_KEY 设置。",
+                    "润色功能已开启（level = \"{}\"），但缺少：{}。请在设置的“润色”分区补全，或编辑配置文件 {} 的 [polisher] 段。不需要润色时把级别设为“关闭”。密钥也可通过环境变量 ALTGO_POLISHER_API_KEY 设置。",
                     self.polisher.level,
                     missing.join("、"),
                     Self::default_config_path().display()
@@ -398,10 +398,10 @@ where
 }
 
 // ---------------------------------------------------------------------------
-// ConfigPatch —— Config 的部分更新
+// ConfigPatch：Config 的部分更新
 // ---------------------------------------------------------------------------
 
-/// 三态反序列化：JSON 字段缺失 = 不修改；`null` = 清除；值 = 设置。
+/// 三态反序列化：JSON 字段缺失 = 不修改、`null` = 清除、值 = 设置。
 ///
 /// 泛型实现，适用于任意可从 JSON 值反序列化的类型。
 fn deserialize_opt_patch<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
@@ -438,22 +438,22 @@ mod opt_patch_u16 {
     }
 }
 
-/// 应用于内存中配置的部分更新。全部字段可选；
+/// 应用于内存中配置的部分更新。全部字段可选。
 /// 缺省字段保持不变。
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigPatch {
-    /// 按键名称；缺省不修改。
+    /// 按键名称，缺省不修改。
     pub key_name: Option<String>,
-    /// 三态更新：`None` = 字段缺省（不修改）；`Some(None)` = JSON `null`（清除）；
+    /// 三态更新：`None` = 字段缺省（不修改）、`Some(None)` = JSON `null`（清除）、
     /// `Some(Some(v))` = 设为 v。
     #[serde(default, deserialize_with = "opt_patch_u16::deserialize")]
     pub linux_evdev_code: Option<Option<u16>>,
-    /// 三态更新：`None` = 字段缺省（不修改）；`Some(None)` = JSON `null`（清除）；
+    /// 三态更新：`None` = 字段缺省（不修改）、`Some(None)` = JSON `null`（清除）、
     /// `Some(Some(v))` = 设为 v。
     #[serde(default, deserialize_with = "opt_patch_u16::deserialize")]
     pub windows_vk_code: Option<Option<u16>>,
-    /// 三态更新：`None` = 字段缺省（不修改）；`Some(None)` = JSON `null`（清除）；
+    /// 三态更新：`None` = 字段缺省（不修改）、`Some(None)` = JSON `null`（清除）、
     /// `Some(Some(v))` = 设为 v。
     pub language: Option<String>,
     pub model: Option<String>,
@@ -535,6 +535,9 @@ impl ConfigPatch {
         }
     }
 }
+
+#[cfg(test)]
+mod template_guard;
 
 #[cfg(test)]
 mod tests {

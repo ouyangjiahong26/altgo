@@ -1,7 +1,7 @@
-//! 待重试录音 — 转写失败后保留的录音本体与其元信息。
+//! 待重试录音：转写失败后保留的录音本体与其元信息。
 //!
 //! 保留目的只有一个：用户重新识别。录音只存在内存中、只保留最新一段，
-//! 不落盘、不进历史（历史条目永不存音频）；新失败覆盖旧录音。
+//! 不落盘、不进历史（历史条目永不存音频），新失败覆盖旧录音。
 //!
 //! `RetryRequestHandle` 是 IPC 命令到流水线主循环的重试请求通道句柄：
 //! 重试在主循环内串行执行，维持 ADR-0003 的单次转写互斥。
@@ -17,7 +17,7 @@ pub const PENDING_RECORDING_EVENT: &str = "pending-recording-changed";
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingRecordingInfo {
-    /// 录音时长（毫秒）；WAV 解析失败时为 0。
+    /// 录音时长（毫秒），WAV 解析失败时为 0。
     pub duration_ms: u64,
     /// 上一次识别失败的原因（错误码结构，前端字典翻译）。
     pub error: UserFacingError,
@@ -63,7 +63,7 @@ impl PendingRecordingStore {
         self.lock_slot().take().is_some()
     }
 
-    /// 槽位持锁；中毒时沿用既有数据（与 `pipeline_controller` 同一处理方式）。
+    /// 槽位持锁，中毒时沿用既有数据（与 `pipeline_controller` 同一处理方式）。
     fn lock_slot(&self) -> std::sync::MutexGuard<'_, Option<Slot>> {
         self.slot.lock().unwrap_or_else(|e| e.into_inner())
     }

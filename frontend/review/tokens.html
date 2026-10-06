@@ -24,7 +24,7 @@
 <header class="sr-top">
       <div>
         <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 设计 token</div>
-        <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致；可切换深浅主题与根字号（15 / 17 / 19）。</div>
+        <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致，可切换深浅主题与根字号（15 / 17 / 19）。</div>
       </div>
       <div class="sr-ctl" role="group" aria-label="主题">
         <button type="button" data-theme-btn="dark" aria-pressed="true">暗色</button>
@@ -74,7 +74,7 @@
 
 <section class="sr-sec" id="type">
           <h2>排版</h2>
-          <p class="sr-desc">字号随根字号整体缩放，提供 15 / 17 / 19 三档；正文与等宽两套字体，此处可切换预览。</p>
+          <p class="sr-desc">字号随根字号整体缩放，提供 15 / 17 / 19 三档，正文与等宽两套字体，此处可切换预览。</p>
           <div class="sr-list" id="type-scale"></div>
 
           <h3>实际用法</h3>
@@ -89,7 +89,7 @@
               --font-mono 0123456789 Alt_R
             </p>
           </div>
-          <div class="sr-caption">字标为实色文字，不再使用渐变；中文标题不额外加字距。</div>
+          <div class="sr-caption">字标为实色文字，不使用渐变，中文标题不额外加字距。</div>
         </section>
 
 <section class="sr-sec" id="space">
@@ -128,7 +128,7 @@ const TOKEN_GROUPS = [
             "--color-hover-surface",
           ],
         },
-        { title: "文本", tokens: ["--color-text", "--color-text-secondary", "--color-text-muted", "--color-on-primary"] },
+        { title: "文本", tokens: ["--color-text", "--color-text-secondary", "--color-text-muted", "--color-on-primary", "--color-icon-fallback"] },
         {
           title: "强调色",
           tokens: [
@@ -157,6 +157,7 @@ const TOKEN_GROUPS = [
             "--color-amber-glow",
             "--danger-border",
             "--danger-hover-bg",
+            "--color-scrim",
           ],
         },
         {
@@ -180,7 +181,7 @@ const TOKEN_GROUPS = [
         { group: "字号 --text-*", tokens: ["--text-2xs", "--text-xs", "--text-sm", "--text-base", "--text-md", "--text-lg", "--text-xl"] },
         {
           group: "间距 --space-*",
-          tokens: ["--space-1", "--space-2", "--space-3", "--space-4", "--space-5", "--space-6", "--space-8"],
+          tokens: ["--space-1", "--space-1-5", "--space-2", "--space-3", "--space-4", "--space-5", "--space-6", "--space-8"],
         },
         { group: "圆角 --radius-*", tokens: ["--radius-xs", "--radius-sm", "--radius-md", "--radius-lg", "--radius-2xl", "--radius-full"] },
       ];

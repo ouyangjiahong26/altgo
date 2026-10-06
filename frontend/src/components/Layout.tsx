@@ -15,7 +15,7 @@ export default function Layout({ children }: LayoutProps) {
   const [hasNewUpdate, setHasNewUpdate] = useState(false);
 
   useEffect(() => {
-    // 启动时静默检查更新（受配置控制；若网络失败静默忽略）
+    // 启动时静默检查更新（受配置控制，若网络失败静默忽略）
     const performSilentUpdateCheck = async () => {
       try {
         const cfg = await invoke<{ autoCheckUpdate: boolean }>("get_config");
@@ -152,7 +152,7 @@ export default function Layout({ children }: LayoutProps) {
                     width: "7px",
                     height: "7px",
                     borderRadius: "50%",
-                    backgroundColor: "#ef4444",
+                    backgroundColor: "var(--color-red)",
                   }}
                   title={t("settings.update_available")}
                 />
@@ -163,21 +163,21 @@ export default function Layout({ children }: LayoutProps) {
             <button
               className="window-control-btn"
               onClick={handleMinimize}
-              aria-label="Minimize"
+              aria-label={t("window.minimize")}
             >
               <Minus size={14} />
             </button>
             <button
               className="window-control-btn"
               onClick={handleToggleMaximize}
-              aria-label={isMaximized ? "Restore" : "Maximize"}
+              aria-label={t(isMaximized ? "window.restore" : "window.maximize")}
             >
               {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
             <button
               className="window-control-btn window-control-close"
               onClick={handleClose}
-              aria-label="Close"
+              aria-label={t("window.close")}
             >
               <X size={14} />
             </button>

@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="src/styles/pages/history.css" />
     <!--
       这里刻意不引 overlay-base.css：那份样式里有 body{display:flex;height:100vh;overflow:hidden}
-      （为了让悬浮窗贴底），是给只装一个窗口的页面用的；预览页没有 #root，那条规则会直接
+      （为了让悬浮窗贴底），是给只装一个窗口的页面用的。预览页没有 #root，那条规则会直接
       落到预览页 body 上，把整页压成居中的一行。悬浮条几何在 overlay.css 里，与它无关。
     -->
     <link rel="stylesheet" href="src/styles/motion.css" />
@@ -404,7 +404,7 @@
                           <div class="settings-model-card is-active">
                             <div class="settings-model-card-head">
                               <span class="settings-model-card-name">sense-voice</span>
-                              <span class="settings-model-card-badge">使用中</span>
+                              <span class="settings-model-card-badge">当前</span>
                             </div>
                             <p class="settings-model-card-desc">中英日韩粤自动检测，本地推理，速度快。</p>
                             <p class="settings-model-card-meta">230 MB · model.int8.onnx</p>
@@ -429,7 +429,7 @@
                         </div>
                         <button type="button" class="settings-advanced-toggle">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-                          高级：模型路径
+                          高级：自定义路径或模型名
                         </button>
                         <div class="settings-field">
                           <span class="settings-field-label-text">自动输入到光标位置</span>
@@ -454,13 +454,13 @@
                           </div>
                         </div>
                         <div class="settings-field">
-                          <span class="settings-field-label-text">按键捕获</span>
+                          <span class="settings-field-label-text">按下以设置</span>
                           <div class="settings-field-control">
                             <div class="settings-key-binding-readout">
                               <code class="kbd">Alt_R</code>
                               <button type="button" class="btn btn-sm btn-secondary">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.001"/><path d="M10 8h.001"/><path d="M14 8h.001"/><path d="M18 8h.001"/><path d="M8 12h.001"/><path d="M12 12h.001"/><path d="M16 12h.001"/><path d="M7 16h10"/></svg>
-                                重新捕获
+                                按下以设置快捷键
                               </button>
                             </div>
                           </div>
@@ -476,7 +476,7 @@
                         </button>
                         <div class="settings-section-body">
                           <div class="settings-field">
-                            <span class="settings-field-label-text">润色档位</span>
+                            <span class="settings-field-label-text">润色级别</span>
                             <div class="settings-field-control settings-field-control--narrow">
                               <select class="select">
                                 <option>关闭</option>

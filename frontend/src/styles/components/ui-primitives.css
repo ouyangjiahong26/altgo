@@ -297,7 +297,7 @@ input[type="radio"]:disabled {
   color: var(--color-green);
 }
 
-/* ── 分组标题（英文大写小标题；中文下 design-system 会取消字距） ── */
+/* ── 分组标题（英文大写小标题，中文下 design-system 会取消字距） ── */
 
 .section-label {
   font-size: var(--text-2xs);
