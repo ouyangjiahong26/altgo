@@ -70,6 +70,63 @@ impl KeyListener for FakeListener {
     }
 }
 
+/// Drop 即停止发送并关闭事件通道的监听器替身。
+///
+/// 与 `FakeListener` 的区别：`FakeListener` 的事件通道经 `Arc` 与句柄共享，
+/// 监听器本体被丢弃后通道仍然打开；真实监听器（evtest 读取线程、Windows
+/// 钩子）的发送端随监听器停止而消失。本替身在后台线程周期发送按下/松开，
+/// 监听器被 Drop 后线程退出、通道关闭，用来回归验证主循环持有监听器的
+/// 生命周期约束。
+pub(super) struct DropClosingListener {
+    alive: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl DropClosingListener {
+    pub(super) fn new() -> Self {
+        Self {
+            alive: Arc::new(std::sync::atomic::AtomicBool::new(true)),
+        }
+    }
+}
+
+impl KeyListener for DropClosingListener {
+    fn start(
+        &mut self,
+    ) -> Result<
+        (
+            tokio::sync::mpsc::UnboundedReceiver<crate::key_listener::KeyEvent>,
+            &'static str,
+        ),
+        KeyListenerError,
+    > {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let alive = Arc::clone(&self.alive);
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                if !alive.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
+                }
+                let _ = tx.send(KeyEvent { pressed: true });
+                // 按住时长须超过测试上下文的 60 ms 长按阈值以触发录音。
+                std::thread::sleep(std::time::Duration::from_millis(80));
+                if !alive.load(std::sync::atomic::Ordering::SeqCst) {
+                    break;
+                }
+                let _ = tx.send(KeyEvent { pressed: false });
+            }
+            // 线程退出时丢弃 tx，事件通道随之关闭，与真实监听器一致。
+        });
+        Ok((rx, "drop-closing"))
+    }
+}
+
+impl Drop for DropClosingListener {
+    fn drop(&mut self) {
+        self.alive.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Recorder fake（假录音器）
 // ---------------------------------------------------------------------------

@@ -8,8 +8,9 @@
 use super::{KeyEvent, KeyListener};
 use crate::config::KeyListenerConfig;
 use crate::error::KeyListenerError;
+use parking_lot::Mutex;
 use std::io::BufRead;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -71,6 +72,9 @@ pub struct X11Listener {
     linux_evdev_code: Option<u16>,
     running: Arc<AtomicBool>,
     child: Option<Child>,
+    // evtest 子进程句柄：读取线程只借走 stdout，句柄留在监听器上，
+    // stop() 才能终止子进程、唤醒阻塞在 read() 的读取线程并回收僵尸。
+    evtest_children: Arc<Mutex<Vec<Child>>>,
 }
 
 /// 枚举可用于 `evtest` 回退的键盘设备（供按键捕获使用）。
@@ -239,30 +243,26 @@ fn evtest_line_to_key_event(line: &str, allowed: &[u16]) -> Option<bool> {
     }
 }
 
+/// 为单个键盘设备启动 evtest 子进程，stdout 供读取线程消费。
+fn spawn_evtest_child(device_path: &Path) -> std::io::Result<Child> {
+    // evtest 把设备信息和全部 EV_* 行打到 stdout（不是 stderr）。
+    // 读 stderr 会让 Wayland 回退路径永远收不到按键事件。
+    Command::new("evtest")
+        .arg(device_path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+}
+
 /// 单个键盘设备的 evtest 读取循环：解析 EV_KEY 行并把按键事件发往 `tx`，
 /// 直到停止标志置位、读取出错或接收端消失。
-fn run_evtest_device_loop(
-    device_path: PathBuf,
+/// 子进程句柄不在本线程：stop() 终止子进程后管道 EOF 自然结束本循环。
+fn run_evtest_stdout_loop(
+    stdout: std::process::ChildStdout,
     allowed: std::sync::Arc<[u16]>,
     tx: mpsc::UnboundedSender<KeyEvent>,
     running: Arc<AtomicBool>,
 ) {
-    // evtest 把设备信息和全部 EV_* 行打到 stdout（不是 stderr）。
-    // 读 stderr 会让 Wayland 回退路径永远收不到按键事件。
-    let mut child = match Command::new("evtest")
-        .arg(&device_path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::warn!(error = %e, device = %device_path.display(), "failed to spawn evtest");
-            return;
-        }
-    };
-
-    let stdout = child.stdout.take().expect("evtest stdout captured");
     let reader = std::io::BufReader::new(stdout);
 
     for line in reader.lines() {
@@ -304,6 +304,7 @@ impl X11Listener {
             linux_evdev_code: cfg.linux_evdev_code,
             running: Arc::new(AtomicBool::new(false)),
             child: None,
+            evtest_children: Arc::new(Mutex::new(Vec::new())),
         })
     }
 
@@ -473,23 +474,43 @@ impl X11Listener {
         );
 
         for device in keyboard_devices {
+            let mut child = match spawn_evtest_child(&device) {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::warn!(error = %e, device = %device.display(), "failed to spawn evtest");
+                    continue;
+                }
+            };
+            let stdout = child.stdout.take().expect("evtest stdout captured");
+            self.evtest_children.lock().push(child);
+
             let running = Arc::clone(&running);
             let tx = tx.clone();
-            let device_path = device.clone();
             let allowed = std::sync::Arc::clone(&allowed_evdev);
 
-            std::thread::spawn(move || run_evtest_device_loop(device_path, allowed, tx, running));
+            std::thread::spawn(move || run_evtest_stdout_loop(stdout, allowed, tx, running));
         }
 
         Ok(())
     }
 
-    /// 停止监听。
+    /// 停止监听：终止并回收全部子进程。evtest 读取线程阻塞在 read() 上，
+    /// 只有 kill 子进程让管道 EOF 才能唤醒它们，退出后不留孤儿与僵尸。
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
         if let Some(child) = self.child.as_mut() {
             let _ = child.kill();
             let _ = child.wait();
+        }
+        let children: Vec<Child> = std::mem::take(&mut *self.evtest_children.lock());
+        if !children.is_empty() {
+            // 回收放到独立线程：stop 可能在 Drop 中被调用，不应阻塞调用方。
+            std::thread::spawn(move || {
+                for mut child in children {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+            });
         }
     }
 
@@ -603,6 +624,40 @@ mod tests {
             assert_eq!(listener.key_name, "Alt_L");
             assert_eq!(listener.linux_evdev_code, Some(56));
         }
+    }
+
+    #[test]
+    fn stop_terminates_and_reaps_evtest_children() {
+        // 回归：stop() 曾只置停止标志，evtest 子进程既不终止也不回收，
+        // 读取线程阻塞在 read() 上永不退出，子进程泄漏成孤儿或僵尸。
+        // 用 sleep 进程顶替 evtest 验证生命周期语义，避免依赖真实设备。
+        let has_xinput = Command::new("xinput")
+            .arg("version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok();
+        if !has_xinput {
+            return;
+        }
+
+        let mut listener = X11Listener::new(&test_config()).unwrap();
+        let child = Command::new("sleep").arg("30").spawn().unwrap();
+        let pid = child.id();
+        listener.evtest_children.lock().push(child);
+
+        listener.stop();
+
+        // stop() 在后台线程 kill+wait；轮询等待进程被彻底回收
+        //（僵尸进程的 /proc 条目仍在，能区分“未回收”）。
+        let gone = || !Path::new(&format!("/proc/{pid}")).exists();
+        for _ in 0..100 {
+            if gone() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(gone(), "stop() 后子进程应被终止并回收，pid {pid} 仍存在");
     }
 
     #[test]
