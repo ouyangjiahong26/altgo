@@ -79,79 +79,94 @@ impl Machine {
     pub fn process(&mut self, event: KeyEvent) -> Option<Command> {
         let old_state = self.state;
         let cmd = match self.state {
-            State::Idle => {
-                if event.pressed && self.idle_suppress_press_until_release {
-                    return None;
-                }
-                if !event.pressed && self.idle_suppress_press_until_release {
-                    self.idle_suppress_press_until_release = false;
-                    return None;
-                }
-                if event.pressed {
-                    self.state = State::PotentialPress;
-                    self.press_time = Some(Instant::now());
-                }
-                None
-            }
-            State::PotentialPress => {
-                if !event.pressed {
-                    // 在长按阈值前松开。
-                    // 若按下时长过短则拒绝，多半是输入法噪音。
-                    if let Some(pt) = self.press_time {
-                        if Instant::now().duration_since(pt) < self.min_press_duration {
-                            // 过快，视为输入法的虚假松开。
-                            // 回到 Idle，让后续的虚假松开
-                            // 不致在没有真实按下的情况下推进到 WaitSecondClick。
-                            self.state = State::Idle;
-                            self.press_time = None;
-                            return None;
-                        }
-                    }
-                    self.state = State::WaitSecondClick;
-                    self.press_time = Some(Instant::now());
-                }
-                None
-            }
-            State::Recording => {
-                if !event.pressed {
-                    self.state = State::Idle;
-                    self.press_time = None;
-                    Some(Command::StopRecord)
-                } else {
-                    None
-                }
-            }
-            State::WaitSecondClick => {
-                if event.pressed {
-                    // 检测到双击 → 连续录音。
-                    self.state = State::ContinuousRecording;
-                    self.press_time = None;
-                    self.continuous_hold = true;
-                    Some(Command::StartRecord)
-                } else {
-                    None
-                }
-            }
-            State::ContinuousRecording => {
-                if event.pressed {
-                    if self.continuous_hold {
-                        return None;
-                    }
-                    self.state = State::Idle;
-                    self.press_time = None;
-                    self.continuous_hold = false;
-                    self.idle_suppress_press_until_release = true;
-                    Some(Command::StopRecord)
-                } else {
-                    self.continuous_hold = false;
-                    None
-                }
-            }
+            State::Idle => self.handle_idle(event),
+            State::PotentialPress => self.handle_potential_press(event),
+            State::Recording => self.handle_recording(event),
+            State::WaitSecondClick => self.handle_wait_second_click(event),
+            State::ContinuousRecording => self.handle_continuous_recording(event),
         };
         if self.state != old_state {
             tracing::debug!(?old_state, new_state = ?self.state, "state transition");
         }
         cmd
+    }
+
+    /// Idle：抑制期内忽略按下与松开，抑制标志由松开清除；否则按下进入长按检测。
+    fn handle_idle(&mut self, event: KeyEvent) -> Option<Command> {
+        if event.pressed && self.idle_suppress_press_until_release {
+            return None;
+        }
+        if !event.pressed && self.idle_suppress_press_until_release {
+            self.idle_suppress_press_until_release = false;
+            return None;
+        }
+        if event.pressed {
+            self.state = State::PotentialPress;
+            self.press_time = Some(Instant::now());
+        }
+        None
+    }
+
+    /// PotentialPress：长按阈值前松开转等待双击，时长过短则视为输入法噪音丢弃。
+    fn handle_potential_press(&mut self, event: KeyEvent) -> Option<Command> {
+        if !event.pressed {
+            // 在长按阈值前松开。
+            // 若按下时长过短则拒绝，多半是输入法噪音。
+            if let Some(pt) = self.press_time {
+                if Instant::now().duration_since(pt) < self.min_press_duration {
+                    // 过快，视为输入法的虚假松开。
+                    // 回到 Idle，让后续的虚假松开
+                    // 不致在没有真实按下的情况下推进到 WaitSecondClick。
+                    self.state = State::Idle;
+                    self.press_time = None;
+                    return None;
+                }
+            }
+            self.state = State::WaitSecondClick;
+            self.press_time = Some(Instant::now());
+        }
+        None
+    }
+
+    /// Recording：长按录音中，松开即停止并回到 Idle。
+    fn handle_recording(&mut self, event: KeyEvent) -> Option<Command> {
+        if !event.pressed {
+            self.state = State::Idle;
+            self.press_time = None;
+            Some(Command::StopRecord)
+        } else {
+            None
+        }
+    }
+
+    /// WaitSecondClick：双击窗口内再次按下触发连续录音。
+    fn handle_wait_second_click(&mut self, event: KeyEvent) -> Option<Command> {
+        if event.pressed {
+            // 检测到双击 → 连续录音。
+            self.state = State::ContinuousRecording;
+            self.press_time = None;
+            self.continuous_hold = true;
+            Some(Command::StartRecord)
+        } else {
+            None
+        }
+    }
+
+    /// ContinuousRecording：再按一次停止；按住期间的系统键连发先忽略直至出现松开。
+    fn handle_continuous_recording(&mut self, event: KeyEvent) -> Option<Command> {
+        if event.pressed {
+            if self.continuous_hold {
+                return None;
+            }
+            self.state = State::Idle;
+            self.press_time = None;
+            self.continuous_hold = false;
+            self.idle_suppress_press_until_release = true;
+            Some(Command::StopRecord)
+        } else {
+            self.continuous_hold = false;
+            None
+        }
     }
 
     /// 检查是否需要触发基于计时器的状态转换。

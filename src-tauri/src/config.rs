@@ -282,7 +282,16 @@ impl Config {
 
     /// 校验已加载的配置。
     /// 在 `load()` 之后调用，润色开启时检查 [polisher] 的 API key。
+    /// 各域按固定顺序校验（录音、转写、润色），首个错误即返回。
     pub fn validate(&self) -> Result<(), ConfigError> {
+        self.validate_recorder()?;
+        self.validate_transcriber()?;
+        self.validate_polisher()?;
+        Ok(())
+    }
+
+    /// 校验录音采样率：SenseVoice 只支持固定的单声道输入采样率。
+    fn validate_recorder(&self) -> Result<(), ConfigError> {
         if self.recorder.sample_rate != crate::recorder::SAMPLE_RATE {
             return Err(ConfigError::ValidationFailed(format!(
                 "SenseVoice 只支持 {}Hz 单声道输入，请将 [recorder] sample_rate 设为 {}。",
@@ -290,37 +299,47 @@ impl Config {
                 crate::recorder::SAMPLE_RATE
             )));
         }
+        Ok(())
+    }
 
-        // 转写后端取值校验，online 时逐项校验 [transcriber.online] 必填字段。
-        {
-            let backend = self.transcriber.backend.trim().to_lowercase();
-            if backend != "local" && backend != "online" {
-                return Err(ConfigError::ValidationFailed(format!(
-                    "[transcriber] backend 无效：'{}'，应为 \"local\" 或 \"online\"。",
-                    self.transcriber.backend
-                )));
-            }
-            if backend == "online" {
-                let mut missing: Vec<&str> = Vec::new();
-                if self.transcriber.online.api_key.trim().is_empty() {
-                    missing.push("API 密钥（[transcriber.online] api_key）");
-                }
-                if self.transcriber.online.api_base_url.trim().is_empty() {
-                    missing.push("API 地址（[transcriber.online] api_base_url）");
-                }
-                if self.transcriber.online.model.trim().is_empty() {
-                    missing.push("模型名称（[transcriber.online] model）");
-                }
-                if !missing.is_empty() {
-                    return Err(ConfigError::ValidationFailed(format!(
-                        "在线转写已开启（backend = \"online\"），但缺少：{}。请在设置的“转写”分区补全。密钥也可通过环境变量 ALTGO_TRANSCRIBER_API_KEY 设置。",
-                        missing.join("、")
-                    )));
-                }
-            }
+    /// 校验转写后端取值；取值为 online 时继续校验在线转写必填字段。
+    fn validate_transcriber(&self) -> Result<(), ConfigError> {
+        let backend = self.transcriber.backend.trim().to_lowercase();
+        if backend != "local" && backend != "online" {
+            return Err(ConfigError::ValidationFailed(format!(
+                "[transcriber] backend 无效：'{}'，应为 \"local\" 或 \"online\"。",
+                self.transcriber.backend
+            )));
         }
+        if backend == "online" {
+            self.validate_online_transcriber()?;
+        }
+        Ok(())
+    }
 
-        // 润色开启时逐项校验 [polisher] 必填字段，错误信息指明缺失项。
+    /// 在线转写开启时逐项校验 [transcriber.online] 必填字段。
+    fn validate_online_transcriber(&self) -> Result<(), ConfigError> {
+        let mut missing: Vec<&str> = Vec::new();
+        if self.transcriber.online.api_key.trim().is_empty() {
+            missing.push("API 密钥（[transcriber.online] api_key）");
+        }
+        if self.transcriber.online.api_base_url.trim().is_empty() {
+            missing.push("API 地址（[transcriber.online] api_base_url）");
+        }
+        if self.transcriber.online.model.trim().is_empty() {
+            missing.push("模型名称（[transcriber.online] model）");
+        }
+        if !missing.is_empty() {
+            return Err(ConfigError::ValidationFailed(format!(
+                "在线转写已开启（backend = \"online\"），但缺少：{}。请在设置的“转写”分区补全。密钥也可通过环境变量 ALTGO_TRANSCRIBER_API_KEY 设置。",
+                missing.join("、")
+            )));
+        }
+        Ok(())
+    }
+
+    /// 润色开启时校验协议取值并逐项校验 [polisher] 必填字段，错误信息指明缺失项。
+    fn validate_polisher(&self) -> Result<(), ConfigError> {
         if self.polisher.level != "none" {
             let protocol = self.polisher.protocol.trim().to_lowercase();
             if protocol != "openai" && protocol != "anthropic" {
@@ -474,8 +493,16 @@ pub struct ConfigPatch {
 }
 
 impl ConfigPatch {
-    /// 将 patch 中的 `Some` 字段写入 `cfg`。
+    /// 将 patch 中的 `Some` 字段写入 `cfg`，按配置域分组应用。
     pub fn apply_to_config(&self, cfg: &mut Config) {
+        self.apply_key_listener_patch(cfg);
+        self.apply_transcriber_patch(cfg);
+        self.apply_polisher_patch(cfg);
+        self.apply_gui_output_patch(cfg);
+    }
+
+    /// 应用按键监听域的字段。
+    fn apply_key_listener_patch(&self, cfg: &mut Config) {
         if let Some(ref v) = self.key_name {
             cfg.key_listener.key_name = v.clone();
         }
@@ -484,6 +511,10 @@ impl ConfigPatch {
             self.linux_evdev_code,
         );
         apply_nested_opt(&mut cfg.key_listener.windows_vk_code, self.windows_vk_code);
+    }
+
+    /// 应用转写器域的字段（含在线转写）。
+    fn apply_transcriber_patch(&self, cfg: &mut Config) {
         if let Some(ref v) = self.language {
             cfg.transcriber.language = v.clone();
         }
@@ -503,6 +534,10 @@ impl ConfigPatch {
         if let Some(v) = &self.asr_model {
             cfg.transcriber.online.model = v.clone();
         }
+    }
+
+    /// 应用润色域的字段。
+    fn apply_polisher_patch(&self, cfg: &mut Config) {
         if let Some(ref v) = self.polish_level {
             cfg.polisher.level = v.clone();
         }
@@ -521,6 +556,10 @@ impl ConfigPatch {
         if let Some(ref v) = self.polish_api_base_url {
             cfg.polisher.api_base_url = v.clone();
         }
+    }
+
+    /// 应用 GUI 与输出域的字段。
+    fn apply_gui_output_patch(&self, cfg: &mut Config) {
         if let Some(ref v) = self.gui_language {
             cfg.gui.language = v.clone();
         }

@@ -33,150 +33,216 @@ pub struct PipelineContext {
     pub(crate) min_press_duration: std::time::Duration,
 }
 
+/// 主循环本轮要处理的事：状态机命令或一次待重试录音的重新识别。
+enum Step {
+    Command(Option<Command>),
+    Retry,
+}
+
+/// 主循环跨迭代持有的状态：处理组件、按键事件通道、状态机与超时期限。
+struct LoopState {
+    recorder: Box<dyn Recorder>,
+    transcriber: Box<dyn Transcriber>,
+    formatter: LLMFormatter,
+    polish_level: PolishLevel,
+    pending_store: PendingRecordingStore,
+    retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+    key_events: tokio::sync::mpsc::UnboundedReceiver<crate::key_listener::KeyEvent>,
+    machine: Machine,
+    deadline: Option<tokio::time::Instant>,
+    sink: Arc<dyn PipelineSink>,
+}
+
 impl PipelineContext {
     /// 运行流水线事件循环，直到 `stop_rx` 触发。
     pub async fn run(self, stop_rx: tokio::sync::oneshot::Receiver<()>, sink: impl PipelineSink) {
-        let mut recorder = self.recorder;
-        let transcriber = self.transcriber;
-        let formatter = self.formatter;
-        let polish_level = self.polish_level;
-        let pending_store = self.pending_store;
-        let mut retry_rx = self.retry_rx;
+        let mut state = match LoopState::build(self, sink) {
+            Some(state) => state,
+            None => return,
+        };
+        state.sink.on_status_change(PipelineStatus::Idle);
+        state.event_loop(stop_rx).await;
+        state.sink.on_status_change(PipelineStatus::Stopped);
+        tracing::info!("pipeline stopped");
+    }
+}
+
+/// 取出并启动按键监听器：成功时告知 sink 后端名并返回按键事件通道；
+/// 构造期失败（槽位已被取走或启动失败）向 sink 上报错误并返回 `None`，
+/// 调用方据此终止流水线。
+fn start_key_listener(
+    listener_slot: &Mutex<Option<Box<dyn KeyListener>>>,
+    sink: &Arc<dyn PipelineSink>,
+) -> Option<tokio::sync::mpsc::UnboundedReceiver<crate::key_listener::KeyEvent>> {
+    let mut listener: Box<dyn KeyListener> = match listener_slot.lock().unwrap().take() {
+        Some(l) => l,
+        None => {
+            sink.on_error(&UserFacingError {
+                code: "internal.context_already_used".into(),
+                params: None,
+            });
+            return None;
+        }
+    };
+    match listener.start() {
+        Ok((key_events, backend)) => {
+            tracing::info!(backend = backend, "key listener active");
+            sink.on_key_listener_backend(backend);
+            Some(key_events)
+        }
+        Err(e) => {
+            // 此处拿不到 backend 名，不构造 FatalError::KeyListenerFailed。
+            sink.on_error(&UserFacingError {
+                code: "fatal.key_listener_start_failed".into(),
+                params: Some(BTreeMap::from([("detail".to_string(), e.to_string())])),
+            });
+            None
+        }
+    }
+}
+
+impl LoopState {
+    /// 一次性装配主循环状态：包装 sink、安装音频电平回调、启动按键监听器、
+    /// 创建状态机。构造期失败已向 sink 上报，返回 `None`。
+    fn build(ctx: PipelineContext, sink: impl PipelineSink) -> Option<LoopState> {
         // 把 sink 包进 Arc，让 handler 在异步任务生命周期结束后仍能使用，
         // 进度转发器也需要持有它。
         let sink: Arc<dyn PipelineSink> = Arc::new(sink);
-
+        let mut recorder = ctx.recorder;
         // 为录音器配置音频电平回调，把实时计算的 RMS 电平推入 sink
         let level_sink = sink.clone();
         recorder.set_audio_level_callback(Some(Arc::new(move |level: f32| {
             level_sink.on_audio_level(level);
         })));
 
-        let mut listener: Box<dyn KeyListener> = match self.listener.lock().unwrap().take() {
-            Some(l) => l,
-            None => {
-                sink.on_error(&UserFacingError {
-                    code: "internal.context_already_used".into(),
-                    params: None,
-                });
-                return;
-            }
-        };
-
-        let (mut key_events, key_backend): (
-            tokio::sync::mpsc::UnboundedReceiver<crate::key_listener::KeyEvent>,
-            &'static str,
-        ) = match listener.start() {
-            Ok(pair) => pair,
-            Err(e) => {
-                // 此处拿不到 backend 名，不构造 FatalError::KeyListenerFailed。
-                sink.on_error(&UserFacingError {
-                    code: "fatal.key_listener_start_failed".into(),
-                    params: Some(BTreeMap::from([("detail".to_string(), e.to_string())])),
-                });
-                return;
-            }
-        };
-        tracing::info!(backend = key_backend, "key listener active");
-        sink.on_key_listener_backend(key_backend);
-
+        let key_events = start_key_listener(&ctx.listener, &sink)?;
         // 创建状态机，直接集成到主循环
-        let mut machine = Machine::new(
-            self.long_press_threshold,
-            self.double_click_interval,
-            self.min_press_duration,
+        let machine = Machine::new(
+            ctx.long_press_threshold,
+            ctx.double_click_interval,
+            ctx.min_press_duration,
         );
-        let mut deadline: Option<tokio::time::Instant> = None;
+        Some(LoopState {
+            recorder,
+            transcriber: ctx.transcriber,
+            formatter: ctx.formatter,
+            polish_level: ctx.polish_level,
+            pending_store: ctx.pending_store,
+            retry_rx: ctx.retry_rx,
+            key_events,
+            machine,
+            deadline: None,
+            sink,
+        })
+    }
 
-        sink.on_status_change(PipelineStatus::Idle);
-
-        let mut stop_rx = stop_rx;
-
-        /// 主循环本轮要处理的事：状态机命令或一次待重试录音的重新识别。
-        enum Step {
-            Command(Option<Command>),
-            Retry,
-        }
-
+    /// select! 主循环：每轮等待一个事件并执行相应处理，
+    /// 按键通道关闭或收到停止信号时退出。
+    async fn event_loop(&mut self, mut stop_rx: tokio::sync::oneshot::Receiver<()>) {
         loop {
-            let step = tokio::select! {
-                // 按键事件
-                event = key_events.recv() => Step::Command(match event {
-                    Some(ev) => machine.process(ev),
-                    None => {
-                        tracing::warn!("key event channel closed, stopping pipeline");
-                        break;
-                    }
-                }),
-                // 超时事件
-                _ = async { tokio::time::sleep_until(deadline.unwrap()).await }, if deadline.is_some() => {
-                    Step::Command(machine.poll_timeout())
-                }
-                // 重试待重试录音：与按键触发的转写在同一循环内串行执行。
-                Some(()) = retry_rx.recv() => Step::Retry,
-                // 停止信号
-                _ = &mut stop_rx => {
-                    tracing::info!("pipeline stop requested");
-                    break;
-                }
+            let step = match self.next_step(&mut stop_rx).await {
+                Some(step) => step,
+                None => break,
             };
+            self.run_step(step).await;
+            self.deadline = self.machine.next_deadline().map(|d| d.into());
+        }
+    }
 
-            match step {
-                Step::Command(cmd) => {
-                    if let Some(cmd) = cmd {
-                        match cmd {
-                            Command::StartRecord => {
-                                let _ = handle_start_record(&mut *recorder, &*sink);
-                            }
-                            Command::StopRecord => {
-                                handle_stop_record(
-                                    &mut *recorder,
-                                    &*transcriber,
-                                    &formatter,
-                                    polish_level,
-                                    &pending_store,
-                                    sink.clone(),
-                                )
-                                .await;
-                            }
-                        }
-                    }
+    /// 主循环的单轮等待：`tokio::select!` 在按键事件、状态机超时、重试请求、
+    /// 停止信号四路中取先就绪者；返回 `None` 表示按键通道关闭或收到停止
+    /// 信号，应退出主循环。
+    async fn next_step(
+        &mut self,
+        stop_rx: &mut tokio::sync::oneshot::Receiver<()>,
+    ) -> Option<Step> {
+        let deadline = self.deadline;
+        tokio::select! {
+            // 按键事件
+            event = self.key_events.recv() => Some(Step::Command(match event {
+                Some(ev) => self.machine.process(ev),
+                None => {
+                    tracing::warn!("key event channel closed, stopping pipeline");
+                    return None;
                 }
-                Step::Retry => {
-                    if machine.is_recording() {
-                        // 录音优先：此刻转写会把录音中的悬浮窗切成转写中再隐藏，
-                        // 音量事件流也会被掐断。请求丢弃，用户空闲后再点即可。
-                        tracing::warn!("retry requested during recording, ignored until idle");
-                    } else {
-                        match pending_store.take_wav() {
-                            Some(wav) => {
-                                tracing::info!("retrying pending transcription");
-                                let ok = transcribe_and_dispatch(
-                                    &wav,
-                                    &*transcriber,
-                                    &formatter,
-                                    polish_level,
-                                    &pending_store,
-                                    sink.clone(),
-                                )
-                                .await;
-                                if ok {
-                                    // 槽位已消费，告知前端横幅可以撤下。
-                                    sink.on_pending_recording(None);
-                                }
-                            }
-                            None => {
-                                tracing::warn!("retry requested but no pending recording");
-                            }
-                        }
-                    }
+            })),
+            // 超时事件
+            _ = async { tokio::time::sleep_until(deadline.unwrap()).await }, if deadline.is_some() => {
+                Some(Step::Command(self.machine.poll_timeout()))
+            }
+            // 重试待重试录音：与按键触发的转写在同一循环内串行执行。
+            Some(()) = self.retry_rx.recv() => Some(Step::Retry),
+            // 停止信号
+            _ = &mut *stop_rx => {
+                tracing::info!("pipeline stop requested");
+                None
+            }
+        }
+    }
+
+    /// 执行主循环单轮产物：状态机命令驱动录音与转写收尾，
+    /// 重试请求消费待重试槽位里的录音。
+    async fn run_step(&mut self, step: Step) {
+        match step {
+            Step::Command(cmd) => {
+                if let Some(cmd) = cmd {
+                    self.execute_command(cmd).await;
                 }
             }
-            deadline = machine.next_deadline().map(|d| d.into());
+            Step::Retry => self.execute_retry().await,
         }
+    }
 
-        sink.on_status_change(PipelineStatus::Stopped);
-        tracing::info!("pipeline stopped");
+    /// 执行状态机命令：StartRecord 开始录音，StopRecord 停止录音并转写分发。
+    async fn execute_command(&mut self, cmd: Command) {
+        match cmd {
+            Command::StartRecord => {
+                let _ = handle_start_record(&mut *self.recorder, &*self.sink);
+            }
+            Command::StopRecord => {
+                handle_stop_record(
+                    &mut *self.recorder,
+                    &*self.transcriber,
+                    &self.formatter,
+                    self.polish_level,
+                    &self.pending_store,
+                    Arc::clone(&self.sink),
+                )
+                .await;
+            }
+        }
+    }
+
+    /// 重试一次待重试录音：录音中忽略请求，空闲时取出录音本体重新转写，
+    /// 成功后告知前端撤下待重试横幅。
+    async fn execute_retry(&mut self) {
+        if self.machine.is_recording() {
+            // 录音优先：此刻转写会把录音中的悬浮窗切成转写中再隐藏，
+            // 音量事件流也会被掐断。请求丢弃，用户空闲后再点即可。
+            tracing::warn!("retry requested during recording, ignored until idle");
+        } else {
+            match self.pending_store.take_wav() {
+                Some(wav) => {
+                    tracing::info!("retrying pending transcription");
+                    let ok = transcribe_and_dispatch(
+                        &wav,
+                        &*self.transcriber,
+                        &self.formatter,
+                        self.polish_level,
+                        &self.pending_store,
+                        Arc::clone(&self.sink),
+                    )
+                    .await;
+                    if ok {
+                        // 槽位已消费，告知前端横幅可以撤下。
+                        self.sink.on_pending_recording(None);
+                    }
+                }
+                None => {
+                    tracing::warn!("retry requested but no pending recording");
+                }
+            }
+        }
     }
 }
 
@@ -332,8 +398,19 @@ mod tests {
         rt.block_on(ctx.run(stop_rx, MockSink));
     }
 
-    #[tokio::test]
-    async fn long_press_records_transcribes_and_reports_result() {
+    /// 每 20 ms 轮询一次条件，最多 tries 次；超时不报错，由调用方断言。
+    async fn wait_until(tries: usize, mut cond: impl FnMut() -> bool) {
+        for _ in 0..tries {
+            if cond() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    }
+
+    /// 跑一遍“长按录音、松开转写（润色失败回退原文）”场景，
+    /// 返回录音器、转写器替身与 sink 供断言。
+    async fn run_long_press_scenario() -> (Arc<FakeRecorder>, Arc<FakeTranscriber>, MockSink) {
         let (listener, handle) = FakeListener::new("fake");
         let recorder = Arc::new(FakeRecorder::new(make_test_wav()));
         let transcriber = Arc::new(FakeTranscriber::with_success("raw text", "en"));
@@ -357,26 +434,35 @@ mod tests {
         handle.send(KeyEvent { pressed: false });
 
         // 等待转写与润色重试结束（每次重试都做退避）。
-        for _ in 0..300 {
-            if !sink.results().is_empty() {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-        }
+        wait_until(300, || !sink.results().is_empty()).await;
 
         let _ = stop_tx.send(());
         let _ = tokio::time::timeout(std::time::Duration::from_secs(5), run_handle).await;
 
+        (recorder, transcriber, sink)
+    }
+
+    #[tokio::test]
+    async fn long_press_records_and_transcribes_once() {
+        let (recorder, transcriber, _sink) = run_long_press_scenario().await;
         assert_eq!(recorder.start_count(), 1);
         assert_eq!(recorder.stop_count(), 1);
         assert_eq!(transcriber.call_count(), 1);
+    }
 
+    #[tokio::test]
+    async fn long_press_polish_failure_falls_back_to_raw_text() {
+        let (_recorder, _transcriber, sink) = run_long_press_scenario().await;
         let results = sink.results();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].raw_text, "raw text");
         assert_eq!(results[0].text, "raw text");
         assert!(results[0].polish_failed);
+    }
 
+    #[tokio::test]
+    async fn long_press_emits_idle_recording_processing_stopped_statuses() {
+        let (_recorder, _transcriber, sink) = run_long_press_scenario().await;
         assert_eq!(
             sink.status_changes(),
             vec![
@@ -565,8 +651,9 @@ mod tests {
         assert!(!sink.errors().is_empty());
     }
 
-    #[tokio::test]
-    async fn retry_request_retranscribes_pending_recording() {
+    /// 跑一遍“首次识别失败保留录音、服务恢复后重试成功”场景，
+    /// 返回转写器替身、待重试槽位与 sink 供断言。
+    async fn run_retry_recovery() -> (Arc<FakeTranscriber>, PendingRecordingStore, MockSink) {
         let (listener, handle) = FakeListener::new("fake");
         let recorder = Arc::new(FakeRecorder::new(make_test_wav()));
         let transcriber = Arc::new(FakeTranscriber::new(Err(
@@ -592,12 +679,7 @@ mod tests {
         handle.send(KeyEvent { pressed: true });
         tokio::time::sleep(std::time::Duration::from_millis(80)).await;
         handle.send(KeyEvent { pressed: false });
-        for _ in 0..100 {
-            if pending_store.peek_info().is_some() {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-        }
+        wait_until(100, || pending_store.peek_info().is_some()).await;
         assert!(
             pending_store.peek_info().is_some(),
             "前置：失败后录音已保留"
@@ -610,21 +692,37 @@ mod tests {
         }));
         retry_tx.send(()).unwrap();
 
-        for _ in 0..100 {
-            if !sink.results().is_empty() {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-        }
+        wait_until(100, || !sink.results().is_empty()).await;
 
         let _ = stop_tx.send(());
         let _ = tokio::time::timeout(std::time::Duration::from_secs(2), run_handle).await;
 
+        (transcriber, pending_store, sink)
+    }
+
+    #[tokio::test]
+    async fn retry_request_retranscribes_same_recording() {
+        let (transcriber, _pending_store, _sink) = run_retry_recovery().await;
         assert_eq!(transcriber.call_count(), 2, "重试必须重新识别同一段音频");
+    }
+
+    #[tokio::test]
+    async fn retry_request_reports_recovered_text() {
+        let (_transcriber, _pending_store, sink) = run_retry_recovery().await;
         let results = sink.results();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].raw_text, "recovered text");
+    }
+
+    #[tokio::test]
+    async fn retry_request_success_clears_pending_slot() {
+        let (_transcriber, pending_store, _sink) = run_retry_recovery().await;
         assert!(pending_store.peek_info().is_none(), "重试成功后槽位清空");
+    }
+
+    #[tokio::test]
+    async fn retry_request_success_withdraws_pending_banner() {
+        let (_transcriber, _pending_store, sink) = run_retry_recovery().await;
         assert_eq!(
             sink.pending_events().last(),
             Some(&None),
