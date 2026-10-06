@@ -14,6 +14,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::Duration;
+use tokio::io::AsyncWriteExt;
 
 /// HF 官方域名与国内镜像域名。各模型的仓库路径记录在 `ModelInfo::repo_path`，
 /// 下载 URL = `<域名>/<repo_path>/resolve/main/<文件名>`。
@@ -550,16 +551,18 @@ where
     }
 
     on_progress(base_done, total);
-    let mut file_handle = std::fs::File::create(tmp_path)?;
+    let mut file = tokio::fs::File::create(tmp_path).await?;
 
     let mut downloaded: u64 = 0;
     let mut stream = response.bytes_stream();
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| ModelError::HttpError(format!("读取下载数据失败: {e}")))?;
-        std::io::Write::write_all(&mut file_handle, &chunk)?;
+        file.write_all(&chunk).await?;
         downloaded += chunk.len() as u64;
         on_progress(base_done + downloaded, total);
     }
+    // tokio 的 File 无用户态缓冲，flush 不引入新的错误路径，忽略返回值。
+    let _ = file.flush().await;
 
     Ok(())
 }

@@ -205,11 +205,28 @@ fn test_delete_missing_dir_ok() {
     assert!(!dir.path().join("sense-voice").exists());
 }
 
-#[tokio::test]
-async fn test_download_success_writes_dest_and_reports_progress() {
+/// 一次成功下载的产物，供按断言组拆分的测试分别检查。
+struct SuccessfulDownloadRun {
+    /// 持有临时目录，drop 时才清理，文件断言在此之前始终有效。
+    _tmp_dir: tempfile::TempDir,
+    /// Server 被 drop 时会清空 mock 状态，需保活到 mock 断言结束。
+    _server: mockito::ServerGuard,
+    dest_dir: PathBuf,
+    result: PathBuf,
+    model_payload: Vec<u8>,
+    tokens_payload: Vec<u8>,
+    /// 两个文件声明 size_bytes 之和，进度回调的 total 应恒等于它。
+    declared_total_bytes: u64,
+    progress_calls: std::sync::Arc<std::sync::Mutex<Vec<(u64, u64)>>>,
+    model_mock: mockito::Mock,
+    tokens_mock: mockito::Mock,
+}
+
+/// 起 mockito 服务端按成功路径完整下载两个模型文件。
+async fn run_successful_download() -> SuccessfulDownloadRun {
     let mut server = mockito::Server::new_async().await;
     let model_payload = vec![0u8; MIN_MODEL_FILE_BYTES as usize + 1];
-    let tokens_payload = b"token list";
+    let tokens_payload = b"token list".to_vec();
     let model_mock = server
         .mock("GET", "/model.int8.onnx")
         .with_status(200)
@@ -220,14 +237,15 @@ async fn test_download_success_writes_dest_and_reports_progress() {
     let tokens_mock = server
         .mock("GET", "/tokens.txt")
         .with_status(200)
-        .with_body(tokens_payload)
+        .with_body(&tokens_payload)
         .create_async()
         .await;
 
     let tmp_dir = tempfile::tempdir().unwrap();
     let dest_dir = tmp_dir.path().join("sense-voice");
+    let info = test_model_info(&model_payload, &tokens_payload);
+    let declared_total_bytes = info.files.iter().map(|file| file.size_bytes).sum();
 
-    let info = test_model_info(&model_payload, tokens_payload);
     let progress_calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let calls = progress_calls.clone();
     let result = download_model_with_progress_to(
@@ -236,35 +254,62 @@ async fn test_download_success_writes_dest_and_reports_progress() {
         tmp_dir.path().to_path_buf(),
         move |d, t| calls.lock().unwrap().push((d, t)),
     )
-    .await;
+    .await
+    .unwrap();
 
-    let path = result.unwrap();
-    assert_eq!(path, dest_dir);
-    assert!(dest_dir.join(MAIN_MODEL_FILENAME).exists());
+    SuccessfulDownloadRun {
+        _tmp_dir: tmp_dir,
+        _server: server,
+        dest_dir,
+        result,
+        model_payload,
+        tokens_payload,
+        declared_total_bytes,
+        progress_calls,
+        model_mock,
+        tokens_mock,
+    }
+}
+
+#[tokio::test]
+async fn test_download_success_writes_dest_files() {
+    let run = run_successful_download().await;
+
+    assert_eq!(run.result, run.dest_dir);
+    assert!(run.dest_dir.join(MAIN_MODEL_FILENAME).exists());
     assert_eq!(
-        std::fs::metadata(dest_dir.join(MAIN_MODEL_FILENAME))
+        std::fs::metadata(run.dest_dir.join(MAIN_MODEL_FILENAME))
             .unwrap()
             .len(),
-        model_payload.len() as u64
+        run.model_payload.len() as u64
     );
     assert_eq!(
-        std::fs::read(dest_dir.join("tokens.txt")).unwrap(),
-        tokens_payload
+        std::fs::read(run.dest_dir.join("tokens.txt")).unwrap(),
+        run.tokens_payload
     );
-    assert!(!dest_dir.join("model.int8.onnx.tmp").exists());
-    {
-        let calls = progress_calls.lock().unwrap();
-        assert!(!calls.is_empty());
-        // total 恒为声明总大小，进度按实际下载字节累计
-        let total = calls.last().unwrap().1;
-        assert_eq!(
-            total,
-            info.files.iter().map(|file| file.size_bytes).sum::<u64>()
-        );
-        assert!(calls.iter().any(|(d, _)| *d == model_payload.len() as u64));
-    }
-    model_mock.assert_async().await;
-    tokens_mock.assert_async().await;
+    run.model_mock.assert_async().await;
+    run.tokens_mock.assert_async().await;
+}
+
+#[tokio::test]
+async fn test_download_success_clears_tmp_file() {
+    let run = run_successful_download().await;
+
+    assert!(!run.dest_dir.join("model.int8.onnx.tmp").exists());
+}
+
+#[tokio::test]
+async fn test_download_success_reports_progress() {
+    let run = run_successful_download().await;
+
+    let calls = run.progress_calls.lock().unwrap();
+    assert!(!calls.is_empty());
+    // total 恒为声明总大小，进度按实际下载字节累计
+    let total = calls.last().unwrap().1;
+    assert_eq!(total, run.declared_total_bytes);
+    assert!(calls
+        .iter()
+        .any(|(d, _)| *d == run.model_payload.len() as u64));
 }
 
 #[tokio::test]

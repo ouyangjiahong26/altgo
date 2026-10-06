@@ -110,7 +110,7 @@ Linux 平台接缝：
 - `ci.yml` 的 check-windows job 在 windows-latest 上按架构分步：x64 跑 `cargo test --lib`。arm64 交叉编译，只能 `cargo check`
 - `release.yml` 的 test job 同样双架构跑 `cargo test --lib`。deb/rpm 打包（build-linux）`needs: test`，发版前必须过两种架构的测试。NSIS 打包（build-windows）`needs: validate`，覆盖 Windows x64 与 arm64，打包前 x64 跑测试、arm64 只做编译检查
 
-**基线要求**：全量全绿，无 `#[ignore]`，无静默跳过。改动落在哪层，测试随代码补在哪层。若改动的风险只有端到端层能覆盖（如安装包真实启动），在 PR 里说明手动验证方式。
+**基线要求**：全部通过，无 `#[ignore]`，无静默跳过。改动落在哪层，测试随代码补在哪层。若改动的风险只有端到端层能覆盖（如安装包真实启动），在 PR 里说明手动验证方式。
 
 ## 派生信息：数字现查，不进文档
 

@@ -128,18 +128,28 @@ pub(crate) async fn transcribe_and_dispatch(
         return false;
     }
 
+    polish_and_dispatch(&result.text, formatter, polish_level, &sink).await
+}
+
+/// 润色并分发一次转写结果：润色失败时回退原文并置 `polish_failed`，
+/// 随后按序发出 done 进度与转写结果事件。返回 `true` 表示产出结果。
+async fn polish_and_dispatch(
+    raw_text: &str,
+    formatter: &LLMFormatter,
+    polish_level: PolishLevel,
+    sink: &Arc<dyn PipelineSink>,
+) -> bool {
     sink.on_progress("polish", None);
 
     let mut polish_failed = false;
     let mut polish_error: Option<UserFacingError> = None;
-    let raw_text = result.text.clone();
-    let polished = match formatter.polish(&raw_text, polish_level).await {
+    let polished = match formatter.polish(raw_text, polish_level).await {
         Ok(p) => p,
         Err(e) => {
             tracing::warn!(error = %e, "polish failed, using raw text");
             polish_failed = true;
             polish_error = Some(e.user_error());
-            raw_text.clone()
+            raw_text.to_string()
         }
     };
 
@@ -149,7 +159,7 @@ pub(crate) async fn transcribe_and_dispatch(
 
     let output = TranscriptionResult {
         text: polished,
-        raw_text,
+        raw_text: raw_text.to_string(),
         polish_failed,
         polish_error,
     };
@@ -238,9 +248,31 @@ pub async fn process_transcription_result(
     }
 
     let text_to_use = select_text(prefer_polished, output);
+    let history_appended = dispatch_text(
+        &text_to_use,
+        &output.raw_text,
+        inject_text,
+        output_adapter,
+        history_store,
+    )
+    .await;
 
+    Some(DispatchOutcome {
+        text: text_to_use,
+        history_appended,
+    })
+}
+
+/// 分发选中文本：写剪贴板、按需注入焦点窗口、追加历史，返回历史是否落盘。
+async fn dispatch_text(
+    text_to_use: &str,
+    raw_text: &str,
+    inject_text: bool,
+    output_adapter: &dyn Output,
+    history_store: &HistoryStore,
+) -> bool {
     // 写剪贴板（阻塞 I/O，调用方已在异步上下文中）
-    let text_clone = text_to_use.clone();
+    let text_clone = text_to_use.to_string();
     let output_handle = output_adapter.clone_box();
     let clipboard_ok =
         tokio::task::spawn_blocking(move || output_handle.write_clipboard(&text_clone))
@@ -252,23 +284,31 @@ pub async fn process_transcription_result(
         tracing::warn!("failed to write clipboard");
     }
 
-    // Windows: 注入到当前焦点窗口，其他平台为 no-op
     if inject_text {
-        let text_clone = text_to_use.clone();
-        let output_handle = output_adapter.clone_box();
-        let injected = tokio::task::spawn_blocking(move || output_handle.inject_text(&text_clone))
-            .await
-            .ok()
-            .and_then(|r| r.ok())
-            .is_some();
-        if !injected {
-            tracing::warn!("failed to inject text");
-        }
+        inject_text_to_focus(text_to_use, output_adapter).await;
     }
 
-    // 追加历史
-    let raw = output.raw_text.clone();
-    let display = text_to_use.clone();
+    append_history(text_to_use, raw_text, history_store).await
+}
+
+/// Windows 上把文本注入当前焦点窗口，其他平台为 no-op。失败只告警不中断分发。
+async fn inject_text_to_focus(text_to_use: &str, output_adapter: &dyn Output) {
+    let text_clone = text_to_use.to_string();
+    let output_handle = output_adapter.clone_box();
+    let injected = tokio::task::spawn_blocking(move || output_handle.inject_text(&text_clone))
+        .await
+        .ok()
+        .and_then(|r| r.ok())
+        .is_some();
+    if !injected {
+        tracing::warn!("failed to inject text");
+    }
+}
+
+/// 把转写结果追加到历史存储，返回是否落盘成功。失败只告警不中断分发。
+async fn append_history(text_to_use: &str, raw_text: &str, history_store: &HistoryStore) -> bool {
+    let raw = raw_text.to_string();
+    let display = text_to_use.to_string();
     let store = history_store.clone();
     let history_appended = tokio::task::spawn_blocking(move || store.append(raw, display))
         .await
@@ -280,10 +320,7 @@ pub async fn process_transcription_result(
         tracing::warn!("failed to append transcription history");
     }
 
-    Some(DispatchOutcome {
-        text: text_to_use,
-        history_appended,
-    })
+    history_appended
 }
 
 // ---------------------------------------------------------------------------

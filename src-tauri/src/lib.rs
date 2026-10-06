@@ -57,7 +57,6 @@ pub(crate) fn spawn_pipeline_thread(
         .inner()
         .clone();
     let app_handle = app.clone();
-    let cfg_clone = cfg.clone();
 
     let overlay: Arc<dyn overlay::seam::OverlaySink> = Arc::new(
         overlay::manager::OverlayManager::new(
@@ -68,38 +67,15 @@ pub(crate) fn spawn_pipeline_thread(
     );
 
     let thread_handle = std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("failed to build tokio runtime");
-        let output: Arc<dyn output::Output> = app_handle
-            .state::<Arc<dyn output::Output>>()
-            .inner()
-            .clone();
-        let inject_text = cfg_clone.output.inject_text;
-        let dispatch: Arc<dyn voice_pipeline::TranscriptionDispatch> =
-            Arc::new(voice_pipeline::TranscriptionDispatcherImpl {
-                output,
-                history_store: app_handle
-                    .state::<crate::history::HistoryStore>()
-                    .inner()
-                    .clone(),
-                inject_text,
-            });
-        let sink = tauri_sink::TauriPipelineSink::new(
-            Arc::new(tauri_sink::TauriEventEmitter::new(app_handle.clone())),
-            pipeline_status,
-            cfg_clone,
-            dispatch,
-            overlay,
-        );
-        rt.block_on(voice_pipeline::run(
+        pipeline_thread_main(
+            app_handle,
             cfg,
-            stop_rx,
-            sink,
+            pipeline_status,
+            overlay,
             pending_store,
+            stop_rx,
             retry_rx,
-        ));
+        )
     });
     PipelineHandle {
         stop_tx,
@@ -107,44 +83,152 @@ pub(crate) fn spawn_pipeline_thread(
     }
 }
 
+/// 流水线线程入口：在当前 OS 线程上构建 current_thread runtime，
+/// 装配事件 sink 与转写分发器后阻塞运行语音流水线。
+fn pipeline_thread_main(
+    app_handle: tauri::AppHandle,
+    cfg: Arc<config::Config>,
+    pipeline_status: Arc<std::sync::RwLock<crate::pipeline_controller::PipelineStatus>>,
+    overlay: Arc<dyn overlay::seam::OverlaySink>,
+    pending_store: voice_pipeline::PendingRecordingStore,
+    stop_rx: tokio::sync::oneshot::Receiver<()>,
+    retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+) {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build tokio runtime");
+    let output: Arc<dyn output::Output> = app_handle
+        .state::<Arc<dyn output::Output>>()
+        .inner()
+        .clone();
+    let inject_text = cfg.output.inject_text;
+    let dispatch: Arc<dyn voice_pipeline::TranscriptionDispatch> =
+        Arc::new(voice_pipeline::TranscriptionDispatcherImpl {
+            output,
+            history_store: app_handle
+                .state::<crate::history::HistoryStore>()
+                .inner()
+                .clone(),
+            inject_text,
+        });
+    let sink = tauri_sink::TauriPipelineSink::new(
+        Arc::new(tauri_sink::TauriEventEmitter::new(app_handle.clone())),
+        pipeline_status,
+        cfg.clone(),
+        dispatch,
+        overlay,
+    );
+    rt.block_on(voice_pipeline::run(
+        cfg,
+        stop_rx,
+        sink,
+        pending_store,
+        retry_rx,
+    ));
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 初始化日志订阅器：tracing 宏在没有任何 subscriber 时静默丢弃所有日志，
-    // 级别取 RUST_LOG（如 `RUST_LOG=debug altgo`），未设置时回退 info。
+    init_logging();
+
+    // Wayland 会话需在 GUI 初始化前切到 X11 后端，见 prefer_x11_backend。
+    #[cfg(target_os = "linux")]
+    prefer_x11_backend();
+
+    let config_path = config::Config::default_config_path();
+    let history_path = config_history_path(&config_path);
+
+    assemble_builder(config_path, history_path)
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                app_handle
+                    .state::<pipeline_controller::PipelineController>()
+                    .stop_blocking();
+            }
+        });
+}
+
+/// 初始化日志订阅器：tracing 宏在没有任何 subscriber 时静默丢弃所有日志，
+/// 级别取 RUST_LOG（如 `RUST_LOG=debug altgo`），未设置时回退 info。
+fn init_logging() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
+}
 
-    // Wayland 下客户端窗口定位不可用，需在 GUI 初始化前切到 X11 后端
-    // （XWayland）。完整因由见 display_backend 模块文档。
-    #[cfg(target_os = "linux")]
+/// Wayland 下客户端窗口定位不可用，需在 GUI 初始化前切到 X11 后端
+/// （XWayland）。完整因由见 display_backend 模块文档。
+#[cfg(target_os = "linux")]
+fn prefer_x11_backend() {
     if let Some(backend) = display_backend::resolve_display_backend(
         std::env::var_os("WAYLAND_DISPLAY").is_some(),
         std::env::var("GDK_BACKEND").ok().as_deref(),
     ) {
         std::env::set_var("GDK_BACKEND", backend);
     }
+}
 
+/// 由配置文件路径推导历史文件路径（同目录下的 `history.json`）。
+fn config_history_path(config_path: &std::path::Path) -> std::path::PathBuf {
+    config_path
+        .parent()
+        .map(|p| p.join("history.json"))
+        .unwrap_or_else(|| config_path.with_extension("history.json"))
+}
+
+/// 装配 Tauri Builder：注册共享状态、插件、setup 钩子与全部命令处理器，
+/// 链上调用顺序与 manage、plugin、setup、invoke_handler 的既有顺序一致。
+fn assemble_builder(
+    config_path: std::path::PathBuf,
+    history_path: std::path::PathBuf,
+) -> tauri::Builder<tauri::Wry> {
     // 共享状态一律经 `Builder::manage` 注册：Tauri 在调用 `setup` 钩子之前就已创建
     // `tauri.conf.json` 里的窗口并开始加载前端，前端首批 IPC（如 `get_config`）可能先于
     // `setup` 到达。状态若只在 `setup` 里注册，这些命令会以 state not managed 失败，
     // 首次引导会永久停在“加载中”。
-    let config_path = config::Config::default_config_path();
-    let history_path = config_path
-        .parent()
-        .map(|p| p.join("history.json"))
-        .unwrap_or_else(|| config_path.with_extension("history.json"));
-
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .manage(config_store::ConfigStore::load(config_path))
         .manage(history::HistoryStore::new(history_path))
         .manage(pipeline_controller::PipelineController::new())
         .manage(voice_pipeline::PendingRecordingStore::default())
         .manage(voice_pipeline::RetryRequestHandle::default())
-        .manage(Arc::new(output::PlatformOutput::new()) as Arc<dyn output::Output>)
+        .manage(Arc::new(output::PlatformOutput::new()) as Arc<dyn output::Output>);
+    let builder = register_plugins(builder);
+    let builder = builder.setup(setup_app);
+    builder.invoke_handler(tauri::generate_handler![
+        cmd::get_config,
+        cmd::save_config,
+        cmd::start_pipeline,
+        cmd::copy_text,
+        cmd::hide_overlay,
+        cmd::list_models,
+        cmd::download_model,
+        cmd::delete_model,
+        cmd::resolve_model,
+        cmd::capture_activation_key,
+        cmd::test_polisher_connection,
+        cmd::fetch_provider_catalog,
+        cmd::list_history,
+        cmd::delete_history_entries,
+        cmd::clear_history,
+        cmd::polish_history_entry,
+        cmd::get_pending_recording,
+        cmd::retry_pending_transcription,
+        cmd::discard_pending_recording,
+        cmd::check_update,
+        cmd::install_update,
+    ])
+}
+
+/// 注册 Tauri 插件：单实例保护、对话框、opener 与更新器。
+fn register_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    builder
         // 单实例保护：第二个实例启动时唤起已有实例的窗口并自行退出。
         // 避免两个进程各装一个键盘钩子，导致同一次录音被转写、注入两次。
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -157,66 +241,35 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .setup(|app| {
-            let cfg = Arc::new(app.state::<config_store::ConfigStore>().snapshot_blocking());
-            cfg.validate().map_err(|e| e.to_string())?;
+}
 
-            tray::create_tray(app)?;
+/// Tauri `setup` 钩子：校验配置、创建托盘、驻留主窗，并拉起语音流水线。
+fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let cfg = Arc::new(app.state::<config_store::ConfigStore>().snapshot_blocking());
+    cfg.validate().map_err(|e| e.to_string())?;
 
-            // 拦截主窗口的关闭请求，让应用驻留托盘。
-            if let Some(window) = app.get_webview_window("main") {
-                let app_handle = app.handle().clone();
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        if let Some(win) = app_handle.get_webview_window("main") {
-                            let _ = win.hide();
-                        }
-                    }
-                });
-            }
+    tray::create_tray(app)?;
 
-            let controller = app.state::<pipeline_controller::PipelineController>();
-            let status_arc = controller.status_arc();
-            // 前端可能在 `setup` 之前就调用 save_config（窗口加载早于 setup 钩子），那条路径
-            // 已经起过流水线，此时保留既有实例，既不重复启动、也不当作致命错误（返回 Err 会让
-            // Tauri 直接 panic 退出）。
-            controller.ensure_started_with_blocking(|| {
-                spawn_pipeline_thread(app.handle(), cfg, status_arc)
-            });
-
-            Ok(())
-        })
-        .invoke_handler(tauri::generate_handler![
-            cmd::get_config,
-            cmd::save_config,
-            cmd::start_pipeline,
-            cmd::copy_text,
-            cmd::hide_overlay,
-            cmd::list_models,
-            cmd::download_model,
-            cmd::delete_model,
-            cmd::resolve_model,
-            cmd::capture_activation_key,
-            cmd::test_polisher_connection,
-            cmd::fetch_provider_catalog,
-            cmd::list_history,
-            cmd::delete_history_entries,
-            cmd::clear_history,
-            cmd::polish_history_entry,
-            cmd::get_pending_recording,
-            cmd::retry_pending_transcription,
-            cmd::discard_pending_recording,
-            cmd::check_update,
-            cmd::install_update,
-        ])
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            if let tauri::RunEvent::ExitRequested { .. } = event {
-                app_handle
-                    .state::<pipeline_controller::PipelineController>()
-                    .stop_blocking();
+    // 拦截主窗口的关闭请求，让应用驻留托盘。
+    if let Some(window) = app.get_webview_window("main") {
+        let app_handle = app.handle().clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if let Some(win) = app_handle.get_webview_window("main") {
+                    let _ = win.hide();
+                }
             }
         });
+    }
+
+    let controller = app.state::<pipeline_controller::PipelineController>();
+    let status_arc = controller.status_arc();
+    // 前端可能在 `setup` 之前就调用 save_config（窗口加载早于 setup 钩子），那条路径
+    // 已经起过流水线，此时保留既有实例，既不重复启动、也不当作致命错误（返回 Err 会让
+    // Tauri 直接 panic 退出）。
+    controller
+        .ensure_started_with_blocking(|| spawn_pipeline_thread(app.handle(), cfg, status_arc));
+
+    Ok(())
 }
