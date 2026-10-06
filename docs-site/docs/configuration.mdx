@@ -187,17 +187,16 @@ export ALTGO_POLISHER_API_KEY="sk-your-key"
 ```toml
 [key_listener]
 key_name = "Alt_R"                 # 触发键（示例：右 Alt；左 Alt 可用 Alt_L）
-long_press_threshold_ms = 200      # 长按判定阈值 (ms)
-double_click_interval_ms = 300     # 双击判定间隔 (ms)
-min_press_duration_ms = 100        # 最短按下时长，过滤 IME 抖动
+long_press_threshold = 200         # 长按判定阈值 (ms)
+double_click_interval = 300        # 双击判定间隔 (ms)
+min_press_duration = 100           # 最短按下时长，过滤 IME 抖动
 ```
 
 ## 录音配置
 
 ```toml
 [recorder]
-sample_rate = 16000                # SenseVoice 固定采样率；其他值会被拒绝
-channels = 1                       # 单声道
+sample_rate = 16000                # SenseVoice 固定采样率，固定单声道输入；其他采样率会被拒绝
 ```
 
 ## 输出配置
@@ -209,14 +208,9 @@ prefer_polished = true             # 剪贴板/注入优先使用润色成功且
 
 Linux 需要可用的 `xclip`、`xsel` 或 `wl-copy` 之一，否则自动写剪贴板会失败（仍可在悬浮窗内点击复制，或使用主页历史列表里的复制按钮）。
 
-## 日志配置
+## 日志
 
-```toml
-[logging]
-level = "info"                     # debug / info / warn / error
-```
-
-也可以通过环境变量：
+日志级别不进配置文件，通过环境变量控制：
 
 ```bash
 # Linux
@@ -230,4 +224,5 @@ RUST_LOG=altgo=debug altgo
 | 环境变量 | 覆盖字段 |
 |---------|---------|
 | `ALTGO_POLISHER_API_KEY` | `polisher.api_key` |
-| `RUST_LOG` | 日志级别 |
+| `ALTGO_TRANSCRIBER_API_KEY` | `transcriber.online.api_key` |
+| `ALTGO_MODEL_BASE_URL` | 模型下载镜像（非配置字段） |

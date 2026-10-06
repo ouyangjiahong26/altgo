@@ -14,8 +14,8 @@ model: sonnet
 
 - test: `npm test` / `pnpm test` / `vitest run`
 - lint: `eslint .` / `oxlint .` / `biome check`
-- 类型: `tsc --noEmit` / `vue-tsc --noEmit`
-- 格式: `prettier --check` / `format:check`
+- 类型：`tsc --noEmit` / `vue-tsc --noEmit`
+- 格式：`prettier --check` / `format:check`
 
 如果项目有聚合检查命令（如 `pnpm check` = test + lint + tsc + format），
 优先跑聚合命令，它能一次性覆盖所有检查项。

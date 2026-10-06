@@ -78,7 +78,7 @@ Linux 平台接缝：
 
 **模块与行为**：
 
-- `overlay`：悬浮窗阶段转换（show/replace/hide）与渲染（前端组件，与同名的 Rust `overlay` 模块不同物）
+- `overlay`：悬浮窗相位转换（show/replace/hide）与渲染（前端组件，与同名的 Rust `overlay` 模块不同物）
 - `useConfigForm`：设置表单的配置归一化与保存请求体构造
 - `StatusIndicator`：状态指示组件渲染
 
@@ -90,7 +90,7 @@ Linux 平台接缝：
 
 当前没有任何端到端测试。以下用户流程缺少自动化保护：
 
-1. 按住激活键开始录音，SenseVoice 本地转写，文本进剪贴板，悬浮窗各阶段切换
+1. 按住激活键开始录音，SenseVoice 本地转写，文本进剪贴板，悬浮窗各相位切换
 2. 首次使用：从设置页下载 SenseVoice 模型，完成 SHA-256 校验，转写可用
 3. 修改设置并保存，重启应用后生效（真实 IPC、真实配置文件）
 4. 主页历史列表浏览、删除、对旧条目重新润色（真实 LLM API）

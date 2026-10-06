@@ -27,15 +27,15 @@ title: 常见问题
 2. 确认 `xinput` 可用：`which xinput`（X11 路径）。
 3. 检查 Alt 绑定：`xmodmap -pke | grep Alt`。配置里默认 `key_name = "Alt_R"`，与设置页“按下以设置”一致即可。
 4. **Wayland**：仍依赖能访问 evdev。若仅用 XWayland 且无权限，现象与未加 `input` 组类似。剪贴板在 Wayland 上建议安装 `wl-copy`（或 `xclip`/`xsel` 经 XWayland）。
-5. 若使用 IME，可适当增大 `min_press_duration_ms` 减轻误触。
+5. 若使用 IME，可适当增大 `min_press_duration` 减轻误触。
 
 ### 误触发 / IME 冲突
 
-增加 `min_press_duration_ms` 的值（默认 100 ms）来过滤短按抖动：
+增加 `min_press_duration` 的值（默认 100 ms）来过滤短按抖动：
 
 ```toml
 [key_listener]
-min_press_duration_ms = 200
+min_press_duration = 200
 ```
 
 ## 转写相关
