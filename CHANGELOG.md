@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## Unreleased
+
+### Fixes
+
+- **修复蓝牙键盘断链重连后按激活键无反应**：evtest 路径此前只在流水线启动时枚举一次键盘设备并为每台起一个 evtest 子进程，蓝牙键盘断链后其读者死亡或挂在已注销的设备对象上永久失聪，重连回来的设备（event 节点可能复用）没有任何 evtest 覆盖，只能重启应用恢复。evtest 路径现在带设备监视线程，每秒对比 `/proc/bus/input/devices` 与在管子进程：新设备补启、消失设备回收、已退出读者重启。
+
 ## v2.7.4 (2026-10-06)
 
 ### Fixes

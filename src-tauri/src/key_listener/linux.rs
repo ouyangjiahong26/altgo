@@ -8,11 +8,12 @@
 use super::{KeyEvent, KeyListener};
 use crate::config::KeyListenerConfig;
 use crate::error::KeyListenerError;
+use std::collections::HashMap;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use tokio::sync::mpsc;
 
 /// xmodmap keycode 映射缓存。解析 xmodmap 输出开销大，
@@ -71,10 +72,10 @@ pub struct X11Listener {
     linux_evdev_code: Option<u16>,
     running: Arc<AtomicBool>,
     child: Option<Child>,
-    // evtest 子进程句柄：读取线程只借走 stdout，句柄留在监听器上，
-    // stop() 才能终止子进程、唤醒阻塞在 read() 的读取线程并回收僵尸。
-    // 只有 &mut self 两个方法触碰，无需加锁。
-    evtest_children: Vec<Child>,
+    // evtest 子进程按设备节点索引：设备监视线程与 stop() 都要触碰，
+    // 放进共享映射才能在运行期按热插拔补启与回收。读取线程只借走 stdout，
+    // kill 由映射持有方执行，管道 EOF 自然唤醒读取线程并回收僵尸。
+    evtest_children: Arc<Mutex<HashMap<PathBuf, Child>>>,
 }
 
 /// 枚举可用于 `evtest` 回退的键盘设备（供按键捕获使用）。
@@ -254,6 +255,128 @@ fn spawn_evtest_child(device_path: &Path) -> std::io::Result<Child> {
         .spawn()
 }
 
+/// 单轮设备调和的待执行动作。
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum ReconcileAction {
+    /// 设备在列但没有活着的 evtest：补启。
+    Spawn(PathBuf),
+    /// evtest 还活着但设备已从枚举中消失：回收（真实蓝牙断链后
+    /// evtest 不退出，只是挂在已注销的设备对象上永远读不到事件）。
+    Kill(PathBuf),
+}
+
+/// 对比当前枚举到的设备与在管子进程，产出本轮动作。
+///
+/// 三种失配都要处理：新设备补启；设备消失回收；子进程已退出但设备
+/// 仍在列（uinput 销毁会直接杀死读者，节点随后被重连设备复用）则重启。
+fn plan_reconcile(
+    devices: &[PathBuf],
+    children: &mut HashMap<PathBuf, Child>,
+) -> Vec<ReconcileAction> {
+    let mut actions = Vec::new();
+    for device in devices {
+        let needs_spawn = match children.get_mut(device) {
+            None => true,
+            Some(child) => child.try_wait().ok().flatten().is_some(),
+        };
+        if needs_spawn {
+            actions.push(ReconcileAction::Spawn(device.clone()));
+        }
+    }
+    for path in children.keys() {
+        if !devices.contains(path) {
+            actions.push(ReconcileAction::Kill(path.clone()));
+        }
+    }
+    actions
+}
+
+/// evtest 路径的设备监视线程：周期对比设备集合与子进程映射并调和。
+///
+/// 每秒一次的代价只是一次 `/proc/bus/input/devices` 读取与文本解析；
+/// 不引入 inotify 依赖即可覆盖蓝牙断链重连、接收器换插等全部形态。
+fn device_watch_loop(
+    running: Arc<AtomicBool>,
+    children: Arc<Mutex<HashMap<PathBuf, Child>>>,
+    allowed: std::sync::Arc<[u16]>,
+    tx: mpsc::UnboundedSender<KeyEvent>,
+) {
+    while running.load(Ordering::SeqCst) {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        if !running.load(Ordering::SeqCst) {
+            break;
+        }
+        let Ok(text) = std::fs::read_to_string("/proc/bus/input/devices") else {
+            continue;
+        };
+        let devices = parse_keyboard_devices(&text);
+        let actions = {
+            let mut map = match children.lock() {
+                Ok(map) => map,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            plan_reconcile(&devices, &mut map)
+        };
+        for action in actions {
+            match action {
+                ReconcileAction::Spawn(path) => {
+                    spawn_evtest_listener(&path, &children, &allowed, &tx, &running);
+                }
+                ReconcileAction::Kill(path) => {
+                    let mut map = match children.lock() {
+                        Ok(map) => map,
+                        Err(poisoned) => poisoned.into_inner(),
+                    };
+                    if let Some(mut child) = map.remove(&path) {
+                        tracing::info!(device = %path.display(), "device vanished, reaping evtest");
+                        let _ = child.kill();
+                        let _ = child.wait();
+                    }
+                }
+            }
+        }
+    }
+    tracing::info!("device watch thread exiting");
+}
+
+/// 为单台设备补启 evtest 并挂上读取线程，成功则登记进子进程映射。
+fn spawn_evtest_listener(
+    path: &Path,
+    children: &Arc<Mutex<HashMap<PathBuf, Child>>>,
+    allowed: &std::sync::Arc<[u16]>,
+    tx: &mpsc::UnboundedSender<KeyEvent>,
+    running: &Arc<AtomicBool>,
+) {
+    let mut child = match spawn_evtest_child(path) {
+        Ok(child) => child,
+        Err(e) => {
+            tracing::warn!(error = %e, device = %path.display(), "failed to spawn evtest");
+            return;
+        }
+    };
+    let stdout = match child.stdout.take() {
+        Some(stdout) => stdout,
+        None => {
+            tracing::warn!(device = %path.display(), "evtest produced no stdout");
+            let _ = child.kill();
+            let _ = child.wait();
+            return;
+        }
+    };
+    let mut map = match children.lock() {
+        Ok(map) => map,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    map.insert(path.to_path_buf(), child);
+    drop(map);
+
+    let running = Arc::clone(running);
+    let tx = tx.clone();
+    let allowed = std::sync::Arc::clone(allowed);
+    std::thread::spawn(move || run_evtest_stdout_loop(stdout, allowed, tx, running));
+    tracing::info!(device = %path.display(), "evtest listener started");
+}
+
 /// 单个键盘设备的 evtest 读取循环：解析 EV_KEY 行并把按键事件发往 `tx`，
 /// 直到停止标志置位、读取出错或接收端消失。
 /// 子进程句柄不在本线程：stop() 终止子进程后管道 EOF 自然结束本循环。
@@ -304,7 +427,7 @@ impl X11Listener {
             linux_evdev_code: cfg.linux_evdev_code,
             running: Arc::new(AtomicBool::new(false)),
             child: None,
-            evtest_children: Vec::new(),
+            evtest_children: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -474,21 +597,24 @@ impl X11Listener {
         );
 
         for device in keyboard_devices {
-            let mut child = match spawn_evtest_child(&device) {
-                Ok(c) => c,
-                Err(e) => {
-                    tracing::warn!(error = %e, device = %device.display(), "failed to spawn evtest");
-                    continue;
-                }
-            };
-            let stdout = child.stdout.take().expect("evtest stdout captured");
-            self.evtest_children.push(child);
+            spawn_evtest_listener(
+                &device,
+                &self.evtest_children,
+                &allowed_evdev,
+                &tx,
+                &running,
+            );
+        }
 
-            let running = Arc::clone(&running);
-            let tx = tx.clone();
-            let allowed = std::sync::Arc::clone(&allowed_evdev);
-
-            std::thread::spawn(move || run_evtest_stdout_loop(stdout, allowed, tx, running));
+        // 设备监视线程：蓝牙断链重连等热插拔发生后补启与回收 evtest。
+        let children = Arc::clone(&self.evtest_children);
+        let watch_result = std::thread::Builder::new()
+            .name("evtest-device-watch".to_string())
+            .spawn(move || {
+                device_watch_loop(running, children, allowed_evdev, tx);
+            });
+        if let Err(e) = watch_result {
+            tracing::warn!(error = %e, "failed to spawn device watch thread");
         }
 
         Ok(())
@@ -504,7 +630,12 @@ impl X11Listener {
             let _ = child.kill();
             let _ = child.wait();
         }
-        for mut child in std::mem::take(&mut self.evtest_children) {
+        // 锁被监视线程短暂持有，不会中毒死锁；监视线程看到标志后一秒内退出。
+        let mut map = match self.evtest_children.lock() {
+            Ok(map) => map,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        for (_, mut child) in std::mem::take(&mut *map) {
             let _ = child.kill();
             let _ = child.wait();
         }
@@ -634,11 +765,15 @@ mod tests {
             linux_evdev_code: None,
             running: Arc::new(AtomicBool::new(false)),
             child: None,
-            evtest_children: Vec::new(),
+            evtest_children: Arc::new(Mutex::new(HashMap::new())),
         };
         let child = Command::new("sleep").arg("30").spawn().unwrap();
         let pid = child.id();
-        listener.evtest_children.push(child);
+        listener
+            .evtest_children
+            .lock()
+            .unwrap()
+            .insert(PathBuf::from("/dev/input/event16"), child);
 
         listener.stop();
 
@@ -647,6 +782,82 @@ mod tests {
         assert!(
             !Path::new(&format!("/proc/{pid}")).exists(),
             "stop() 后子进程应被终止并回收，pid {pid} 仍存在"
+        );
+    }
+
+    /// 构造一个仍在运行的替身子进程（不依赖真实输入设备）。
+    fn spawn_long_running_child() -> Child {
+        Command::new("sleep").arg("30").spawn().unwrap()
+    }
+
+    #[test]
+    fn plan_reconcile_spawns_for_new_device() {
+        let mut children = HashMap::new();
+        let plan = plan_reconcile(&[PathBuf::from("/dev/input/event16")], &mut children);
+        assert_eq!(
+            plan,
+            vec![ReconcileAction::Spawn(PathBuf::from("/dev/input/event16"))]
+        );
+    }
+
+    #[test]
+    fn plan_reconcile_respawns_exited_child_while_device_still_listed() {
+        // 回归：uinput 设备销毁会杀死它的 evtest 读者，节点被重连设备
+        // 复用后设备仍在枚举里，必须重启读者，否则重连后按键失灵。
+        let path = PathBuf::from("/dev/input/event16");
+        let mut children = HashMap::new();
+        children.insert(path.clone(), Command::new("true").spawn().unwrap());
+        // true 立即退出；try_wait 需要观察到退出状态
+        std::thread::sleep(std::time::Duration::from_millis(50));
+
+        let plan = plan_reconcile(std::slice::from_ref(&path), &mut children);
+        assert_eq!(plan, vec![ReconcileAction::Spawn(path)]);
+    }
+
+    #[test]
+    fn plan_reconcile_kills_child_of_vanished_device() {
+        // 回归：真实蓝牙断链后 evtest 不退出，只是挂在已注销的设备对象
+        // 上永远收不到事件；设备从枚举消失时必须回收它的读者。
+        let path = PathBuf::from("/dev/input/event16");
+        let mut children = HashMap::new();
+        children.insert(path.clone(), spawn_long_running_child());
+
+        let plan = plan_reconcile(&[], &mut children);
+        assert_eq!(plan, vec![ReconcileAction::Kill(path)]);
+    }
+
+    #[test]
+    fn plan_reconcile_leaves_healthy_children_alone() {
+        let path = PathBuf::from("/dev/input/event16");
+        let mut children = HashMap::new();
+        children.insert(path.clone(), spawn_long_running_child());
+
+        let plan = plan_reconcile(&[path], &mut children);
+        assert!(plan.is_empty());
+    }
+
+    #[test]
+    fn plan_reconcile_handles_mixed_devices() {
+        // 三台设备：一台健康、一台已退出、一台新增；另一台子进程的设备已消失。
+        let healthy = PathBuf::from("/dev/input/event1");
+        let exited = PathBuf::from("/dev/input/event2");
+        let vanished = PathBuf::from("/dev/input/event3");
+        let added = PathBuf::from("/dev/input/event4");
+        let mut children = HashMap::new();
+        children.insert(healthy.clone(), spawn_long_running_child());
+        children.insert(exited.clone(), Command::new("true").spawn().unwrap());
+        children.insert(vanished.clone(), spawn_long_running_child());
+        std::thread::sleep(std::time::Duration::from_millis(50));
+
+        let mut plan = plan_reconcile(&[healthy, exited.clone(), added.clone()], &mut children);
+        plan.sort();
+        assert_eq!(
+            plan,
+            vec![
+                ReconcileAction::Spawn(exited),
+                ReconcileAction::Spawn(added),
+                ReconcileAction::Kill(vanished),
+            ]
         );
     }
 
