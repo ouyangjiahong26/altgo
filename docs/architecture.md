@@ -208,7 +208,7 @@ lib.rs
 
 | 模块 | Trait | Linux 实现 | Windows 实现 |
 |------|-------|------------|--------------|
-| `key_listener` | `KeyListener::start()` | X11 用 `xinput test-xi2`、失败回退 `evtest`，Wayland 会话优先 `evtest` | WH_KEYBOARD_LL 低级键盘钩子 |
+| `key_listener` | `KeyListener::start()` | X11 用 `xinput test-xi2`、失败回退 `evtest`，Wayland 会话优先 `evtest`；evtest 路径每秒调和设备集合，热插拔后补启或回收读者 | WH_KEYBOARD_LL 低级键盘钩子 |
 | `recorder` | `Recorder::start_recording/stop_recording/is_recording` | `parecord` 子进程 | cpal/WASAPI |
 | `output` | `Output::write_clipboard` + `clone_box` | `xclip`/`xsel`/`wl-copy` 探测一次 | arboard 剪贴板 + SendInput 文本注入 |
 | `key_capture` | 无（自由函数） | `evtest` 监听 `/dev/input/event*` 等一次按键 | 临时 WH_KEYBOARD_LL 钩子等一次按键 |
