@@ -98,6 +98,8 @@
           <div class="sr-list" id="space-scale"></div>
           <h3>圆角 --radius-*</h3>
           <div class="sr-row" id="radius-scale"></div>
+          <h3>层级 --z-*</h3>
+          <div class="sr-list" id="z-scale"></div>
           <h3>阴影 --shadow-*</h3>
           <div class="sr-row" id="shadow-scale"></div>
           <h3>动效 --duration-* / --ease-*</h3>
@@ -133,7 +135,7 @@ const TOKEN_GROUPS = [
             "--color-content-inverse",
           ],
         },
-        { title: "文本", tokens: ["--color-text", "--color-text-secondary", "--color-text-muted", "--color-on-primary", "--color-icon-fallback"] },
+        { title: "文本", tokens: ["--color-text", "--color-text-secondary", "--color-text-muted", "--color-text-faint", "--color-on-primary", "--color-icon-fallback"] },
         {
           title: "强调色",
           tokens: [
@@ -141,6 +143,7 @@ const TOKEN_GROUPS = [
             "--color-accent",
             "--color-accent-hover",
             "--color-accent-active",
+            "--color-accent-contrast",
             "--color-accent-soft",
             "--color-accent-tint-bg",
             "--color-accent-tint-border",
@@ -224,6 +227,15 @@ function renderTokenGroups() {
           </div>`,
           )
           .join("");
+        document.getElementById("z-scale").innerHTML = REM_TOKENS[3].tokens
+          .map(
+            (t) => `
+          <div class="sr-line sr-line--misc">
+            <code>${t}</code>
+            <b data-raw-value="${t}"></b>
+          </div>`,
+          )
+          .join("");
         refreshValues();
       }
 
@@ -288,6 +300,10 @@ function renderTokenGroups() {
         {
           name: "--font-mono",
           preview: (t) => `<span style="font-family: var(${t}); font-size: var(--text-sm)">JetBrains Mono 0123</span>`,
+        },
+        {
+          name: "--leading-tight",
+          preview: () => `<span style="line-height: var(--leading-tight); font-size: var(--text-xs)">行高 tight<br />第二行</span>`,
         },
         {
           name: "--leading-normal",
