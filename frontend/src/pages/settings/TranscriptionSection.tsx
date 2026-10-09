@@ -29,7 +29,7 @@ export function TranscriptionSection({
   return (
     <section
       data-settings-order={order}
-      className="settings-section settings-section--primary settings-section--transcription"
+      className="settings-section settings-section--transcription"
     >
       <h3 className="settings-section-title">
         <Sparkles size={14} />

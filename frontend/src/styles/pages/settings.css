@@ -22,14 +22,10 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   background: var(--color-surface-1);
-  padding: var(--space-2) var(--space-4) var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
-/* 主分组（当前活跃的配置块）用左侧一道细线标出，不改整卡配色 */
-.settings-section--primary {
-  border-color: var(--color-border);
-  box-shadow: inset 2px 0 0 var(--color-accent);
-}
+/* 分组强调不靠装饰线表达：同屏唯一的主操作在保存区，选中态在控件自身。 */
 
 .settings-section-title {
   display: flex;
@@ -67,7 +63,8 @@
 }
 
 .settings-section-toggle:hover {
-  color: var(--color-accent);
+  background: var(--color-hover-surface);
+  color: var(--color-text);
 }
 
 .settings-section-toggle svg:first-of-type {
@@ -125,7 +122,8 @@
 }
 
 /* 桌面表单里输入控件不该铺满整行：给一个常用宽度上限，右侧对齐 */
-.settings-field-control > .field {
+.settings-field-control > .field,
+.settings-field-control > .select {
   width: 190px;
   max-width: 100%;
 }
@@ -170,7 +168,7 @@
 .settings-save-row {
   position: sticky;
   bottom: 0;
-  z-index: 2;
+  z-index: var(--z-sticky);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -178,7 +176,7 @@
   gap: var(--space-3);
   padding: var(--space-3) 0 var(--space-1);
   border-top: 1px solid var(--color-border-subtle);
-  background: linear-gradient(transparent, var(--color-bg) 40%);
+  background: var(--color-bg);
 }
 
 .settings-save-msg {
@@ -394,7 +392,7 @@
   height: 100%;
   border-radius: var(--radius-full);
   background: var(--color-accent);
-  transition: width 0.3s var(--ease-out);
+  transition: width var(--duration-slow) var(--ease-out);
 }
 
 .progress-text {
@@ -731,7 +729,7 @@
 
 .provider-preset-dialog-backdrop {
   position: fixed;
-  z-index: 20;
+  z-index: var(--z-dialog);
   inset: 0;
   display: flex;
   align-items: center;
@@ -749,7 +747,7 @@
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
   background: var(--color-surface-1);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .provider-preset-dialog-head {

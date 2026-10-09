@@ -49,7 +49,7 @@ const features: FeatureItem[] = [
   },
 ];
 
-export default function Cards(): JSX.Element {
+export default function Cards(): React.JSX.Element {
   return (
     <div className={styles.grid}>
       {features.map((f) => {

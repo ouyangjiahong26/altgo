@@ -97,6 +97,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - `src-tauri/tauri.conf.json`：三窗口（主窗、悬浮窗、更新说明）、bundle targets（deb/rpm/appimage/nsis）、updater 端点。
 - `configs/altgo.toml`：全部配置字段模板（`[key_listener]`/`[recorder]`/`[transcriber]`/`[polisher]`/`[output]`/`[gui]`）。
 - `CONTEXT.md`、`docs/architecture.md`、`docs/testing.md`、`docs/adr/`：术语、架构、测试策略、决策记录。
+- `DESIGN.md`：界面设计语言的唯一权威（色彩、排版、形状、组件与禁止事项的规范性取值）。改前端样式前先读它，色值与圆角等一律引用 `frontend/src/styles/design-tokens.css` 的变量，不新造色值。
 
 已知文档与现状出入（防止照抄旧说法）：
 

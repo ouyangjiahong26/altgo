@@ -43,7 +43,7 @@
   user-select: none;
 }
 
-/* 工具条按钮：默认幽灵态，危险态加红描边，强调态用 accent 描边而非填充 */
+/* 工具条按钮：默认幽灵态，危险态只染文字，强调态用 accent 文字而非描边 */
 .history-btn {
   display: inline-flex;
   align-items: center;
@@ -76,19 +76,18 @@
 }
 
 .history-btn--small {
-  height: 22px;
+  height: var(--control-height-sm);
   padding: 0 var(--space-2);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
 }
 
 .history-btn--danger {
-  border-color: var(--danger-border);
   color: var(--color-red);
 }
 
 .history-btn--danger:hover:not(:disabled) {
   background: var(--danger-hover-bg);
-  border-color: var(--color-red);
+  border-color: var(--danger-border);
   color: var(--color-red);
 }
 
@@ -97,13 +96,12 @@
 }
 
 .history-btn--accent {
-  border-color: var(--color-accent-tint-border);
   color: var(--color-accent);
 }
 
 .history-btn--accent:hover:not(:disabled) {
   background: var(--color-accent-tint-bg);
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-tint-border);
   color: var(--color-accent);
 }
 
@@ -133,8 +131,8 @@
 .history-muted,
 .history-empty {
   margin: 0;
-  padding: var(--space-6) var(--space-4);
-  font-size: var(--text-xs);
+  padding: var(--space-8) var(--space-4);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   text-align: center;
   line-height: var(--leading-relaxed);
@@ -183,7 +181,7 @@
   display: block;
   margin-bottom: var(--space-1);
   font-size: var(--text-2xs);
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -196,23 +194,21 @@
   word-break: break-word;
 }
 
+/* 原文块：模板源码的缩进与换行不该成为内容，用 pre-line 只保留真实换行 */
 .history-item-raw {
   margin: var(--space-2) 0 0;
-  padding: var(--space-2);
-  border: 1px solid var(--color-border-subtle);
+  padding: var(--space-1-5) var(--space-2-5);
   border-radius: var(--radius-md);
   background: var(--color-bg);
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: var(--leading-relaxed);
-  white-space: pre-wrap;
+  white-space: pre-line;
   word-break: break-word;
 }
 
 .history-item-raw-label {
-  /* 块级：raw 是 pre-wrap，行内标签会被源码里的换行算作内容而多出一行 */
-  display: block;
-  margin-bottom: 2px;
+  margin-right: var(--space-1-5);
   font-size: var(--text-2xs);
   font-weight: var(--font-medium);
   color: var(--color-text-faint);
@@ -253,7 +249,7 @@
 .history-instruction-input:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  box-shadow: var(--shadow-focus);
 }
 
 .history-instruction-input:disabled {

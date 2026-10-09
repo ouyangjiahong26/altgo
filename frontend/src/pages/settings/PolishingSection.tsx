@@ -36,7 +36,7 @@ export function PolishingSection({
   return (
     <section
       data-settings-order={order}
-      className="settings-section settings-section--polishing settings-section--primary"
+      className="settings-section settings-section--polishing"
     >
       <button
         type="button"
