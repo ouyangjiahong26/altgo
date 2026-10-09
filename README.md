@@ -9,7 +9,7 @@
 
 altgo 是桌面语音转文字工具。按住触发键说话，松开即自动完成录音、转写与可选润色，结果写入系统剪贴板，并在屏幕底部的悬浮窗中单行展示。
 
-支持 Linux（Ubuntu 22.04+，x86_64 / aarch64）与 Windows 10+（x86_64 / arm64），暂不支持 macOS。
+同时支持 Windows 与 Linux、x86_64 与 arm64 四个组合的语音转文字软件，很少。altgo 覆盖这四个组合：Linux（Ubuntu 22.04+，x86_64 与 aarch64）与 Windows 10+（x86_64 与 arm64），暂不支持 macOS。
 
 - [在线文档](https://ouyangjiahong26.github.io/altgo/)
 - [Releases 下载](https://github.com/ouyangjiahong26/altgo/releases)

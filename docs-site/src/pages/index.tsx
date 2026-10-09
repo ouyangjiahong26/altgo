@@ -23,6 +23,14 @@ export default function Home(): JSX.Element {
 
   const features = [
     {
+      icon: Monitor,
+      title: translate({id: 'home.feature.platform.title', message: '四个平台组合全覆盖'}),
+      description: translate({
+        id: 'home.feature.platform.description',
+        message: 'Windows 与 Linux、x86_64 与 arm64 同时支持，这样的语音转文字软件很少；Linux 侧兼容 X11 与 Wayland。',
+      }),
+    },
+    {
       icon: Mic,
       title: translate({id: 'home.feature.hold.title', message: '长按即录'}),
       description: translate({
@@ -52,14 +60,6 @@ export default function Home(): JSX.Element {
       description: translate({
         id: 'home.feature.polish.description',
         message: '四档润色强度，支持 OpenAI / DeepSeek / Anthropic / Ollama。',
-      }),
-    },
-    {
-      icon: Monitor,
-      title: translate({id: 'home.feature.linux.title', message: 'Linux 原生'}),
-      description: translate({
-        id: 'home.feature.linux.description',
-        message: '支持 X11 / Wayland，通过子进程集成系统工具，构建简单。',
       }),
     },
     {
@@ -99,7 +99,7 @@ export default function Home(): JSX.Element {
         <div className={clsx('container', styles.heroInner)}>
           <div className={styles.heroBadge}>
             <span className={styles.heroBadgeDot} />
-            <Translate id="home.hero.badge">Linux 语音转文字桌面工具</Translate>
+            <Translate id="home.hero.badge">Windows 与 Linux，x86_64 与 arm64</Translate>
           </div>
           <h1 className={styles.heroTitle}>
             <Translate id="home.hero.title.line1">无需打字</Translate>
@@ -112,7 +112,7 @@ export default function Home(): JSX.Element {
             <Translate
               id="home.hero.tagline.line1"
               description="hero tagline, first line">
-              基于 Tauri + React + Rust 的语音转文字应用。
+              同时支持 Windows 与 Linux、x86_64 与 arm64 四个组合的语音转文字软件，很少。
             </Translate>
             <br />
             <Translate
