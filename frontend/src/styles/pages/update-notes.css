@@ -244,14 +244,14 @@ body {
 }
 
 .update-notes-btn--primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-on-primary);
+  background: var(--color-fill-inverse);
+  border-color: var(--color-fill-inverse);
+  color: var(--color-content-inverse);
 }
 
 .update-notes-btn--primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
+  background: var(--color-fill-inverse-hover);
+  border-color: var(--color-fill-inverse-hover);
 }
 
 .update-notes-btn:disabled {

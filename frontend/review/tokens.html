@@ -8,7 +8,7 @@
     <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" />
     <link rel="stylesheet" href="../src/styles/global.css" />
     <link rel="stylesheet" href="../src/styles/layout.css" />
     <link rel="stylesheet" href="../src/styles/components/ui-primitives.css" />
@@ -137,10 +137,8 @@ const TOKEN_GROUPS = [
             "--color-accent-hover",
             "--color-accent-active",
             "--color-accent-soft",
-            "--color-accent-glow",
             "--color-accent-tint-bg",
             "--color-accent-tint-border",
-            "--color-accent-tint-shadow",
           ],
         },
         {
@@ -148,13 +146,10 @@ const TOKEN_GROUPS = [
           tokens: [
             "--color-green",
             "--color-green-bg",
-            "--color-green-glow",
             "--color-red",
             "--color-red-bg",
-            "--color-red-glow",
             "--color-amber",
             "--color-amber-bg",
-            "--color-amber-glow",
             "--danger-border",
             "--danger-hover-bg",
             "--color-scrim",
@@ -178,10 +173,10 @@ const TOKEN_GROUPS = [
       ];
 
       const REM_TOKENS = [
-        { group: "字号 --text-*", tokens: ["--text-2xs", "--text-xs", "--text-sm", "--text-base", "--text-md", "--text-lg", "--text-xl"] },
+        { group: "字号 --text-*", tokens: ["--text-2xs", "--text-xs", "--text-sm", "--text-base", "--text-md", "--text-lg", "--text-xl", "--text-2xl"] },
         {
           group: "间距 --space-*",
-          tokens: ["--space-1", "--space-1-5", "--space-2", "--space-3", "--space-4", "--space-5", "--space-6", "--space-8"],
+          tokens: ["--space-1", "--space-1-5", "--space-2", "--space-2-5", "--space-3", "--space-4", "--space-5", "--space-6", "--space-8", "--space-10"],
         },
         { group: "圆角 --radius-*", tokens: ["--radius-xs", "--radius-sm", "--radius-md", "--radius-lg", "--radius-2xl", "--radius-full"] },
       ];
@@ -244,7 +239,7 @@ function renderTokenGroups() {
       }
 
       function renderShadows() {
-        const list = ["--shadow-sm", "--shadow-md", "--shadow-lg", "--shadow-focus", "--shadow-glow-accent", "--shadow-glow-green", "--shadow-glow-red", "--shadow-glow-amber"];
+        const list = ["--shadow-xs", "--shadow-sm", "--shadow-md", "--shadow-focus"];
         document.getElementById("shadow-scale").innerHTML = list
           .map(
             (t) => `<div class="sr-shadow-demo" style="box-shadow: var(${t}); min-width: 150px">${t}</div>`,
@@ -286,7 +281,7 @@ function renderTokenGroups() {
         },
         {
           name: "--font-mono",
-          preview: (t) => `<span style="font-family: var(${t}); font-size: var(--text-sm)">IBM Plex Mono 0123</span>`,
+          preview: (t) => `<span style="font-family: var(${t}); font-size: var(--text-sm)">JetBrains Mono 0123</span>`,
         },
         {
           name: "--leading-normal",

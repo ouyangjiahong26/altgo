@@ -3,6 +3,9 @@
 
    这里放跨页面复用的最小控件基底：按钮、输入、下拉、开关、分段控件、
    徽标、空态。各页面只做尺寸与排布，不再各自重写一套按钮皮肤。
+
+   盒式基座由 .field 与 .select 共用一处定义，任何单独书写 .select 的标记
+   也会得到完整皮肤，不依赖系统外观。
    ============================================ */
 
 /* ── 按钮 ───────────────────────────────────── */
@@ -11,7 +14,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
+  gap: var(--space-1-5);
   height: var(--control-height);
   padding: 0 var(--space-3);
   border: 1px solid transparent;
@@ -30,31 +33,32 @@
 
 /* 次要操作：默认形态。桌面工具里绝大多数按钮都是这个。 */
 .btn-secondary {
-  background: var(--color-surface-2);
+  background: var(--color-surface-1);
   border-color: var(--color-border);
   color: var(--color-text);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--color-surface-3);
+  background: var(--color-surface-2);
   border-color: var(--color-border-strong);
 }
 
-/* 主操作：只用于每个视图里唯一那件事，且宽度由内容决定，不铺满 */
+/* 主操作：反色实心（深色主题浅底深字，浅色主题深底白字），只用于视图里唯一那件事，
+   宽度由内容决定，不铺满 */
 .btn-primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-on-primary);
+  background: var(--color-fill-inverse);
+  border-color: var(--color-fill-inverse);
+  color: var(--color-content-inverse);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
+  background: var(--color-fill-inverse-hover);
+  border-color: var(--color-fill-inverse-hover);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: var(--color-accent-active);
-  border-color: var(--color-accent-active);
+  background: var(--color-fill-inverse-active);
+  border-color: var(--color-fill-inverse-active);
 }
 
 /* 幽灵按钮：工具栏与行内操作 */
@@ -68,15 +72,15 @@
   color: var(--color-text);
 }
 
+/* 危险操作：默认安静形态，只在悬停时浮现红底与红边 */
 .btn-danger {
   background: transparent;
-  border-color: var(--danger-border);
   color: var(--color-red);
 }
 
 .btn-danger:hover:not(:disabled) {
   background: var(--danger-hover-bg);
-  border-color: var(--color-red);
+  border-color: var(--danger-border);
 }
 
 .btn:disabled {
@@ -123,12 +127,13 @@
   color: var(--color-text);
 }
 
-/* ── 输入与下拉 ─────────────────────────────── */
+/* ── 输入与下拉：共用同一盒式基座 ─────────────── */
 
-.field {
+.field,
+.select {
   width: 100%;
   height: var(--control-height);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-2-5);
   background: var(--color-bg-input);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -144,17 +149,20 @@
   color: var(--color-text-faint);
 }
 
-.field:hover:not(:focus):not(:disabled) {
+.field:hover:not(:focus):not(:disabled),
+.select:hover:not(:focus):not(:disabled) {
   border-color: var(--color-border-strong);
 }
 
-.field:focus {
+.field:focus,
+.select:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  box-shadow: var(--shadow-focus);
 }
 
-.field:disabled {
+.field:disabled,
+.select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -196,7 +204,8 @@ input[type="radio"] {
 
 input[type="checkbox"]:hover:not(:disabled),
 input[type="radio"]:hover:not(:disabled) {
-  border-color: var(--color-accent);
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-2);
 }
 
 input[type="checkbox"]:checked,
@@ -264,7 +273,7 @@ input[type="radio"]:disabled {
 .segmented > button.is-active {
   background: var(--color-surface-0);
   color: var(--color-text);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
 }
 
 /* ── 徽标 ───────────────────────────────────── */
@@ -275,9 +284,9 @@ input[type="radio"]:disabled {
   gap: var(--space-1);
   height: 18px;
   padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--color-surface-2);
+  background: transparent;
   color: var(--color-text-secondary);
   font-size: var(--text-2xs);
   font-weight: var(--font-medium);
@@ -311,15 +320,14 @@ input[type="radio"]:disabled {
 
 .kbd {
   display: inline-block;
-  padding: 2px var(--space-2);
+  padding: 1px var(--space-1-5);
   border: 1px solid var(--color-border);
-  border-bottom-width: 2px;
   border-radius: var(--radius-sm);
   background: var(--color-surface-2);
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  line-height: 1.35;
+  line-height: 1.45;
   white-space: nowrap;
   vertical-align: middle;
 }
@@ -330,8 +338,8 @@ input[type="radio"]:disabled {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-8) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-4);
   text-align: center;
   color: var(--color-text-muted);
   font-size: var(--text-sm);

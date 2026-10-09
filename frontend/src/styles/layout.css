@@ -100,7 +100,7 @@
 }
 
 .layout-nav-link.active {
-  background: var(--color-surface-3);
+  background: var(--color-surface-2);
   color: var(--color-text);
 }
 
