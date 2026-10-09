@@ -121,6 +121,8 @@ altgo 是桌面语音转文字工具：按住触发键说话，松开完成转�
 | accent-hover | #4338ca |
 | accent-active | #3730a3 |
 | accent-tint | rgba(79, 70, 229, 0.08) |
+| accent-soft | #6366f1 |
+| accent-tint-border | rgba(79, 70, 229, 0.34) |
 | fill-inverse | #161616 |
 | content-inverse | #ffffff |
 | hover-surface | rgba(22, 22, 22, 0.045) |
@@ -177,7 +179,7 @@ altgo 是桌面语音转文字工具：按住触发键说话，松开完成转�
 - 不用光晕与彩色投影。
 - 不用渐变，吸底栏与遮罩用实色。
 - 不用强调色做装饰。
-- 不给交互反馈加超过 200ms 的过渡。
+- 不给交互反馈加超过 200 ms 的过渡。
 - 不动画布局属性，进度条等小面积指示器除外。
 - 不依赖系统原生控件外观。
 - 尊重 prefers-reduced-motion。

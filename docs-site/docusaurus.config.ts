@@ -46,7 +46,7 @@ const config: Config = {
       {
         name: 'description',
         content:
-          'altgo：桌面语音转文字工具（Tauri）。同时支持 Windows 与 Linux、x86_64 与 arm64 四个组合；SenseVoice 本地转写，可选 LLM 润色，剪贴板与悬浮窗输出。',
+          'altgo：桌面语音转文字工具（Tauri）。同时支持 Windows 与 Linux、x86_64 与 arm64 四个组合。SenseVoice 本地转写，可选 LLM 润色，剪贴板与悬浮窗输出。',
       },
     ],
     image: 'img/screenshot-main.png',

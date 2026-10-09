@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import styles from './index.module.css';
 
-export default function Home(): JSX.Element {
+export default function Home(): React.JSX.Element {
   const { siteConfig } = useDocusaurusContext();
   const [activeShot, setActiveShot] = React.useState(0);
 
@@ -27,7 +27,7 @@ export default function Home(): JSX.Element {
       title: translate({id: 'home.feature.platform.title', message: '四个平台组合全覆盖'}),
       description: translate({
         id: 'home.feature.platform.description',
-        message: 'Windows 与 Linux、x86_64 与 arm64 同时支持，这样的语音转文字软件很少；Linux 侧兼容 X11 与 Wayland。',
+        message: 'Windows 与 Linux、x86_64 与 arm64 同时支持，这样的语音转文字软件很少。Linux 侧兼容 X11 与 Wayland。',
       }),
     },
     {

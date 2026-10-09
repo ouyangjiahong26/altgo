@@ -202,8 +202,8 @@ input[type="radio"] {
   border-radius: var(--radius-full);
 }
 
-input[type="checkbox"]:hover:not(:disabled),
-input[type="radio"]:hover:not(:disabled) {
+input[type="checkbox"]:hover:not(:disabled):not(:checked),
+input[type="radio"]:hover:not(:disabled):not(:checked) {
   border-color: var(--color-border-strong);
   background: var(--color-surface-2);
 }
