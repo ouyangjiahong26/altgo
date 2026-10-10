@@ -301,7 +301,7 @@ impl PipelineSink for TauriPipelineSink {
 mod tests {
     use super::*;
     use crate::overlay::seam::OverlayPhase;
-    use crate::voice_pipeline::{DispatchOutcome, TranscriptionDispatch};
+    use crate::voice_pipeline::{DispatchOutcome, TranscriptionDispatch, TranscriptionMetrics};
     use std::collections::BTreeMap;
     use std::future::{ready, Future};
     use std::pin::Pin;
@@ -620,6 +620,7 @@ mod tests {
             raw_text: String::new(),
             polish_failed: false,
             polish_error: None,
+            metrics: TranscriptionMetrics::default(),
         });
 
         // 同步提前返回：状态必须被复位为 Idle。
@@ -645,6 +646,7 @@ mod tests {
             raw_text: "raw text".into(),
             polish_failed: false,
             polish_error: None,
+            metrics: TranscriptionMetrics::default(),
         });
 
         // spawned 任务跑在 tauri::async_runtime 的全局 runtime 上，
@@ -695,6 +697,7 @@ mod tests {
                     ("body".to_string(), "unauthorized".to_string()),
                 ])),
             }),
+            metrics: TranscriptionMetrics::default(),
         });
 
         for _ in 0..100 {

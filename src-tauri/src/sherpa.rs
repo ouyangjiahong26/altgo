@@ -132,6 +132,10 @@ impl SherpaTranscriber {
 }
 
 impl Transcriber for SherpaTranscriber {
+    fn backend(&self) -> &'static str {
+        "local"
+    }
+
     fn transcribe<'life0, 'life1>(
         &'life0 self,
         audio: &'life1 [u8],

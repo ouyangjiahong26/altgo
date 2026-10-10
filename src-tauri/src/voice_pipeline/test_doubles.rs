@@ -257,6 +257,10 @@ impl FakeTranscriber {
 }
 
 impl Transcriber for FakeTranscriber {
+    fn backend(&self) -> &'static str {
+        "local"
+    }
+
     fn transcribe<'life0, 'life1>(
         &'life0 self,
         _audio: &'life1 [u8],
@@ -288,6 +292,10 @@ impl Transcriber for FakeTranscriber {
 }
 
 impl Transcriber for std::sync::Arc<FakeTranscriber> {
+    fn backend(&self) -> &'static str {
+        std::sync::Arc::as_ref(self).backend()
+    }
+
     fn transcribe<'life0, 'life1>(
         &'life0 self,
         audio: &'life1 [u8],

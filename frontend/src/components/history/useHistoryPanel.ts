@@ -5,11 +5,20 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { copyToClipboard } from "../../utils/clipboard";
 
+/** 条目级转写元数据：后端来源与各环节耗时，旧条目无此数据。 */
+export interface HistoryMeta {
+  backend: string;
+  recordingMs: number;
+  transcribeMs: number;
+  polishMs: number | null;
+}
+
 export interface HistoryEntry {
   id: string;
   createdAtMs: number;
   rawText: string;
   text: string;
+  meta?: HistoryMeta | null;
 }
 
 interface PolishConfig {

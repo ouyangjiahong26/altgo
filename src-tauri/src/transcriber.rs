@@ -22,6 +22,10 @@ pub struct TranscribeResult {
 /// 统一的转写后端 trait：`on_progress` 回调由调用方提供，trait 表面不携带
 /// 通道类型，新后端接入无需改动 trait。
 pub trait Transcriber: Send + Sync {
+    /// 后端标识：`"local"`（本地推理）或 `"online"`（在线服务），
+    /// 用于历史记录展示识别来源。
+    fn backend(&self) -> &'static str;
+
     /// 转写 WAV 音频数据。
     ///
     /// `on_progress` 收到 0.0–1.0 的进度，无流式进度的后端成功时也应调用一次

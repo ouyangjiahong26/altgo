@@ -12,6 +12,15 @@ use crate::pipeline_controller::{PipelineController, PipelineStatus};
 
 use super::*;
 
+fn test_history_meta() -> crate::history::HistoryMeta {
+    crate::history::HistoryMeta {
+        backend: "local".to_string(),
+        recording_ms: 1000,
+        transcribe_ms: 200,
+        polish_ms: None,
+    }
+}
+
 /// 目录拉取成功：返回原始 JSON 值，交前端 `parseCatalog` 解析。
 #[tokio::test]
 async fn fetch_provider_catalog_from_parses_json() {
@@ -367,7 +376,11 @@ async fn polish_history_entry_core_success_updates_history_and_emits() {
     let history_dir = tempfile::tempdir().unwrap();
     let store = HistoryStore::new(history_dir.path().join("history.json"));
     let entry = store
-        .append("原始文本".to_string(), "原始文本".to_string())
+        .append(
+            "原始文本".to_string(),
+            "原始文本".to_string(),
+            test_history_meta(),
+        )
         .unwrap();
 
     let cfg_dir = tempfile::tempdir().unwrap();
@@ -436,7 +449,11 @@ async fn polish_history_entry_core_global_none_level_still_polishes() {
     let history_dir = tempfile::tempdir().unwrap();
     let store = HistoryStore::new(history_dir.path().join("history.json"));
     let entry = store
-        .append("原始文本".to_string(), "原始文本".to_string())
+        .append(
+            "原始文本".to_string(),
+            "原始文本".to_string(),
+            test_history_meta(),
+        )
         .unwrap();
 
     let cfg_dir = tempfile::tempdir().unwrap();
@@ -473,7 +490,11 @@ async fn polish_history_entry_core_extra_instruction_reaches_request_body() {
     let history_dir = tempfile::tempdir().unwrap();
     let store = HistoryStore::new(history_dir.path().join("history.json"));
     let entry = store
-        .append("原始文本".to_string(), "原始文本".to_string())
+        .append(
+            "原始文本".to_string(),
+            "原始文本".to_string(),
+            test_history_meta(),
+        )
         .unwrap();
 
     let cfg_dir = tempfile::tempdir().unwrap();
