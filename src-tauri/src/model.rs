@@ -1,6 +1,6 @@
-//! SenseVoice 模型管理模块。
+//! 本地识别模型管理模块。
 //!
-//! 提供 SenseVoice（sherpa-onnx）模型的注册、下载、切换功能。
+//! 提供本地识别模型（sherpa-onnx）的注册、下载、切换功能。
 //! 模型存储在 altgo 配置目录的 `models/<name>/` 子目录下，每个模型
 //! 一个目录，内含 `model.int8.onnx` 与 `tokens.txt` 两个文件。
 
@@ -34,10 +34,23 @@ const MAIN_MODEL_FILENAME: &str = "model.int8.onnx";
 const TOKENS_FILENAME: &str = "tokens.txt";
 const MAIN_MODEL_SHA256: &str = "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51";
 const TOKENS_SHA256: &str = "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc";
-
-/// 粤语增强版（int8-2025-09-09）主模型 SHA-256。
 const SENSE_VOICE_YUE_SHA256: &str =
     "12ca1a2ae7ecf3e0019ef2822307ee0b5cadc9196569e379b4c4026f8205276d";
+
+/// FireRedASR2 CTC int8（2026-02-25）主模型与词表的 SHA-256。
+const FIRE_RED_ASR2_CTC_MODEL_SHA256: &str =
+    "ca3dbabd82170110cc0b343c2890866d449984bc9cd92b9a18371ff80a81bb99";
+const FIRE_RED_ASR2_CTC_TOKENS_SHA256: &str =
+    "1bc613de2112d257e61a349c3e72d1b1a9cf19c33d3ca954197ad2171e5ea07b";
+
+/// 本地推理引擎类型：决定 `SherpaTranscriber` 用哪种识别器配置加载模型目录。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EngineKind {
+    /// SenseVoice：中英日韩粤自动检测，速度快，但句内中英混说偏弱。
+    SenseVoice,
+    /// FireRedASR2 CTC：中文与英文（含句内混说）识别，普通话加二十多种方言。
+    FireRedAsrCtc,
+}
 
 fn model_download_bases(repo_path: &str) -> Vec<String> {
     if let Ok(s) = std::env::var(ENV_MODEL_BASE_URL) {
@@ -89,6 +102,8 @@ pub struct ModelInfo {
     pub repo_path: &'static str,
     pub files: Cow<'static, [ModelFile]>,
     pub description: &'static str,
+    /// 该模型使用的本地推理引擎，决定识别器配置的构建方式。
+    pub engine: EngineKind,
 }
 
 /// SenseVoice int8（2024-07-17）：中/英/日/韩/粤自动检测，CPU 实时率远高于 whisper。
@@ -120,20 +135,55 @@ const SENSE_VOICE_YUE_FILES: &[ModelFile] = &[
     },
 ];
 
+/// FireRedASR2 CTC int8（2026-02-25）：中英混说（code-switching）更强，
+/// 文件布局与 SenseVoice 相同（model.int8.onnx + tokens.txt），代价是约 740 MB 下载。
+const FIRE_RED_ASR2_CTC_FILES: &[ModelFile] = &[
+    ModelFile {
+        filename: MAIN_MODEL_FILENAME,
+        size_bytes: 775_861_420,
+        sha256: Cow::Borrowed(FIRE_RED_ASR2_CTC_MODEL_SHA256),
+    },
+    ModelFile {
+        filename: TOKENS_FILENAME,
+        size_bytes: 79_172,
+        sha256: Cow::Borrowed(FIRE_RED_ASR2_CTC_TOKENS_SHA256),
+    },
+];
+
 const MODELS: &[ModelInfo] = &[
     ModelInfo {
         name: "sense-voice",
         repo_path: "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17",
         files: Cow::Borrowed(SENSE_VOICE_FILES),
         description: "SenseVoice（中英日韩粤自动检测，速度快）",
+        engine: EngineKind::SenseVoice,
     },
     ModelInfo {
         name: "sense-voice-yue",
         repo_path: "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09",
         files: Cow::Borrowed(SENSE_VOICE_YUE_FILES),
         description: "SenseVoice 粤语增强（2025 新版，粤语更准）",
+        engine: EngineKind::SenseVoice,
+    },
+    ModelInfo {
+        name: "fire-red-asr2-ctc",
+        repo_path: "csukuangfj2/sherpa-onnx-fire-red-asr2-ctc-zh_en-int8-2026-02-25",
+        files: Cow::Borrowed(FIRE_RED_ASR2_CTC_FILES),
+        description: "FireRedASR2 CTC（中英混说更准，下载约 740 MB）",
+        engine: EngineKind::FireRedAsrCtc,
     },
 ];
+
+/// 解析配置模型值对应的本地引擎。注册表命中的模型返回注册引擎；
+/// 自定义路径（目录或 .onnx 文件）无法从注册表判断，按 SenseVoice 处理
+/// （两者的文件布局相同，引擎不匹配只会在加载时报模型错误）。
+pub fn engine_for(config_model: &str) -> EngineKind {
+    MODELS
+        .iter()
+        .find(|m| m.name == config_model.trim())
+        .map(|m| m.engine)
+        .unwrap_or(EngineKind::SenseVoice)
+}
 
 pub fn models_info() -> &'static [ModelInfo] {
     MODELS

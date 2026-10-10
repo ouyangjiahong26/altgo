@@ -1,16 +1,21 @@
-//! SenseVoice 本地语音识别后端（sherpa-onnx 内嵌）。
+//! 本地语音识别后端（sherpa-onnx 内嵌）。
 //!
-//! sherpa-onnx 编译进主程序：模型在管道启动时加载一次并常驻内存，
+//! 支持两种引擎（`crate::model::EngineKind`）：SenseVoice（多语种自动检测）
+//! 与 FireRedASR2 CTC（中英混说更强）。模型在管道启动时加载一次并常驻内存，
 //! 之后每句话只做波形解码与推理。不走子进程方案：SenseVoice int8 模型
-//! 约 230 MB，每次冷载往往比转写本身还久。
+//! 约 230 MB、FireRedASR2 CTC 约 740 MB，每次冷载往往比转写本身还久。
 //!
 //! 推理是 CPU 密集的同步操作，通过 `tokio::task::spawn_blocking` 放进
 //! blocking 线程池，避免阻塞异步 runtime。
 
 use crate::error::TranscriberError;
+use crate::model::EngineKind;
 use crate::resource::effective_threads;
 use crate::transcriber::{TranscribeResult, Transcriber};
-use sherpa_onnx::{OfflineRecognizer, OfflineRecognizerConfig, OfflineSenseVoiceModelConfig};
+use sherpa_onnx::{
+    OfflineFireRedAsrCtcModelConfig, OfflineRecognizer, OfflineRecognizerConfig,
+    OfflineSenseVoiceModelConfig,
+};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -45,14 +50,16 @@ fn normalize_language(language: &str) -> &str {
 impl SherpaTranscriber {
     /// 创建常驻识别器并立即加载模型。
     ///
-    /// `model_dir` 应包含 SenseVoice 模型的 `model.int8.onnx` 与 `tokens.txt`
-    /// （见 `crate::model` 的下载逻辑）。
-    /// `language`：`"auto"` 自动检测（中/英/日/韩/粤），或 `"zh"` / `"en"` /
-    /// `"ja"` / `"ko"` / `"yue"` 指定，空字符串按 `"auto"` 处理。
+    /// `model_dir` 应包含 `model.int8.onnx` 与 `tokens.txt`（见 `crate::model`
+    /// 的下载逻辑），`engine` 决定用哪种识别器配置加载。
+    /// `language` 仅 SenseVoice 使用：`"auto"` 自动检测（中/英/日/韩/粤），
+    /// 或 `"zh"` / `"en"` / `"ja"` / `"ko"` / `"yue"` 指定，空字符串按 `"auto"`
+    /// 处理；FireRedASR2 CTC 自带中英识别，该参数只透传到结果元数据。
     pub fn new(
         model_dir: PathBuf,
         language: String,
         threads: u32,
+        engine: EngineKind,
     ) -> Result<Self, TranscriberError> {
         let model_path = model_dir.join("model.int8.onnx");
         let tokens_path = model_dir.join("tokens.txt");
@@ -68,11 +75,20 @@ impl SherpaTranscriber {
         }
 
         let mut config = OfflineRecognizerConfig::default();
-        config.model_config.sense_voice = OfflineSenseVoiceModelConfig {
-            model: Some(model_path.to_string_lossy().to_string()),
-            language: Some(normalize_language(&language).to_string()),
-            use_itn: true,
-        };
+        match engine {
+            EngineKind::SenseVoice => {
+                config.model_config.sense_voice = OfflineSenseVoiceModelConfig {
+                    model: Some(model_path.to_string_lossy().to_string()),
+                    language: Some(normalize_language(&language).to_string()),
+                    use_itn: true,
+                };
+            }
+            EngineKind::FireRedAsrCtc => {
+                config.model_config.fire_red_asr_ctc = OfflineFireRedAsrCtcModelConfig {
+                    model: Some(model_path.to_string_lossy().to_string()),
+                };
+            }
+        }
         config.model_config.tokens = Some(tokens_path.to_string_lossy().to_string());
         config.model_config.num_threads = effective_threads(threads) as i32;
 
@@ -156,9 +172,13 @@ mod tests {
 
     #[test]
     fn test_new_missing_model_errors() {
-        let err =
-            SherpaTranscriber::new(PathBuf::from("/definitely/not/exists"), "zh".to_string(), 0)
-                .unwrap_err();
+        let err = SherpaTranscriber::new(
+            PathBuf::from("/definitely/not/exists"),
+            "zh".to_string(),
+            0,
+            EngineKind::SenseVoice,
+        )
+        .unwrap_err();
         assert!(matches!(err, TranscriberError::ModelLoadFailed { .. }));
         assert!(err.message().contains("模型文件不存在"));
     }
@@ -167,8 +187,13 @@ mod tests {
     fn test_new_missing_tokens_errors() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("model.int8.onnx"), b"fake").unwrap();
-        let err =
-            SherpaTranscriber::new(dir.path().to_path_buf(), "zh".to_string(), 0).unwrap_err();
+        let err = SherpaTranscriber::new(
+            dir.path().to_path_buf(),
+            "zh".to_string(),
+            0,
+            EngineKind::SenseVoice,
+        )
+        .unwrap_err();
         assert!(matches!(err, TranscriberError::ModelLoadFailed { .. }));
         assert!(err.message().contains("词表不存在"));
     }

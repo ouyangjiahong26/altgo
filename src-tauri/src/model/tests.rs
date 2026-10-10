@@ -38,6 +38,7 @@ fn test_model_info(model_payload: &[u8], tokens_payload: &[u8]) -> ModelInfo {
         repo_path: "test/repo",
         files: Cow::Owned(files),
         description: "test model",
+        engine: EngineKind::SenseVoice,
     }
 }
 
@@ -147,6 +148,24 @@ fn test_validate_name_known() {
 fn test_validate_name_unknown() {
     assert!(validate_name("nonexistent").is_err());
     assert!(validate_name("").is_err());
+}
+
+#[test]
+fn test_engine_for_registered_models() {
+    assert_eq!(engine_for("sense-voice"), EngineKind::SenseVoice);
+    assert_eq!(engine_for("sense-voice-yue"), EngineKind::SenseVoice);
+    assert_eq!(engine_for("fire-red-asr2-ctc"), EngineKind::FireRedAsrCtc);
+}
+
+#[test]
+fn test_engine_for_custom_path_defaults_to_sense_voice() {
+    // 自定义路径（目录或 .onnx 文件）不在注册表里，按 SenseVoice 处理。
+    assert_eq!(
+        engine_for("/home/user/models/my-model"),
+        EngineKind::SenseVoice
+    );
+    assert_eq!(engine_for(""), EngineKind::SenseVoice);
+    assert_eq!(engine_for("unknown-name"), EngineKind::SenseVoice);
 }
 
 #[test]

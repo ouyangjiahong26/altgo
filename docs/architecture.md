@@ -6,7 +6,7 @@
 
 altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条语音流水线，React 前端负责主页、设置页与悬浮窗。两个收敛后的设计前提：
 
-- **转写双后端**：由 `[transcriber] backend` 选择。默认 `"local"` 走本地 SenseVoice（内嵌 sherpa-onnx，模型常驻内存），`"online"` 走小米 MiMo 在线识别（chat/completions + `input_audio`，失败直接报错不回退），分发接缝在 `voice_pipeline/builder.rs` 的 `build_transcriber`。whisper.cpp 与 Whisper API 已随 #121 删除。
+- **转写双后端**：由 `[transcriber] backend` 选择。默认 `"local"` 走本地识别（内嵌 sherpa-onnx，模型常驻内存，按 `[transcriber] model` 在注册表命中的引擎里选：SenseVoice 多语种自动检测，FireRedASR2 CTC 中英混说更强，见 `model.rs` 的 `EngineKind`），`"online"` 走小米 MiMo 在线识别（chat/completions + `input_audio`，失败直接报错不回退），分发接缝在 `voice_pipeline/builder.rs` 的 `build_transcriber`。whisper.cpp 与 Whisper API 已随 #121 删除。
 - 平台为 Linux（Ubuntu 22.04+，x86_64/aarch64）与 Windows 10+（x86_64/arm64）。旧的 PowerShell 式 Windows 适配曾随 #121 删除，现行实现（`windows.rs`）为原生 API 重写：WH_KEYBOARD_LL 钩子监听按键、cpal/WASAPI 录音、arboard 剪贴板 + SendInput 文本注入（由 `[output] inject_text` 配置控制，默认关闭，ADR 0005）。
 
 核心设计只有一句话：业务核心与框架彻底解耦，平台能力一律收进 trait seam。`voice_pipeline` 模块完全不 import Tauri，只通过 `PipelineSink`、`TranscriptionDispatch`、`OverlaySink` 等 trait seam 与外界交互。按键监听、录音、剪贴板等系统能力也都被收进各自 trait 后面，各平台实现命名为 `linux.rs` / `windows.rs`。
@@ -62,7 +62,7 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 | 界面（设置 / 历史 / 悬浮窗内容） | `frontend/`（React） | 只经 IPC 与后端交互，只见 camelCase |
 | 按键状态机 | `state_machine.rs` | 纯同步叶子，只返回命令，不执行副作用 |
 | 录音 | `recorder`（`Recorder` trait） | Linux 实现为 `parecord` 子进程 |
-| 转写 | `transcriber`（`Transcriber` trait） | 本地实现 `sherpa.rs`（SenseVoice），在线实现 `mimo_asr.rs`（小米 MiMo） |
+| 转写 | `transcriber`（`Transcriber` trait） | 本地实现 `sherpa.rs`（SenseVoice / FireRedASR2 CTC，按模型注册的引擎选择），在线实现 `mimo_asr.rs`（小米 MiMo） |
 | 润色 | `polisher`（`LLMFormatter`） | 可选，失败降级为原文 |
 | 悬浮窗 | `overlay`（`OverlaySink` seam） | 生产实现是 Tauri 窗口 |
 | 剪贴板 + 历史 | `dispatcher`（`TranscriptionDispatch` seam）→ `output` + `history` | 失败只 warn，不中断结果返回 |
@@ -78,7 +78,7 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 - `state_machine` 是 crate 根部的纯同步叶子，由 `voice_pipeline::context` 驱动。
 - `handlers` 调用 `transcriber` / `polisher` / `recorder`。
 - `dispatcher` 调用 `output`（剪贴板）与 `history`（历史记录）。
-- `transcriber` 调用 `resource`，本地实现 `sherpa`（内嵌 sherpa-onnx 的 SenseVoice），在线实现 `mimo_asr`（小米 MiMo 网关），由 `builder.rs` 按 `[transcriber] backend` 分发。
+- `transcriber` 调用 `resource`，本地实现 `sherpa`（内嵌 sherpa-onnx，按模型注册引擎选 SenseVoice 或 FireRedASR2 CTC），在线实现 `mimo_asr`（小米 MiMo 网关），由 `builder.rs` 按 `[transcriber] backend` 分发。
 - `polisher` 调用 `prompt_store`。
 - `model` / `config` / `error` / `resource` / `audio` 是底层叶子（`audio` 提供 PCM 缓冲与 WAV 编解码）。
 
@@ -110,7 +110,7 @@ lib.rs
 
 1. **框架**：`PipelineSink`（状态/错误/结果回调）、`PipelineEventEmitter`（事件发射）、`TranscriptionDispatch`（剪贴板 + 历史分发）、`OverlaySink`（悬浮窗）。
 2. **平台**：`Recorder`（录音）、`KeyListener`（按键）、`Output`（剪贴板），当前实现见第五节。
-3. **引擎**：`Transcriber`（转写后端），本地实现为 `sherpa.rs` 的本地 SenseVoice，在线实现为 `mimo_asr.rs` 的小米 MiMo。
+3. **引擎**：`Transcriber`（转写后端），本地实现为 `sherpa.rs`（按模型注册引擎选 SenseVoice 或 FireRedASR2 CTC），在线实现为 `mimo_asr.rs` 的小米 MiMo。
 
 同 crate 内向下的模块依赖允许直接 import：`handlers` 调 `polisher` 的具体类型、各模块依赖 `config` / `error` 等底层叶子，都不需要 seam。seam 是测试注入 fake 的位置，也是未来加平台或后端时的扩展点。
 
@@ -169,7 +169,7 @@ lib.rs
 
 ### 本地引擎：内嵌常驻
 
-`SherpaTranscriber`（`sherpa.rs`）内嵌 sherpa-onnx 跑本地 SenseVoice int8 模型。sherpa-onnx 编译进主程序，模型在管道启动时加载一次并常驻内存，之后每句话直接推理（先 `accept_waveform` 再 `decode`），没有进程启动与冷载成本。推理是 CPU 密集同步操作，经 `spawn_blocking` 放入阻塞线程池。模型文件缺失或加载失败在构造期报错（`TranscriberError::ModelLoadFailed`）。
+`SherpaTranscriber`（`sherpa.rs`）内嵌 sherpa-onnx 跑本地模型，引擎按模型注册表选择：SenseVoice（多语种自动检测，int8 约 230 MB）或 FireRedASR2 CTC（中英混说更强，int8 约 740 MB）。sherpa-onnx 编译进主程序，模型在管道启动时加载一次并常驻内存，之后每句话直接推理（先 `accept_waveform` 再 `decode`），没有进程启动与冷载成本。推理是 CPU 密集同步操作，经 `spawn_blocking` 放入阻塞线程池。模型文件缺失或加载失败在构造期报错（`TranscriberError::ModelLoadFailed`）。
 
 ### 在线引擎：MiMo 网关
 
