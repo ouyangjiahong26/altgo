@@ -66,6 +66,19 @@ describe("HistoryEntryItem 来源与耗时", () => {
     expect(screen.getByText("history.stage_recording 1 分 3 秒")).toBeTruthy();
   });
 
+  it("取整进位不产生 60 秒", () => {
+    // 119.6 秒应显示 2 分 0 秒而不是 1 分 60 秒；59.95 秒同理进位到 1 分 0 秒。
+    renderEntry(
+      makeEntry({ backend: "local", recordingMs: 119600, transcribeMs: 0, polishMs: null }),
+    );
+    expect(screen.getByText("history.stage_recording 2 分 0 秒")).toBeTruthy();
+
+    renderEntry(
+      makeEntry({ backend: "local", recordingMs: 59950, transcribeMs: 0, polishMs: null }),
+    );
+    expect(screen.getByText("history.stage_recording 1 分 0 秒")).toBeTruthy();
+  });
+
   it("英文界面用英文单位", () => {
     renderEntry(
       makeEntry({ backend: "local", recordingMs: 3200, transcribeMs: 850, polishMs: null }),

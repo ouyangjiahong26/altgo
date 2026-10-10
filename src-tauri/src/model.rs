@@ -175,8 +175,8 @@ const MODELS: &[ModelInfo] = &[
 ];
 
 /// 解析配置模型值对应的本地引擎。注册表命中的模型返回注册引擎；
-/// 自定义路径（目录或 .onnx 文件）无法从注册表判断，按 SenseVoice 处理
-/// （两者的文件布局相同，引擎不匹配只会在加载时报模型错误）。
+/// 自定义路径（目录或 .onnx 文件）无法从注册表判断，按 SenseVoice 处理，
+/// `SherpaTranscriber::new` 会再按模型文件元数据校验，不匹配时返回错误。
 pub fn engine_for(config_model: &str) -> EngineKind {
     MODELS
         .iter()

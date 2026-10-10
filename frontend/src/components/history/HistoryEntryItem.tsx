@@ -45,12 +45,14 @@ function formatDuration(ms: number, lang: string): string {
   if (ms < 1000) {
     return lang === "en" ? `${ms} ms` : `${ms} 毫秒`;
   }
-  const seconds = ms / 1000;
-  if (seconds < 60) {
+  // 先对总秒数取整再拆分分与秒，避免出现“1 分 60 秒”这类进位错误。
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) {
+    const seconds = ms / 1000;
     return lang === "en" ? `${seconds.toFixed(1)} s` : `${seconds.toFixed(1)} 秒`;
   }
-  const minutes = Math.floor(seconds / 60);
-  const rest = Math.round(seconds - minutes * 60);
+  const minutes = Math.floor(totalSeconds / 60);
+  const rest = totalSeconds % 60;
   return lang === "en" ? `${minutes} min ${rest} s` : `${minutes} 分 ${rest} 秒`;
 }
 

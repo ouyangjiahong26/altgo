@@ -104,14 +104,8 @@ pub(crate) async fn transcribe_and_dispatch(
         progress_sink.on_progress("transcribe", Some(fr));
     });
 
-    // 历史耗时展示用：录音时长直接从 WAV 头解析，转写耗时取 wall time，
-    // 在线后端含网络往返、本地后端即推理时间。
-    let mut metrics = TranscriptionMetrics {
-        backend: transcriber.backend().to_string(),
-        recording_ms: crate::audio::wav_duration_ms(wav_data).unwrap_or(0),
-        transcribe_ms: 0,
-        polish_ms: None,
-    };
+    // 耗时统计：录音时长与后端在 initial_metrics 里定下，转写耗时取 wall time。
+    let mut metrics = initial_metrics(transcriber, wav_data);
 
     let started = std::time::Instant::now();
     let transcribe_result = transcriber.transcribe(wav_data, progress_cb).await;
@@ -140,6 +134,17 @@ pub(crate) async fn transcribe_and_dispatch(
     }
 
     polish_and_dispatch(&result.text, formatter, polish_level, metrics, &sink).await
+}
+
+/// 组装本次转写回合的元数据初值：后端与录音时长在此定下，
+/// 转写耗时由调用方在转写完成后补写，润色耗时由润色步骤补写。
+fn initial_metrics(transcriber: &dyn Transcriber, wav_data: &[u8]) -> TranscriptionMetrics {
+    TranscriptionMetrics {
+        backend: transcriber.backend().to_string(),
+        recording_ms: crate::audio::wav_duration_ms(wav_data).unwrap_or(0),
+        transcribe_ms: 0,
+        polish_ms: None,
+    }
 }
 
 /// 润色并分发一次转写结果：润色失败时回退原文并置 `polish_failed`，

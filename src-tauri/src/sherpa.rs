@@ -47,6 +47,81 @@ fn normalize_language(language: &str) -> &str {
     }
 }
 
+/// onnx 尾部元数据里 `model_type` 条目的字节模式。
+///
+/// 元数据是 protobuf 的 StringStringEntryProto，key 字段 tag 为 `0x0A`，
+/// 长度 10（`model_type`），value 字段 tag 为 `0x12`，随后一字节长度再是值。
+/// 实测 SenseVoice 与 FireRedASR2 CTC 两个模型的元数据都在文件末尾
+/// 64 KB 内（分别距文件尾 343 与 3433 字节）。
+const MODEL_TYPE_PATTERN: &[u8] = b"\x0a\x0amodel_type\x12";
+
+/// 元数据扫描窗口：只读文件尾部这么多字节。
+const METADATA_TAIL_BYTES: u64 = 64 * 1024;
+
+/// 引擎展示名，用于错误文案。
+fn engine_label(engine: EngineKind) -> &'static str {
+    match engine {
+        EngineKind::SenseVoice => "SenseVoice",
+        EngineKind::FireRedAsrCtc => "FireRedASR2 CTC",
+    }
+}
+
+/// 读取模型文件尾部元数据里的 `model_type`，判定它属于哪个引擎。
+///
+/// 返回 `None` 表示读不到或认不出：`[transcriber] model` 允许自定义路径，
+/// 自制的 SenseVoice 模型可能没有该元数据，此时维持原有行为交由
+/// sherpa-onnx 自行判断。
+fn detect_engine_from_metadata(model_path: &std::path::Path) -> Option<EngineKind> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let mut file = std::fs::File::open(model_path).ok()?;
+    let size = file.metadata().ok()?.len();
+    let window = size.min(METADATA_TAIL_BYTES) as usize;
+    let mut buf = vec![0u8; window];
+    file.seek(SeekFrom::Start(size - window as u64)).ok()?;
+    file.read_exact(&mut buf).ok()?;
+
+    let pattern_at = buf
+        .windows(MODEL_TYPE_PATTERN.len())
+        .position(|w| w == MODEL_TYPE_PATTERN)?;
+    let len = *buf.get(pattern_at + MODEL_TYPE_PATTERN.len())? as usize;
+    let value_at = pattern_at + MODEL_TYPE_PATTERN.len() + 1;
+    let value = std::str::from_utf8(buf.get(value_at..value_at + len)?).ok()?;
+    if value.starts_with("sense_voice") {
+        Some(EngineKind::SenseVoice)
+    } else if value.starts_with("fire-red-asr") {
+        Some(EngineKind::FireRedAsrCtc)
+    } else {
+        None
+    }
+}
+
+/// 校验模型文件与目标引擎一致。
+///
+/// 注册表名与自定义路径都可能指向与声明不符的模型文件，而 sherpa-onnx
+/// 在配置与模型类型不匹配时直接退出进程（实测 `exit(-1)`），不是返回错误，
+/// 构造识别器前必须先拦下来。
+fn ensure_engine_matches(
+    model_path: &std::path::Path,
+    engine: EngineKind,
+) -> Result<(), TranscriberError> {
+    let Some(detected) = detect_engine_from_metadata(model_path) else {
+        return Ok(());
+    };
+    if detected == engine {
+        return Ok(());
+    }
+    Err(TranscriberError::ModelLoadFailed {
+        reason: format!(
+            "模型文件与识别引擎不匹配: {} 是 {} 模型，当前按 {} 加载。\
+             请把 [transcriber] model 设为对应模型名，或在设置页重新选择模型",
+            model_path.display(),
+            engine_label(detected),
+            engine_label(engine),
+        ),
+    })
+}
+
 impl SherpaTranscriber {
     /// 创建常驻识别器并立即加载模型。
     ///
@@ -73,6 +148,8 @@ impl SherpaTranscriber {
                 reason: format!("模型词表不存在: {}", tokens_path.display()),
             });
         }
+
+        ensure_engine_matches(&model_path, engine)?;
 
         let mut config = OfflineRecognizerConfig::default();
         match engine {
@@ -200,5 +277,77 @@ mod tests {
         .unwrap_err();
         assert!(matches!(err, TranscriberError::ModelLoadFailed { .. }));
         assert!(err.message().contains("词表不存在"));
+    }
+
+    /// 按真实 onnx 的字节布局拼一个只含 `model_type` 元数据的假模型文件。
+    fn write_fake_model(dir: &std::path::Path, model_type: &str) {
+        let mut bytes = MODEL_TYPE_PATTERN.to_vec();
+        bytes.push(model_type.len() as u8);
+        bytes.extend_from_slice(model_type.as_bytes());
+        std::fs::write(dir.join("model.int8.onnx"), bytes).unwrap();
+        std::fs::write(dir.join("tokens.txt"), b"<blk> 0\n").unwrap();
+    }
+
+    #[test]
+    fn test_detect_engine_from_metadata_both_models() {
+        let sv = tempfile::tempdir().unwrap();
+        write_fake_model(sv.path(), "sense_voice_ctc");
+        assert_eq!(
+            detect_engine_from_metadata(&sv.path().join("model.int8.onnx")),
+            Some(EngineKind::SenseVoice)
+        );
+
+        let fr = tempfile::tempdir().unwrap();
+        write_fake_model(fr.path(), "fire-red-asr-2-ctc");
+        assert_eq!(
+            detect_engine_from_metadata(&fr.path().join("model.int8.onnx")),
+            Some(EngineKind::FireRedAsrCtc)
+        );
+    }
+
+    #[test]
+    fn test_detect_engine_from_metadata_unknown_is_none() {
+        let dir = tempfile::tempdir().unwrap();
+        write_fake_model(dir.path(), "some-other-model");
+        assert_eq!(
+            detect_engine_from_metadata(&dir.path().join("model.int8.onnx")),
+            None
+        );
+
+        let empty = tempfile::tempdir().unwrap();
+        std::fs::write(empty.path().join("model.int8.onnx"), b"\x00\x01\x02").unwrap();
+        assert_eq!(
+            detect_engine_from_metadata(&empty.path().join("model.int8.onnx")),
+            None
+        );
+    }
+
+    #[test]
+    fn test_new_rejects_engine_model_mismatch_before_loading() {
+        // FireRedASR2 模型文件按 SenseVoice 引擎加载：历史上会让 sherpa-onnx
+        // 直接 exit(-1) 终止进程，必须在构造识别器前返回错误。
+        let dir = tempfile::tempdir().unwrap();
+        write_fake_model(dir.path(), "fire-red-asr-2-ctc");
+        let err = SherpaTranscriber::new(
+            dir.path().to_path_buf(),
+            "zh".to_string(),
+            0,
+            EngineKind::SenseVoice,
+        )
+        .unwrap_err();
+        assert!(matches!(err, TranscriberError::ModelLoadFailed { .. }));
+        assert!(err.message().contains("不匹配"));
+
+        // 反方向：SenseVoice 模型文件按 FireRedASR2 引擎加载。
+        let dir2 = tempfile::tempdir().unwrap();
+        write_fake_model(dir2.path(), "sense_voice_ctc");
+        let err = SherpaTranscriber::new(
+            dir2.path().to_path_buf(),
+            "zh".to_string(),
+            0,
+            EngineKind::FireRedAsrCtc,
+        )
+        .unwrap_err();
+        assert!(err.message().contains("不匹配"));
     }
 }
