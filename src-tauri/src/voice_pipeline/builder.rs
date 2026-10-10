@@ -30,7 +30,8 @@ impl PipelineBuilder {
     /// 从配置构建转写引擎。
     ///
     /// `backend = "online"` 走小米 MiMo 在线识别（纯网络调用，不触碰本地模型解析），
-    /// 其余（默认 `"local"`）走 sherpa-onnx SenseVoice，本地模型缺失或加载失败时返回错误。
+    /// 其余（默认 `"local"`）按模型注册的引擎走 sherpa-onnx（SenseVoice 或
+    /// FireRedASR2 CTC），本地模型缺失或加载失败时返回错误。
     pub fn build_transcriber(&self) -> Result<Box<dyn Transcriber>, PipelineError> {
         let cfg = &self.cfg.transcriber;
 
@@ -57,9 +58,14 @@ impl PipelineBuilder {
             }
         };
 
-        let transcriber =
-            crate::sherpa::SherpaTranscriber::new(model_dir, cfg.language.clone(), cfg.threads)
-                .map_err(PipelineError::fatal_transcriber)?;
+        let engine = crate::model::engine_for(&cfg.model);
+        let transcriber = crate::sherpa::SherpaTranscriber::new(
+            model_dir,
+            cfg.language.clone(),
+            cfg.threads,
+            engine,
+        )
+        .map_err(PipelineError::fatal_transcriber)?;
 
         Ok(Box::new(transcriber))
     }

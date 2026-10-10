@@ -120,6 +120,10 @@ fn extract_text(resp_text: &str) -> Result<String, TranscriberError> {
 }
 
 impl Transcriber for MimoAsr {
+    fn backend(&self) -> &'static str {
+        "online"
+    }
+
     fn transcribe<'life0, 'life1>(
         &'life0 self,
         audio: &'life1 [u8],

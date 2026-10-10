@@ -14,7 +14,7 @@ use crate::recorder::Recorder;
 use crate::transcriber::Transcriber;
 
 use super::pending::PendingRecordingStore;
-use super::sink::{DispatchOutcome, PipelineSink, TranscriptionResult};
+use super::sink::{DispatchOutcome, PipelineSink, TranscriptionMetrics, TranscriptionResult};
 use crate::pipeline_controller::PipelineStatus;
 
 /// 最短有效录音时长（毫秒）。低于此值视为误触：长按阈值刚过就松开的意外
@@ -104,7 +104,12 @@ pub(crate) async fn transcribe_and_dispatch(
         progress_sink.on_progress("transcribe", Some(fr));
     });
 
+    // 耗时统计：录音时长与后端在 initial_metrics 里定下，转写耗时取 wall time。
+    let mut metrics = initial_metrics(transcriber, wav_data);
+
+    let started = std::time::Instant::now();
     let transcribe_result = transcriber.transcribe(wav_data, progress_cb).await;
+    metrics.transcribe_ms = started.elapsed().as_millis() as u64;
     let result = match transcribe_result {
         Ok(r) => r,
         Err(e) => {
@@ -128,7 +133,18 @@ pub(crate) async fn transcribe_and_dispatch(
         return false;
     }
 
-    polish_and_dispatch(&result.text, formatter, polish_level, &sink).await
+    polish_and_dispatch(&result.text, formatter, polish_level, metrics, &sink).await
+}
+
+/// 组装本次转写回合的元数据初值：后端与录音时长在此定下，
+/// 转写耗时由调用方在转写完成后补写，润色耗时由润色步骤补写。
+fn initial_metrics(transcriber: &dyn Transcriber, wav_data: &[u8]) -> TranscriptionMetrics {
+    TranscriptionMetrics {
+        backend: transcriber.backend().to_string(),
+        recording_ms: crate::audio::wav_duration_ms(wav_data).unwrap_or(0),
+        transcribe_ms: 0,
+        polish_ms: None,
+    }
 }
 
 /// 润色并分发一次转写结果：润色失败时回退原文并置 `polish_failed`，
@@ -137,10 +153,13 @@ async fn polish_and_dispatch(
     raw_text: &str,
     formatter: &LLMFormatter,
     polish_level: PolishLevel,
+    mut metrics: TranscriptionMetrics,
     sink: &Arc<dyn PipelineSink>,
 ) -> bool {
     sink.on_progress("polish", None);
 
+    let polish_enabled = !matches!(polish_level, PolishLevel::None);
+    let started = std::time::Instant::now();
     let mut polish_failed = false;
     let mut polish_error: Option<UserFacingError> = None;
     let polished = match formatter.polish(raw_text, polish_level).await {
@@ -152,6 +171,9 @@ async fn polish_and_dispatch(
             raw_text.to_string()
         }
     };
+    if polish_enabled {
+        metrics.polish_ms = Some(started.elapsed().as_millis() as u64);
+    }
 
     tracing::info!(chars = polished.chars().count(), "polished");
 
@@ -162,6 +184,7 @@ async fn polish_and_dispatch(
         raw_text: raw_text.to_string(),
         polish_failed,
         polish_error,
+        metrics,
     };
     sink.on_transcription_result(&output);
     true
@@ -251,6 +274,7 @@ pub async fn process_transcription_result(
     let history_appended = dispatch_text(
         &text_to_use,
         &output.raw_text,
+        &output.metrics,
         inject_text,
         output_adapter,
         history_store,
@@ -267,6 +291,7 @@ pub async fn process_transcription_result(
 async fn dispatch_text(
     text_to_use: &str,
     raw_text: &str,
+    metrics: &TranscriptionMetrics,
     inject_text: bool,
     output_adapter: &dyn Output,
     history_store: &HistoryStore,
@@ -288,7 +313,7 @@ async fn dispatch_text(
         inject_text_to_focus(text_to_use, output_adapter).await;
     }
 
-    append_history(text_to_use, raw_text, history_store).await
+    append_history(text_to_use, raw_text, metrics, history_store).await
 }
 
 /// Windows 上把文本注入当前焦点窗口，其他平台为 no-op。失败只告警不中断分发。
@@ -306,11 +331,22 @@ async fn inject_text_to_focus(text_to_use: &str, output_adapter: &dyn Output) {
 }
 
 /// 把转写结果追加到历史存储，返回是否落盘成功。失败只告警不中断分发。
-async fn append_history(text_to_use: &str, raw_text: &str, history_store: &HistoryStore) -> bool {
+async fn append_history(
+    text_to_use: &str,
+    raw_text: &str,
+    metrics: &TranscriptionMetrics,
+    history_store: &HistoryStore,
+) -> bool {
     let raw = raw_text.to_string();
     let display = text_to_use.to_string();
+    let meta = crate::history::HistoryMeta {
+        backend: metrics.backend.clone(),
+        recording_ms: metrics.recording_ms,
+        transcribe_ms: metrics.transcribe_ms,
+        polish_ms: metrics.polish_ms,
+    };
     let store = history_store.clone();
-    let history_appended = tokio::task::spawn_blocking(move || store.append(raw, display))
+    let history_appended = tokio::task::spawn_blocking(move || store.append(raw, display, meta))
         .await
         .ok()
         .and_then(|r| r.ok())
@@ -354,6 +390,16 @@ mod tests {
             raw_text: raw.to_string(),
             text: polished.to_string(),
             polish_failed,
+            metrics: TranscriptionMetrics::default(),
+        }
+    }
+
+    fn test_meta() -> crate::history::HistoryMeta {
+        crate::history::HistoryMeta {
+            backend: "local".to_string(),
+            recording_ms: 1000,
+            transcribe_ms: 200,
+            polish_ms: None,
         }
     }
 
@@ -400,7 +446,13 @@ mod tests {
     async fn test_process_transcription_result_success() {
         use crate::history::HistoryStore;
 
-        let output = test_output("raw text", "polished text", false);
+        let mut output = test_output("raw text", "polished text", false);
+        output.metrics = TranscriptionMetrics {
+            backend: "online".to_string(),
+            recording_ms: 3200,
+            transcribe_ms: 1500,
+            polish_ms: Some(900),
+        };
         let (output_adapter, writes, _) = super::super::test_doubles::FakeOutput::new();
         let temp_dir = tempfile::tempdir().unwrap();
         let history_store = HistoryStore::new(temp_dir.path().join("history.json"));
@@ -414,6 +466,13 @@ mod tests {
         assert!(result.history_appended);
         assert_eq!(writes.lock().unwrap().len(), 1);
         assert_eq!(writes.lock().unwrap()[0], "polished text");
+        // 耗时与后端元数据随条目落盘，供历史列表展示。
+        let entry = history_store.list().unwrap().remove(0);
+        let m = entry.meta.expect("metrics persisted into history");
+        assert_eq!(m.backend, "online");
+        assert_eq!(m.recording_ms, 3200);
+        assert_eq!(m.transcribe_ms, 1500);
+        assert_eq!(m.polish_ms, Some(900));
     }
 
     #[tokio::test]
@@ -605,6 +664,10 @@ mod tests {
     }
 
     impl crate::transcriber::Transcriber for RetainingProgressTranscriber {
+        fn backend(&self) -> &'static str {
+            "local"
+        }
+
         fn transcribe<'life0, 'life1>(
             &'life0 self,
             _audio: &'life1 [u8],
@@ -833,7 +896,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let store = HistoryStore::new(temp_dir.path().join("history.json"));
         let entry = store
-            .append("原始文本".to_string(), "原始文本".to_string())
+            .append("原始文本".to_string(), "原始文本".to_string(), test_meta())
             .unwrap();
 
         // PolishLevel::None 会成功返回原文，适合测编排链路而不过度依赖网络。
@@ -870,7 +933,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let store = HistoryStore::new(temp_dir.path().join("history.json"));
         let entry = store
-            .append("原始文本".to_string(), "原始文本".to_string())
+            .append("原始文本".to_string(), "原始文本".to_string(), test_meta())
             .unwrap();
 
         // 使用需要实际调用 API 的级别，让 polish 在连接失败后返回 Err。

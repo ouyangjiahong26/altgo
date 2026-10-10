@@ -35,7 +35,7 @@ pub use handlers::{
     select_text,
 };
 pub use pending::{PendingRecordingInfo, PendingRecordingStore, RetryRequestHandle};
-pub use sink::{DispatchOutcome, PipelineSink, TranscriptionResult};
+pub use sink::{DispatchOutcome, PipelineSink, TranscriptionMetrics, TranscriptionResult};
 
 use std::sync::Arc;
 

@@ -1,4 +1,4 @@
-/** 单条历史条目：时间、文本、复制与润色操作、附令润色输入区。 */
+/** 单条历史条目：时间、来源与耗时、文本、复制与润色操作、附令润色输入区。 */
 import {
   Copy,
   Check,
@@ -7,7 +7,7 @@ import {
   PenLine,
   Loader2,
 } from "lucide-react";
-import type { HistoryEntry } from "./useHistoryPanel";
+import type { HistoryEntry, HistoryMeta } from "./useHistoryPanel";
 
 interface HistoryEntryItemProps {
   t: (key: string) => string;
@@ -40,6 +40,22 @@ function formatTime(ms: number, locale: string): string {
   });
 }
 
+/** 耗时展示：1 秒内以毫秒计，1 分钟内保留一位小数秒，更长用分秒。 */
+function formatDuration(ms: number, lang: string): string {
+  if (ms < 1000) {
+    return lang === "en" ? `${ms} ms` : `${ms} 毫秒`;
+  }
+  // 先对总秒数取整再拆分分与秒，避免出现“1 分 60 秒”这类进位错误。
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) {
+    const seconds = ms / 1000;
+    return lang === "en" ? `${seconds.toFixed(1)} s` : `${seconds.toFixed(1)} 秒`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const rest = totalSeconds % 60;
+  return lang === "en" ? `${minutes} min ${rest} s` : `${minutes} 分 ${rest} 秒`;
+}
+
 export function HistoryEntryItem({
   t, entry, uiLang, selected, copiedText, copiedRaw, polishing,
   instructionOpen, instructionText, onToggle, onCopyText, onCopyRaw, onPolish,
@@ -61,6 +77,7 @@ export function HistoryEntryItem({
           {formatTime(e.createdAtMs, uiLang)}
         </time>
         <p className="history-item-text">{e.text}</p>
+        {e.meta && <HistoryStageMeta t={t} meta={e.meta} uiLang={uiLang} />}
         {e.rawText !== e.text && (
           <p className="history-item-raw">
             <span className="history-item-raw-label">{t("history.raw_label")}</span>
@@ -81,6 +98,41 @@ export function HistoryEntryItem({
         )}
       </div>
     </li>
+  );
+}
+
+/** 来源与耗时行：本地或在线标识 + 录音、识别、润色各环节耗时。 */
+function HistoryStageMeta({
+  t, meta, uiLang,
+}: {
+  t: (key: string) => string;
+  meta: HistoryMeta;
+  uiLang: string;
+}) {
+  const backendLabel =
+    meta.backend === "online" ? t("history.backend_online") : t("history.backend_local");
+  const stages: Array<[string, number]> = [
+    [t("history.stage_recording"), meta.recordingMs],
+    [t("history.stage_transcribe"), meta.transcribeMs],
+  ];
+  if (meta.polishMs !== null) {
+    stages.push([t("history.stage_polish"), meta.polishMs]);
+  }
+  return (
+    <div className="history-item-meta">
+      <span
+        className={`badge history-item-badge${
+          meta.backend === "online" ? " badge-accent" : ""
+        }`}
+      >
+        {backendLabel}
+      </span>
+      {stages.map(([label, ms]) => (
+        <span key={label} className="history-item-stage">
+          {label} {formatDuration(ms, uiLang)}
+        </span>
+      ))}
+    </div>
   );
 }
 

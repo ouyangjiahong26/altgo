@@ -185,6 +185,26 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 来源与耗时行：徽标复用 ui-primitives 的 .badge，这里只收紧高度与排布 */
+.history-item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+  margin: var(--space-1-5) 0 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.history-item-badge {
+  height: 16px;
+}
+
+.history-item-stage {
+  white-space: nowrap;
+}
+
 .history-item-text {
   margin: 0;
   font-size: var(--text-sm);

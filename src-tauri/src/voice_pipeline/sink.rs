@@ -5,6 +5,31 @@ use crate::pipeline_controller::PipelineStatus;
 
 use super::pending::PendingRecordingInfo;
 
+/// 单次转写回合的耗时与后端元数据，随结果一路流到历史落盘。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptionMetrics {
+    /// 转写后端：`"local"`（本地 SenseVoice）或 `"online"`（在线 MiMo）。
+    pub backend: String,
+    /// 录音时长（毫秒）。
+    pub recording_ms: u64,
+    /// 转写耗时（毫秒）。
+    pub transcribe_ms: u64,
+    /// 润色耗时（毫秒），未启用润色（`none` 档）时为 `None`。
+    pub polish_ms: Option<u64>,
+}
+
+impl Default for TranscriptionMetrics {
+    fn default() -> Self {
+        Self {
+            backend: "local".to_string(),
+            recording_ms: 0,
+            transcribe_ms: 0,
+            polish_ms: None,
+        }
+    }
+}
+
 /// 转写结果。
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TranscriptionResult {
@@ -17,6 +42,8 @@ pub struct TranscriptionResult {
     /// 润色失败时的错误码（经事件通道传给前端字典翻译）
     #[serde(default)]
     pub polish_error: Option<UserFacingError>,
+    /// 本次转写回合的耗时与后端元数据（历史展示用）。
+    pub metrics: TranscriptionMetrics,
 }
 
 /// 管道事件接收器。
