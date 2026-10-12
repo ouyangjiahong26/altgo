@@ -165,6 +165,7 @@ async fn probe_activation_key_core_restarts_pipeline() {
                 key_name: "Alt_R".to_string(),
                 linux_evdev_code: None,
                 windows_vk_code: Some(0xA5),
+                injected: None,
             },
         )),
         move |_cfg| new_handle,

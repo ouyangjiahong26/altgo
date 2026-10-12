@@ -55,9 +55,13 @@ interface ActivationKeyProbeResponse {
     keyName: string;
     linuxEvdevCode?: number | null;
     windowsVkCode?: number | null;
+    injected?: boolean | null;
   } | null;
   configuredKeyName: string;
   configuredCode: number | null;
+  /** 抓到的键是不是其他程序注入的。 */
+  injected: boolean;
+  /** 这次按键能不能触发起录。 */
   matched: boolean;
 }
 
@@ -67,6 +71,7 @@ type ProbeView =
   | { kind: "closed" }
   | { kind: "probing" }
   | { kind: "matched"; key: string }
+  | { kind: "injected"; key: string }
   | {
       kind: "mismatch";
       observedLabel: string;
@@ -152,6 +157,11 @@ function probeText(
         head: fill(t("main.probe_matched"), { key: probe.key }),
         detail: t("main.probe_matched_detail"),
       };
+    case "injected":
+      return {
+        head: fill(t("main.probe_injected"), { key: probe.key }),
+        detail: t("main.probe_injected_detail"),
+      };
     case "mismatch":
       return {
         head: fill(t("main.probe_mismatch"), {
@@ -188,6 +198,11 @@ function probeActions(
       return [];
     case "matched":
       return [{ label: t("main.probe_close"), onClick: handlers.onClose }];
+    case "injected":
+      return [
+        { label: t("main.probe_retry"), onClick: handlers.onRetry, primary: true },
+        { label: t("main.probe_close"), onClick: handlers.onClose },
+      ];
     case "mismatch":
       return [
         { label: t("main.probe_settings"), onClick: handlers.onSettings, primary: true },
@@ -307,13 +322,19 @@ export default function Home() {
         setProbe({ kind: "timeout" });
         return;
       }
+      // 注入的键排在最前：键码对得上也触发起不了录，报成可用会误导用户。
+      const key = keyDisplayName(observed.keyName, t);
+      if (result.injected) {
+        setProbe({ kind: "injected", key });
+        return;
+      }
       if (result.matched) {
-        setProbe({ kind: "matched", key: keyDisplayName(observed.keyName, t) });
+        setProbe({ kind: "matched", key });
         return;
       }
       setProbe({
         kind: "mismatch",
-        observedLabel: keyDisplayName(observed.keyName, t),
+        observedLabel: key,
         configuredLabel: keyDisplayName(result.configuredKeyName, t),
         observedCode: observed.windowsVkCode ?? observed.linuxEvdevCode ?? null,
         configuredCode: result.configuredCode,

@@ -42,6 +42,10 @@ pub struct CaptureActivationResponse {
     pub linux_evdev_code: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub windows_vk_code: Option<u16>,
+    /// 该按键是否由其他程序注入。接受注入的捕获里可能为 true，其余情形恒为 false；
+    /// Linux 的 evdev 路径区分不出注入，恒为 `None`。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub injected: Option<bool>,
 }
 
 impl CaptureActivationResponse {
@@ -52,10 +56,10 @@ impl CaptureActivationResponse {
 }
 
 /// “按下以设置”等待按键的时长。
-pub const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
+const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// 激活键自检等待按键的时长。用户正盯着结果看，不必等满捕获时长。
-pub const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 
 /// 一次捕获的结局。
 ///
@@ -77,23 +81,30 @@ pub struct ActivationKeyProbe {
     pub configured_key_name: String,
     /// 监听器实际用于匹配的键码（Windows 为 VK，Linux 为 evdev），解析不出为 `None`。
     pub configured_code: Option<u16>,
-    /// 观测键码与配置键码是否一致。
+    /// 这次抓到的按键是否由其他程序注入。
+    pub injected: bool,
+    /// 这次按键能不能触发起录：键码与配置一致，且不是其他程序注入的。
     pub matched: bool,
 }
 
 /// 由观测值与配置解析出的匹配码判定自检结果。
 ///
 /// 比对用平台原始码而不是键名：名字表可能把两个码映到同一个名字，
-/// 而监听器匹配用的就是原始码。
+/// 而监听器匹配用的就是原始码。注入的按键即使键码对得上也触发起不了录，
+/// 因为监听器一律忽略注入事件，所以这里直接判为不命中。
 pub fn evaluate_probe(
     observed: Option<CaptureActivationResponse>,
     configured_key_name: String,
     configured_code: Option<u16>,
 ) -> ActivationKeyProbe {
+    let injected = observed
+        .as_ref()
+        .and_then(|response| response.injected)
+        .unwrap_or(false);
     let observed_code = observed
         .as_ref()
         .and_then(CaptureActivationResponse::raw_code);
-    let matched = match (observed_code, configured_code) {
+    let code_matched = match (observed_code, configured_code) {
         (Some(observed_code), Some(configured_code)) => observed_code == configured_code,
         _ => false,
     };
@@ -101,7 +112,37 @@ pub fn evaluate_probe(
         observed,
         configured_key_name,
         configured_code,
-        matched,
+        injected,
+        matched: code_matched && !injected,
+    }
+}
+
+/// 一次捕获的行为选项。
+#[derive(Debug, Clone, Copy)]
+pub struct CaptureOptions {
+    /// 等待按键的时长。
+    pub timeout: Duration,
+    /// 是否接受其他程序注入的按键。
+    ///
+    /// Windows 的低级钩子能区分注入事件：监听器一律忽略（防止应用自动注入文本时
+    /// 自我反馈），自检则要看得到它们，否则被改键工具、键盘厂商驱动或输入法改写的键
+    /// 会被报成“没有收到任何按键”。Linux 的 evdev 路径区分不出注入，该选项无效。
+    pub accept_injected: bool,
+}
+
+/// “按下以设置”的捕获选项：等满捕获时长，只认物理按键。
+pub fn settings_capture_options() -> CaptureOptions {
+    CaptureOptions {
+        timeout: CAPTURE_TIMEOUT,
+        accept_injected: false,
+    }
+}
+
+/// 自检的捕获选项：等得短一些，并且要看到注入事件。
+pub fn probe_capture_options() -> CaptureOptions {
+    CaptureOptions {
+        timeout: PROBE_TIMEOUT,
+        accept_injected: true,
     }
 }
 
@@ -109,8 +150,8 @@ pub fn evaluate_probe(
 ///
 /// 由平台 adapter 实现。`capture()` 为同步阻塞方法，调用方负责在独立线程执行。
 pub trait KeyCapture: Send {
-    /// 阻塞等待一次物理按键，`timeout` 内没有按键时返回 [`CaptureOutcome::TimedOut`]。
-    fn capture(&mut self, timeout: Duration) -> Result<CaptureOutcome, String>;
+    /// 阻塞等待一次物理按键，时限内没有可接受的按键时返回 [`CaptureOutcome::TimedOut`]。
+    fn capture(&mut self, options: CaptureOptions) -> Result<CaptureOutcome, String>;
 }
 
 /// Windows 虚拟键码（Win32 `VK_*` 常量，与 `winuser.h` 一致）。
@@ -242,6 +283,7 @@ mod tests {
             key_name: "Alt_R".to_string(),
             linux_evdev_code: None,
             windows_vk_code: Some(0xA5),
+            injected: None,
         };
         let probe = evaluate_probe(Some(observed), "Alt_R".to_string(), Some(0xA5));
         assert!(probe.matched);
@@ -253,11 +295,40 @@ mod tests {
             key_name: "vk_0xA4".to_string(),
             linux_evdev_code: None,
             windows_vk_code: Some(0xA4),
+            injected: None,
         };
         let probe = evaluate_probe(Some(observed), "Alt_R".to_string(), Some(0xA5));
         assert!(!probe.matched);
         assert_eq!(probe.observed.as_ref().unwrap().raw_code(), Some(0xA4));
         assert_eq!(probe.configured_code, Some(0xA5));
+    }
+
+    /// 注入的按键即使键码与配置一致也触发起不了录：监听器一律忽略注入事件。
+    #[test]
+    fn probe_treats_injected_key_as_not_matched() {
+        let observed = CaptureActivationResponse {
+            key_name: "Alt_R".to_string(),
+            linux_evdev_code: None,
+            windows_vk_code: Some(0xA5),
+            injected: Some(true),
+        };
+        let probe = evaluate_probe(Some(observed), "Alt_R".to_string(), Some(0xA5));
+        assert!(probe.injected);
+        assert!(!probe.matched);
+    }
+
+    /// 物理按键照常判为命中，注入标记为假。
+    #[test]
+    fn probe_reports_physical_key_as_not_injected() {
+        let observed = CaptureActivationResponse {
+            key_name: "Alt_R".to_string(),
+            linux_evdev_code: None,
+            windows_vk_code: Some(0xA5),
+            injected: Some(false),
+        };
+        let probe = evaluate_probe(Some(observed), "Alt_R".to_string(), Some(0xA5));
+        assert!(!probe.injected);
+        assert!(probe.matched);
     }
 
     #[test]
@@ -274,6 +345,7 @@ mod tests {
             key_name: "ISO_Level3_Shift".to_string(),
             linux_evdev_code: Some(100),
             windows_vk_code: None,
+            injected: None,
         };
         let probe = evaluate_probe(Some(observed), "不存在的键".to_string(), None);
         assert!(!probe.matched);
@@ -285,6 +357,7 @@ mod tests {
             key_name: "Alt_R".to_string(),
             linux_evdev_code: None,
             windows_vk_code: Some(0xA5),
+            injected: None,
         };
         assert_eq!(windows.raw_code(), Some(0xA5));
 
@@ -292,6 +365,7 @@ mod tests {
             key_name: "ISO_Level3_Shift".to_string(),
             linux_evdev_code: Some(100),
             windows_vk_code: None,
+            injected: None,
         };
         assert_eq!(linux.raw_code(), Some(100));
     }

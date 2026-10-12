@@ -181,6 +181,22 @@ describe("Home 触发键自检卡", () => {
     expect(screen.getByRole("button", { name: /去设置/ })).toBeTruthy();
   });
 
+  it("抓到的是其他程序注入的键时说明不会起录", async () => {
+    stubProbe({
+      observed: { keyName: "Alt_R", linuxEvdevCode: null, windowsVkCode: 0xa5, injected: true },
+      configuredKeyName: "Alt_R",
+      configuredCode: 0xa5,
+      injected: true,
+      matched: false,
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+
+    expect(await screen.findByText("检测到的 右Alt 是其他程序注入的")).toBeTruthy();
+    expect(screen.getByText(/altgo 会忽略注入的按键/)).toBeTruthy();
+  });
+
   it("没有收到按键时报超时并给重试", async () => {
     stubProbe({
       observed: null,

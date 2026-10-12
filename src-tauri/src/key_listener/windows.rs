@@ -1,7 +1,8 @@
 //! Windows 按键监听器。
 //!
 //! 使用 `WH_KEYBOARD_LL` 低级键盘钩子在专属线程上接收全局按键事件，
-//! 无轮询、无子进程。钩子回调只做 VK 匹配与通道发送，保证快速返回
+//! 无轮询、无子进程。钩子过程只把原始事件转给调用方回调，注入过滤与
+//! VK 匹配都在回调里做，保证钩子过程快速返回
 //! （`LowLevelHooksTimeout` 超时会导致系统摘除钩子）。
 
 use super::{KeyEvent, KeyListener};
@@ -18,8 +19,18 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_SYSKEYUP,
 };
 
-/// 钩子线程回调：`(vk_code, pressed)`，仅物理按键（过滤注入事件）。
-pub(crate) type HookCallback = Box<dyn Fn(u16, bool) + Send>;
+/// 钩子线程收到的原始按键。
+pub(crate) struct HookEvent {
+    /// Windows 虚拟键码
+    pub vk: u16,
+    /// 是否为按下事件
+    pub pressed: bool,
+    /// 是否由其他程序注入（SendInput、改键工具、键盘厂商驱动、输入法）
+    pub injected: bool,
+}
+
+/// 钩子线程回调。只做转发，注入过滤与键码匹配留给调用方，保证钩子过程快速返回。
+pub(crate) type HookCallback = Box<dyn Fn(HookEvent) + Send>;
 
 thread_local! {
     static HOOK_CALLBACK: std::cell::RefCell<Option<HookCallback>> =
@@ -41,14 +52,16 @@ unsafe extern "system" fn ll_keyboard_proc(
             }
         };
         let info = &*(l_param.0 as *const KBDLLHOOKSTRUCT);
-        // 忽略 SendInput 等注入的合成事件，避免自动输入文本时自我反馈。
-        if (info.flags.0 & LLKHF_INJECTED.0) == 0 {
-            HOOK_CALLBACK.with(|cb| {
-                if let Some(cb) = cb.borrow().as_ref() {
-                    cb(info.vkCode as u16, pressed);
-                }
-            });
-        }
+        let event = HookEvent {
+            vk: info.vkCode as u16,
+            pressed,
+            injected: (info.flags.0 & LLKHF_INJECTED.0) != 0,
+        };
+        HOOK_CALLBACK.with(|cb| {
+            if let Some(cb) = cb.borrow().as_ref() {
+                cb(event);
+            }
+        });
     }
     CallNextHookEx(None, n_code, w_param, l_param)
 }
@@ -86,7 +99,7 @@ impl Drop for HookHandle {
 /// `on_event` 在钩子线程上被调用，只应做极轻量的转发工作。
 pub(crate) fn spawn_ll_keyboard_hook<F>(on_event: F) -> Result<HookHandle, String>
 where
-    F: Fn(u16, bool) + Send + 'static,
+    F: Fn(HookEvent) + Send + 'static,
 {
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<u32, String>>();
     let thread = std::thread::Builder::new()
@@ -165,9 +178,12 @@ impl KeyListener for WindowsKeyListener {
 
         let (tx, rx) = mpsc::unbounded_channel();
         let vk = self.vk_code;
-        let hook = spawn_ll_keyboard_hook(move |event_vk, pressed| {
-            if event_vk == vk {
-                let _ = tx.send(KeyEvent { pressed });
+        let hook = spawn_ll_keyboard_hook(move |event| {
+            // 忽略 SendInput 等注入的合成事件，避免应用自动注入文本时自我反馈。
+            if !event.injected && event.vk == vk {
+                let _ = tx.send(KeyEvent {
+                    pressed: event.pressed,
+                });
             }
         })
         .map_err(KeyListenerError::StartFailed)?;

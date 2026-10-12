@@ -9,7 +9,10 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::{evdev_code_to_keysym_name, CaptureActivationResponse, CaptureOutcome, KeyCapture};
+use super::{
+    evdev_code_to_keysym_name, CaptureActivationResponse, CaptureOptions, CaptureOutcome,
+    KeyCapture,
+};
 
 /// Alt 键的 evdev keycode（与 `linux/input-event-codes.h` 一致）。
 const EVDEV_KEY_ALT: u16 = 56; // KEY_LEFTALT
@@ -64,8 +67,8 @@ impl Default for LinuxKeyCapture {
 }
 
 impl KeyCapture for LinuxKeyCapture {
-    fn capture(&mut self, timeout: Duration) -> Result<CaptureOutcome, String> {
-        capture_activation_key_blocking(timeout)
+    fn capture(&mut self, options: CaptureOptions) -> Result<CaptureOutcome, String> {
+        capture_activation_key_blocking(options.timeout)
     }
 }
 
@@ -214,6 +217,8 @@ fn capture_activation_key_blocking(timeout: Duration) -> Result<CaptureOutcome, 
         key_name,
         linux_evdev_code: Some(code),
         windows_vk_code: None,
+        // evdev 路径区分不出事件是不是其他程序注入的。
+        injected: None,
     }))
 }
 

@@ -141,7 +141,7 @@ pub async fn capture_activation_key(
 ) -> Result<crate::key_capture::CaptureActivationResponse, String> {
     stop_pipeline_and_settle(&controller).await;
 
-    match capture_once(crate::key_capture::CAPTURE_TIMEOUT).await {
+    match capture_once(crate::key_capture::settings_capture_options()).await {
         Ok(crate::key_capture::CaptureOutcome::Captured(response)) => Ok(response),
         Ok(crate::key_capture::CaptureOutcome::TimedOut) => {
             Err(crate::key_capture::capture_timeout_message().to_string())
@@ -160,9 +160,11 @@ async fn stop_pipeline_and_settle(controller: &PipelineController) {
 }
 
 /// 在阻塞线程上跑一次平台按键捕获。调用方负责先停流水线。
-async fn capture_once(timeout: Duration) -> Result<crate::key_capture::CaptureOutcome, String> {
+async fn capture_once(
+    options: crate::key_capture::CaptureOptions,
+) -> Result<crate::key_capture::CaptureOutcome, String> {
     match tokio::task::spawn_blocking(move || {
-        crate::key_capture::PlatformKeyCapture::new().capture(timeout)
+        crate::key_capture::PlatformKeyCapture::new().capture(options)
     })
     .await
     {
@@ -187,7 +189,7 @@ pub async fn probe_activation_key(
     let cfg = Arc::new(config_store.snapshot().await);
 
     stop_pipeline_and_settle(&controller).await;
-    let outcome = capture_once(crate::key_capture::PROBE_TIMEOUT).await;
+    let outcome = capture_once(crate::key_capture::probe_capture_options()).await;
 
     let status_arc = controller.status_arc();
     let app_for_spawn = app.clone();
@@ -231,6 +233,7 @@ where
         configured_code = ?probe.configured_code,
         observed_key_name = ?probe.observed.as_ref().map(|o| o.key_name.clone()),
         observed_code = ?probe.observed.as_ref().and_then(|o| o.raw_code()),
+        injected = probe.injected,
         matched = probe.matched,
         "activation key probe"
     );

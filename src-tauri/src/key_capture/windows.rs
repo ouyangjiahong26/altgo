@@ -3,9 +3,10 @@
 //! 临时挂一个低级键盘钩子，阻塞等待下一次物理按键。
 
 use std::sync::mpsc;
-use std::time::Duration;
 
-use super::{windows_vk_code_to_name, CaptureActivationResponse, CaptureOutcome, KeyCapture};
+use super::{
+    windows_vk_code_to_name, CaptureActivationResponse, CaptureOptions, CaptureOutcome, KeyCapture,
+};
 use crate::key_listener::windows::{spawn_ll_keyboard_hook, HookHandle};
 
 /// Windows 平台激活键捕获器。
@@ -24,10 +25,16 @@ impl Default for WindowsKeyCapture {
 }
 
 impl KeyCapture for WindowsKeyCapture {
-    fn capture(&mut self, timeout: Duration) -> Result<CaptureOutcome, String> {
-        let (tx, rx) = mpsc::sync_channel::<u16>(1);
-        let hook: HookHandle = spawn_ll_keyboard_hook(move |vk, pressed| {
-            if pressed && tx.send(vk).is_ok() {
+    fn capture(&mut self, options: CaptureOptions) -> Result<CaptureOutcome, String> {
+        let (tx, rx) = mpsc::sync_channel::<(u16, bool)>(1);
+        let hook: HookHandle = spawn_ll_keyboard_hook(move |event| {
+            if !event.pressed {
+                return;
+            }
+            if event.injected && !options.accept_injected {
+                return;
+            }
+            if tx.send((event.vk, event.injected)).is_ok() {
                 // 收到第一个按键即结束钩子线程。
                 unsafe {
                     let tid = windows::Win32::System::Threading::GetCurrentThreadId();
@@ -42,15 +49,16 @@ impl KeyCapture for WindowsKeyCapture {
         })
         .map_err(|e| format!("键盘钩子启动失败: {e}"))?;
 
-        let pressed = rx.recv_timeout(timeout).ok();
+        let pressed = rx.recv_timeout(options.timeout).ok();
 
         drop(hook); // 确保 WM_QUIT 后钩子线程被回收
 
         Ok(match pressed {
-            Some(vk) => CaptureOutcome::Captured(CaptureActivationResponse {
+            Some((vk, injected)) => CaptureOutcome::Captured(CaptureActivationResponse {
                 key_name: windows_vk_code_to_name(vk),
                 linux_evdev_code: None,
                 windows_vk_code: Some(vk),
+                injected: Some(injected),
             }),
             None => CaptureOutcome::TimedOut,
         })
