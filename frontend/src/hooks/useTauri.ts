@@ -71,10 +71,6 @@ export function usePipelineError(): PipelineErrorPayload | null {
   return useTauriEvent<PipelineErrorPayload | null>("pipeline-error", null);
 }
 
-export function useKeyListenerBackend(): string | null {
-  return useTauriEvent<string | null>("key-listener-backend", null);
-}
-
 /**
  * 自检的捕获就绪信号：停流水线到捕获钩子挂上之间按下的键收不到，
  * 界面要等到这个信号之后才提示用户按键。返回累计就绪次数，

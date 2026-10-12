@@ -2,7 +2,6 @@ import {
   useStatus,
   useLatestTranscription,
   usePipelineError,
-  useKeyListenerBackend,
   useKeyProbeArmed,
   useTranscriptionProgress,
   usePendingRecording,
@@ -276,10 +275,9 @@ export default function Home() {
   const status = useStatus();
   const transcription = useLatestTranscription();
   const error = usePipelineError();
-  const keyBackend = useKeyListenerBackend();
-  const txProgress = useTranscriptionProgress();
   const pending = usePendingRecording();
   const probeArmed = useKeyProbeArmed();
+  const txProgress = useTranscriptionProgress();
   const [copied, setCopied] = useState(false);
   const [triggerLabel, setTriggerLabel] = useState("");
   // 首次进主页把自检卡展开一次，展开即记下：用户没交互就离开，回来也不再展开。
@@ -478,9 +476,6 @@ export default function Home() {
                 />
               </div>
             </div>
-          )}
-          {keyBackend && (
-            <p className="home-key-backend">{t(`main.key_backend_${keyBackend}`)}</p>
           )}
         </div>
       ) : (

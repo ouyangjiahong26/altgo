@@ -24,8 +24,8 @@
   gap: var(--space-2);
   text-align: center;
   /* 空态在窗里占据一块有分寸的高度：既不是贴在顶上，也不留一整片空白 */
-  min-height: 210px;
-  padding: var(--space-5) 0 var(--space-6);
+  min-height: 132px;
+  padding: var(--space-3) 0 var(--space-4);
   animation: home-panel-in var(--duration-slow) var(--ease-out) both;
 }
 
@@ -88,16 +88,6 @@
 
 .home-copy-done {
   color: var(--color-green);
-}
-
-/* 当前引擎与触发键：一行元信息，靠分隔点区分 */
-.home-key-backend {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-2xs);
-  color: var(--color-text-muted);
-  line-height: var(--leading-relaxed);
 }
 
 /* 空态的主提示：把“按住哪个键”说清楚，这是新用户唯一的疑问 */
