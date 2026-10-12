@@ -139,8 +139,7 @@ pub async fn save_config(
 pub async fn capture_activation_key(
     controller: State<'_, PipelineController>,
 ) -> Result<crate::key_capture::CaptureActivationResponse, String> {
-    controller.stop().await;
-    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    stop_pipeline_and_settle(&controller).await;
 
     match capture_once(crate::key_capture::CAPTURE_TIMEOUT).await {
         Ok(crate::key_capture::CaptureOutcome::Captured(response)) => Ok(response),
@@ -149,6 +148,15 @@ pub async fn capture_activation_key(
         }
         Err(e) => Err(e),
     }
+}
+
+/// 流水线停止后、重新挂钩前留出的间隔，避免与尚未注销的旧监听器抢钩子与设备节点。
+const KEY_CAPTURE_SETTLE_DELAY: Duration = Duration::from_millis(400);
+
+/// 停流水线并等它把键盘资源交还。捕获与自检都要独占键盘，收尾共用这一段。
+async fn stop_pipeline_and_settle(controller: &PipelineController) {
+    controller.stop().await;
+    tokio::time::sleep(KEY_CAPTURE_SETTLE_DELAY).await;
 }
 
 /// 在阻塞线程上跑一次平台按键捕获。调用方负责先停流水线。
@@ -163,9 +171,9 @@ async fn capture_once(timeout: Duration) -> Result<crate::key_capture::CaptureOu
     }
 }
 
-/// 触发键自检：让用户按一次键，回报抓到的键与当前配置的触发键是否一致。
+/// 激活键自检：让用户按一次键，回报抓到的键与当前配置的激活键是否一致。
 ///
-/// 探测期间停流水线：不停的话按下触发键会真的录一段音，用户拿到的是
+/// 探测期间停流水线：不停的话按下激活键会真的录一段音，用户拿到的是
 /// 一段无声转写。无论探测成败都要把流水线起回来，否则自检一次就失灵。
 ///
 /// 抓到的键码与配置键码都记进日志：Windows 上“按了没反应”的机器往往不在
@@ -178,8 +186,7 @@ pub async fn probe_activation_key(
 ) -> Result<crate::key_capture::ActivationKeyProbe, String> {
     let cfg = Arc::new(config_store.snapshot().await);
 
-    controller.stop().await;
-    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    stop_pipeline_and_settle(&controller).await;
     let outcome = capture_once(crate::key_capture::PROBE_TIMEOUT).await;
 
     let status_arc = controller.status_arc();

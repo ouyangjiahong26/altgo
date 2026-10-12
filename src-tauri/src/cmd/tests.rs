@@ -146,7 +146,7 @@ async fn restart_pipeline_passes_supplied_config_to_spawn() {
 }
 
 /// 自检只在探测期间停流水线，探测结束必须把它起回来。停完不起，
-/// 用户点一次“检测触发键”就会把触发键彻底弄失灵，且没有任何提示。
+/// 用户点一次“检测触发键”就会把激活键彻底弄失灵，且没有任何提示。
 #[tokio::test]
 async fn probe_activation_key_core_restarts_pipeline() {
     let controller = PipelineController::new();

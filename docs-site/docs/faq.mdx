@@ -37,7 +37,7 @@ title: 常见问题
 
 **Windows：**
 
-altgo 在 Windows 上用的是全局低级键盘钩子，其他程序注册同一个热键不会让钩子收不到按键，所以“被别的软件占用”通常不是原因。钩子本身失灵集中在三种情况：`SetWindowsHookExW` 失败、回调超时被系统摘钩、键位重映射工具在更底层把按键换掉。用 `RUST_LOG=altgo=debug altgo` 启动，日志里应当出现带 `key` 与 `vk` 字段的 `Windows keyboard hook installed`。要报问题时把检测卡上的两个键码与这段日志一并附上。
+altgo 在 Windows 上用的是全局低级键盘钩子，其他程序注册同一个热键不会让钩子收不到按键，所以“被别的软件占用”通常不是原因。钩子本身失灵集中在三种情况：`SetWindowsHookExW` 失败、回调超时被系统摘钩、键位重映射工具在更底层把按键换掉。用 `RUST_LOG=altgo=debug altgo` 启动，日志里应当出现带 `key` 与 `vk` 字段的 `Windows keyboard hook installed`。要报问题时把这段日志与检测卡上的原始键码一并附上，键码只在与配置的触发键不一致时显示在诊断行里。
 
 ### 误触发 / IME 冲突
 

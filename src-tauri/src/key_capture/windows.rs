@@ -63,3 +63,13 @@ impl KeyCapture for WindowsKeyCapture {
 pub fn configured_match_code(key_name: &str, captured_code: Option<u16>) -> Option<u16> {
     captured_code.or_else(|| super::key_name_to_windows_vk(key_name))
 }
+
+/// 超时未检测到按键时给用户的提示。
+pub fn capture_timeout_message() -> &'static str {
+    "超时：未检测到按键"
+}
+
+/// 当前配置下监听器实际用于匹配的 VK 码，供自检比对。
+pub fn configured_match_code_from_config(cfg: &crate::config::KeyListenerConfig) -> Option<u16> {
+    configured_match_code(&cfg.key_name, cfg.windows_vk_code)
+}

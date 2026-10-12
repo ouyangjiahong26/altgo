@@ -130,6 +130,17 @@ describe("Home 触发键自检卡", () => {
     expect(screen.getByRole("button", { name: /检测触发键/ })).toBeTruthy();
   });
 
+  it("展开过提示卡后重新挂载不再自动展开", async () => {
+    const first = renderHome();
+    expect(await screen.findByText("先确认触发键能用")).toBeTruthy();
+    first.unmount();
+
+    renderHome();
+
+    await screen.findByRole("button", { name: /检测触发键/ });
+    expect(screen.queryByText("先确认触发键能用")).toBeNull();
+  });
+
   it("已看过提示时只显示入口按钮", async () => {
     localStorage.setItem("altgo-hotkey-hint-seen", "1");
     renderHome();
@@ -183,6 +194,7 @@ describe("Home 触发键自检卡", () => {
 
     expect(await screen.findByText("没有收到任何按键")).toBeTruthy();
     expect(screen.getByRole("button", { name: /重试/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /去设置/ })).toBeTruthy();
   });
 
   it("检测命令失败时显示原因", async () => {

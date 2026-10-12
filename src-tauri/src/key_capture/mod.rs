@@ -1,4 +1,4 @@
-//! 短时捕获用户按下的物理键，用于“按下以设置”触发键与触发键自检。
+//! 短时捕获用户按下的物理键，用于“按下以设置”激活键与激活键自检。
 //!
 //! 捕获结果带平台原始键码（Windows 为 VK，Linux 为 evdev），与监听器
 //! 实际用于匹配的码一致，因此可以直接判断按下的键能不能触发录音。
@@ -24,9 +24,13 @@ pub type PlatformKeyCapture = LinuxKeyCapture;
 pub type PlatformKeyCapture = WindowsKeyCapture;
 
 #[cfg(target_os = "linux")]
-pub use linux::configured_match_code;
+pub use linux::{
+    capture_timeout_message, configured_match_code, configured_match_code_from_config,
+};
 #[cfg(target_os = "windows")]
-pub use windows::configured_match_code;
+pub use windows::{
+    capture_timeout_message, configured_match_code, configured_match_code_from_config,
+};
 
 use serde::Serialize;
 
@@ -50,35 +54,26 @@ impl CaptureActivationResponse {
 /// “按下以设置”等待按键的时长。
 pub const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
 
-/// 触发键自检等待按键的时长。用户正盯着结果看，不必等满捕获时长。
+/// 激活键自检等待按键的时长。用户正盯着结果看，不必等满捕获时长。
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 
 /// 一次捕获的结局。
 ///
 /// 超时是与“抓到按键”并列的独立结局：设置页把它当失败展示，
-/// 触发键自检要把它和“抓到了但键不对”讲成两件事。
+/// 激活键自检要把它和“抓到了但键不对”讲成两件事。
 #[derive(Debug)]
 pub enum CaptureOutcome {
     Captured(CaptureActivationResponse),
     TimedOut,
 }
 
-/// 超时未检测到按键时给用户的提示。各平台的排查方向不同。
-pub fn capture_timeout_message() -> &'static str {
-    #[cfg(target_os = "linux")]
-    const MESSAGE: &str = "超时：未检测到按键（请确认对 /dev/input 有读权限，如在 input 组）";
-    #[cfg(target_os = "windows")]
-    const MESSAGE: &str = "超时：未检测到按键";
-    MESSAGE
-}
-
-/// 触发键自检结果：按下触发键后能不能被监听器认出来。
+/// 激活键自检结果：按下激活键后能不能被监听器认出来。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivationKeyProbe {
     /// 实际抓到的按键，超时为 `None`。
     pub observed: Option<CaptureActivationResponse>,
-    /// 当前配置里的触发键名。
+    /// 当前配置里的激活键名。
     pub configured_key_name: String,
     /// 监听器实际用于匹配的键码（Windows 为 VK，Linux 为 evdev），解析不出为 `None`。
     pub configured_code: Option<u16>,
@@ -107,20 +102,6 @@ pub fn evaluate_probe(
         configured_key_name,
         configured_code,
         matched,
-    }
-}
-
-/// 当前配置下监听器实际用于匹配的键码，供自检比对。
-///
-/// 平台差异只在取哪个配置字段：Windows 用 VK，Linux 用 evdev。
-pub fn configured_match_code_from_config(cfg: &crate::config::KeyListenerConfig) -> Option<u16> {
-    #[cfg(target_os = "linux")]
-    {
-        Some(configured_match_code(&cfg.key_name, cfg.linux_evdev_code))
-    }
-    #[cfg(target_os = "windows")]
-    {
-        configured_match_code(&cfg.key_name, cfg.windows_vk_code)
     }
 }
 

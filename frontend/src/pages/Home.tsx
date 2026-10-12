@@ -92,14 +92,119 @@ function renderTriggerPrompt(template: string, keyLabel: string) {
   );
 }
 
-interface ProbeCardProps {
-  probe: ProbeCardView;
-  triggerLabel: string;
-  t: (key: string) => string;
+/** 自检卡要用的动作回调。 */
+interface ProbeHandlers {
   onBegin: () => void;
   onRetry: () => void;
   onClose: () => void;
   onSettings: () => void;
+}
+
+interface ProbeCardProps extends ProbeHandlers {
+  probe: ProbeCardView;
+  triggerLabel: string;
+  t: (key: string) => string;
+}
+
+/** 自检卡上的一个动作：标签、点击行为，以及是否为该状态的主操作。 */
+interface ProbeAction {
+  label: string;
+  onClick: () => void;
+  primary?: boolean;
+  icon?: React.ReactNode;
+}
+
+/** 自检卡的动作行：同一行小按钮，主操作最多一个。 */
+function ProbeActions({ actions }: { actions: ProbeAction[] }) {
+  return (
+    <div className="home-probe-actions">
+      {actions.map((action) => (
+        <button
+          key={action.label}
+          type="button"
+          className={`btn btn-sm ${action.primary ? "btn-primary" : "btn-secondary"}`}
+          onClick={action.onClick}
+        >
+          {action.icon}
+          <span>{action.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** 每个状态的一句话与补充说明。 */
+function probeText(
+  probe: ProbeCardView,
+  triggerLabel: string,
+  t: (key: string) => string,
+): { head: string; detail: string } {
+  switch (probe.kind) {
+    case "prompt":
+      return { head: t("main.probe_prompt_title"), detail: t("main.probe_prompt_detail") };
+    case "probing":
+      return {
+        head: fill(t("main.probe_prompt"), { key: triggerLabel }),
+        detail: t("main.probe_probing_detail"),
+      };
+    case "matched":
+      return {
+        head: fill(t("main.probe_matched"), { key: probe.key }),
+        detail: t("main.probe_matched_detail"),
+      };
+    case "mismatch":
+      return {
+        head: fill(t("main.probe_mismatch"), {
+          observed: probe.observedLabel,
+          configured: probe.configuredLabel,
+        }),
+        detail: fill(t("main.probe_mismatch_detail"), { observed: probe.observedLabel }),
+      };
+    case "timeout":
+      return { head: t("main.probe_timeout"), detail: t("main.probe_timeout_detail") };
+    case "error":
+      return { head: fill(t("main.probe_error"), { message: probe.message }), detail: "" };
+  }
+}
+
+/** 每个状态的动作，主操作排在最前。 */
+function probeActions(
+  probe: ProbeCardView,
+  t: (key: string) => string,
+  handlers: ProbeHandlers,
+): ProbeAction[] {
+  switch (probe.kind) {
+    case "prompt":
+      return [
+        {
+          label: t("main.probe_begin"),
+          onClick: handlers.onBegin,
+          primary: true,
+          icon: <Keyboard size={13} />,
+        },
+        { label: t("main.probe_skip"), onClick: handlers.onClose },
+      ];
+    case "probing":
+      return [];
+    case "matched":
+      return [{ label: t("main.probe_close"), onClick: handlers.onClose }];
+    case "mismatch":
+      return [
+        { label: t("main.probe_settings"), onClick: handlers.onSettings, primary: true },
+        { label: t("main.probe_close"), onClick: handlers.onClose },
+      ];
+    case "timeout":
+      return [
+        { label: t("main.probe_retry"), onClick: handlers.onRetry, primary: true },
+        { label: t("main.probe_settings"), onClick: handlers.onSettings },
+        { label: t("main.probe_close"), onClick: handlers.onClose },
+      ];
+    case "error":
+      return [
+        { label: t("main.probe_retry"), onClick: handlers.onRetry },
+        { label: t("main.probe_close"), onClick: handlers.onClose },
+      ];
+  }
 }
 
 /**
@@ -108,94 +213,9 @@ interface ProbeCardProps {
  * 抓到的键码与配置键码在不一致时一并显示：出问题的机器常常不在开发者手边，
  * 这两行是用户唯一能抄回来的现场数据。
  */
-function ProbeCard({
-  probe,
-  triggerLabel,
-  t,
-  onBegin,
-  onRetry,
-  onClose,
-  onSettings,
-}: ProbeCardProps) {
-  let head = "";
-  let detail = "";
-  let actions: React.ReactNode = null;
-
-  switch (probe.kind) {
-    case "prompt":
-      head = t("main.probe_prompt_title");
-      detail = t("main.probe_prompt_detail");
-      actions = (
-        <>
-          <button type="button" className="btn btn-sm btn-primary" onClick={onBegin}>
-            <Keyboard size={13} />
-            <span>{t("main.probe_begin")}</span>
-          </button>
-          <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>
-            <span>{t("main.probe_skip")}</span>
-          </button>
-        </>
-      );
-      break;
-    case "probing":
-      head = fill(t("main.probe_prompt"), { key: triggerLabel });
-      detail = t("main.probe_probing_detail");
-      break;
-    case "matched":
-      head = fill(t("main.probe_matched"), { key: probe.key });
-      detail = t("main.probe_matched_detail");
-      actions = (
-        <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>
-          <span>{t("main.probe_close")}</span>
-        </button>
-      );
-      break;
-    case "mismatch":
-      head = fill(t("main.probe_mismatch"), {
-        observed: probe.observedLabel,
-        configured: probe.configuredLabel,
-      });
-      detail = fill(t("main.probe_mismatch_detail"), { observed: probe.observedLabel });
-      actions = (
-        <>
-          <button type="button" className="btn btn-sm btn-primary" onClick={onSettings}>
-            <span>{t("main.probe_settings")}</span>
-          </button>
-          <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>
-            <span>{t("main.probe_close")}</span>
-          </button>
-        </>
-      );
-      break;
-    case "timeout":
-      head = t("main.probe_timeout");
-      detail = t("main.probe_timeout_detail");
-      actions = (
-        <>
-          <button type="button" className="btn btn-sm btn-secondary" onClick={onRetry}>
-            <span>{t("main.probe_retry")}</span>
-          </button>
-          <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>
-            <span>{t("main.probe_close")}</span>
-          </button>
-        </>
-      );
-      break;
-    case "error":
-      head = fill(t("main.probe_error"), { message: probe.message });
-      actions = (
-        <>
-          <button type="button" className="btn btn-sm btn-secondary" onClick={onRetry}>
-            <span>{t("main.probe_retry")}</span>
-          </button>
-          <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>
-            <span>{t("main.probe_close")}</span>
-          </button>
-        </>
-      );
-      break;
-  }
-
+function ProbeCard({ probe, triggerLabel, t, onBegin, onRetry, onClose, onSettings }: ProbeCardProps) {
+  const { head, detail } = probeText(probe, triggerLabel, t);
+  const actions = probeActions(probe, t, { onBegin, onRetry, onClose, onSettings });
   const unresolved = t("main.probe_code_unresolved");
 
   return (
@@ -210,14 +230,13 @@ function ProbeCard({
       {probe.kind === "mismatch" && (
         <p className="home-probe-diagnostic">
           {fill(t("main.probe_diagnostic"), {
-            observed:
-              probe.observedCode === null ? unresolved : codeLabel(probe.observedCode),
+            observed: probe.observedCode === null ? unresolved : codeLabel(probe.observedCode),
             configured:
               probe.configuredCode === null ? unresolved : codeLabel(probe.configuredCode),
           })}
         </p>
       )}
-      {actions && <div className="home-probe-actions">{actions}</div>}
+      {actions.length > 0 && <ProbeActions actions={actions} />}
     </div>
   );
 }
@@ -233,7 +252,7 @@ export default function Home() {
   const pending = usePendingRecording();
   const [copied, setCopied] = useState(false);
   const [triggerLabel, setTriggerLabel] = useState("");
-  // 首次进主页把自检卡展开一次，用户看过之后入口收成一行按钮。
+  // 首次进主页把自检卡展开一次，展开即记下：用户没交互就离开，回来也不再展开。
   const [probe, setProbe] = useState<ProbeView>(() =>
     hasSeenHotkeyHint() ? { kind: "closed" } : { kind: "prompt" },
   );
@@ -275,6 +294,10 @@ export default function Home() {
     // t 随语言切换变化，切换语言时需要重新取标签文案
   }, [t]);
 
+  useEffect(() => {
+    if (probe.kind === "prompt") markHotkeyHintSeen();
+  }, [probe.kind]);
+
   const runProbe = async () => {
     setProbe({ kind: "probing" });
     try {
@@ -298,16 +321,6 @@ export default function Home() {
     } catch (e) {
       setProbe({ kind: "error", message: String(e) });
     }
-  };
-
-  const beginProbe = () => {
-    markHotkeyHintSeen();
-    void runProbe();
-  };
-
-  const closeProbe = () => {
-    markHotkeyHintSeen();
-    setProbe({ kind: "closed" });
   };
 
   const statusMap: Record<string, "idle" | "recording" | "processing" | "done"> = {
@@ -380,7 +393,7 @@ export default function Home() {
                 <button
                   type="button"
                   className="btn btn-sm btn-secondary home-probe-open"
-                  onClick={beginProbe}
+                  onClick={() => void runProbe()}
                 >
                   <Keyboard size={13} />
                   <span>{t("main.probe_open")}</span>
@@ -390,9 +403,9 @@ export default function Home() {
                   probe={probe}
                   triggerLabel={triggerLabel}
                   t={t}
-                  onBegin={beginProbe}
+                  onBegin={() => void runProbe()}
                   onRetry={() => void runProbe()}
-                  onClose={closeProbe}
+                  onClose={() => setProbe({ kind: "closed" })}
                   onSettings={() => navigate("/settings")}
                 />
               )}

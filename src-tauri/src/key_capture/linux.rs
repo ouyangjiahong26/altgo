@@ -37,6 +37,16 @@ pub fn configured_match_code(key_name: &str, captured_code: Option<u16>) -> u16 
     }
 }
 
+/// 超时未检测到按键时给用户的提示。Linux 上最常见的原因是读不到输入设备节点。
+pub fn capture_timeout_message() -> &'static str {
+    "超时：未检测到按键（请确认对 /dev/input 有读权限，如在 input 组）"
+}
+
+/// 当前配置下监听器在 evtest 路径上实际用于匹配的键码。
+pub fn configured_match_code_from_config(cfg: &crate::config::KeyListenerConfig) -> Option<u16> {
+    Some(configured_match_code(&cfg.key_name, cfg.linux_evdev_code))
+}
+
 /// Linux 平台激活键捕获器。
 pub struct LinuxKeyCapture;
 
