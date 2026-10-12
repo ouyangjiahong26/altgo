@@ -33,6 +33,12 @@ impl KeyCapture for WindowsKeyCapture {
         } = options;
         let (tx, rx) = mpsc::sync_channel::<(u16, bool)>(1);
         let hook: HookHandle = spawn_ll_keyboard_hook(move |event| {
+            tracing::debug!(
+                vk = event.vk,
+                pressed = event.pressed,
+                injected = event.injected,
+                "key capture hook event"
+            );
             if !event.pressed {
                 return;
             }
@@ -55,6 +61,11 @@ impl KeyCapture for WindowsKeyCapture {
         .map_err(|e| format!("键盘钩子启动失败: {e}"))?;
 
         // 钩子已挂上，此后按键才收得到。
+        tracing::debug!(
+            timeout_ms = timeout.as_millis() as u64,
+            accept_injected,
+            "key capture hook armed"
+        );
         if let Some(on_armed) = on_armed {
             on_armed();
         }

@@ -189,6 +189,7 @@ impl KeyListener for WindowsKeyListener {
                 return;
             }
             if event.vk == vk {
+                tracing::debug!(vk, pressed = event.pressed, "configured key received");
                 let _ = tx.send(KeyEvent {
                     pressed: event.pressed,
                 });

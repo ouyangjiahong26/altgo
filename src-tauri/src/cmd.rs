@@ -141,7 +141,7 @@ pub async fn capture_activation_key(
 ) -> Result<crate::key_capture::CaptureActivationResponse, String> {
     stop_pipeline_and_settle(&controller).await;
 
-    match capture_once(crate::key_capture::settings_capture_options()).await {
+    match capture_result(start_capture(crate::key_capture::settings_capture_options())).await {
         Ok(crate::key_capture::CaptureOutcome::Captured(response)) => Ok(response),
         Ok(crate::key_capture::CaptureOutcome::TimedOut) => {
             Err(crate::key_capture::capture_timeout_message().to_string())
@@ -162,15 +162,20 @@ async fn stop_pipeline_and_settle(controller: &PipelineController) {
 /// 自检捕获就绪事件：界面收到后才提示用户按键。
 const KEY_PROBE_ARMED_EVENT: &str = "key-probe-armed";
 
-/// 在阻塞线程上跑一次平台按键捕获。调用方负责先停流水线。
-async fn capture_once(
-    options: crate::key_capture::CaptureOptions,
-) -> Result<crate::key_capture::CaptureOutcome, String> {
-    match tokio::task::spawn_blocking(move || {
+/// 阻塞线程上的按键捕获句柄。
+type CaptureTask = tokio::task::JoinHandle<Result<crate::key_capture::CaptureOutcome, String>>;
+
+/// 在阻塞线程上启动一次平台按键捕获。调用方决定先停流水线还是先装钩子，
+/// 再取结果：两者顺序不同，丢失按键的窗口落在不同的人身上。
+fn start_capture(options: crate::key_capture::CaptureOptions) -> CaptureTask {
+    tokio::task::spawn_blocking(move || {
         crate::key_capture::PlatformKeyCapture::new().capture(options)
     })
-    .await
-    {
+}
+
+/// 取捕获结果，把阻塞线程自身的失败也折成错误串。
+async fn capture_result(task: CaptureTask) -> Result<crate::key_capture::CaptureOutcome, String> {
+    match task.await {
         Ok(result) => result,
         Err(e) => Err(e.to_string()),
     }
@@ -191,17 +196,18 @@ pub async fn probe_activation_key(
 ) -> Result<crate::key_capture::ActivationKeyProbe, String> {
     let cfg = Arc::new(config_store.snapshot().await);
 
-    stop_pipeline_and_settle(&controller).await;
-
-    // 停流水线到钩子挂上之间有一段空档，期间按下的键必然收不到，
-    // 所以先让界面停在“准备中”，钩子就绪后再发事件请用户按。
+    // 先装捕获钩子再停流水线：装钩子只要几毫秒，而用户往往一点下就按键，
+    // 顺序反了就会有一段“界面已提示、钩子还没装”的空档，那几次按下的键全丢。
+    // 停流水线本身只要几毫秒，期间按键最多触发一次随即被丢弃的录音。
     let app_for_armed = app.clone();
-    let outcome = capture_once(crate::key_capture::probe_capture_options(Box::new(
+    let capture = start_capture(crate::key_capture::probe_capture_options(Box::new(
         move || {
             let _ = app_for_armed.emit(KEY_PROBE_ARMED_EVENT, ());
         },
-    )))
-    .await;
+    )));
+
+    stop_pipeline_and_settle(&controller).await;
+    let outcome = capture_result(capture).await;
 
     let status_arc = controller.status_arc();
     let app_for_spawn = app.clone();
