@@ -24,31 +24,14 @@
   gap: var(--space-2);
   text-align: center;
   /* 空态在窗里占据一块有分寸的高度：既不是贴在顶上，也不留一整片空白 */
-  min-height: 210px;
-  padding: var(--space-5) 0 var(--space-6);
+  min-height: 132px;
+  padding: var(--space-3) 0 var(--space-4);
   animation: home-panel-in var(--duration-slow) var(--ease-out) both;
 }
 
 /* 空闲态的文案用最弱一级颜色，等真在录音/转写时色彩才跳出来 */
 .home-idle .home-status-text {
   color: var(--color-text-secondary);
-}
-
-/* 状态行：状态指示 + 操作提示（提示过长时折行，不省略） */
-.home-status-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-}
-
-.home-hint {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: var(--leading-relaxed);
-  text-align: left;
 }
 
 /* 状态：着色小圆点 + 状态文字（录音时圆点呼吸） */
@@ -90,16 +73,6 @@
   color: var(--color-green);
 }
 
-/* 当前引擎与触发键：一行元信息，靠分隔点区分 */
-.home-key-backend {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-2xs);
-  color: var(--color-text-muted);
-  line-height: var(--leading-relaxed);
-}
-
 /* 空态的主提示：把“按住哪个键”说清楚，这是新用户唯一的疑问 */
 .home-trigger-hint {
   max-width: 34ch;
@@ -114,6 +87,70 @@
   vertical-align: baseline;
   height: 20px;
   margin: 0 3px;
+}
+
+/* ── 触发键自检卡 ───────────────────────────────
+   空态里的自检入口：默认收成一行按钮，展开后把“按下的键能不能被认出来”
+   讲成一句话，并给出下一步动作。 */
+
+.home-probe-area {
+  width: 100%;
+  margin-top: var(--space-2);
+  display: flex;
+  justify-content: center;
+}
+
+/* 入口保持安静：空态的主角是“按住哪个键说话”，自检是备选动作 */
+.home-probe-open {
+  color: var(--color-text-muted);
+}
+
+.home-probe-open:hover {
+  color: var(--color-text);
+}
+
+.home-probe {
+  width: 100%;
+  max-width: 34ch;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  text-align: left;
+}
+
+.home-probe-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--color-text);
+  line-height: var(--leading-normal);
+}
+
+.home-probe-detail {
+  margin-top: var(--space-1);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+/* 键码原文：出问题的机器不在开发者手边，用户要能原样抄回来 */
+.home-probe-diagnostic {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+  word-break: break-word;
+}
+
+.home-probe-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 /* 历史面板嵌在主页内，去掉其页面级留白 */

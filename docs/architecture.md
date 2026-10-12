@@ -223,11 +223,11 @@ lib.rs
 
 ### 命令
 
-`cmd.rs` 暴露 21 个命令：
+`cmd.rs` 暴露 23 个命令：
 
-- 配置 5：`get_config`、`save_config`、`capture_activation_key`、`test_polisher_connection`、`fetch_provider_catalog`
+- 配置 6：`get_config`、`save_config`、`capture_activation_key`、`probe_activation_key`、`test_polisher_connection`、`fetch_provider_catalog`
 - 更新 2：`check_update`、`install_update`
-- 流水线 1：`start_pipeline`
+- 流水线 2：`start_pipeline`、`restart_listener`
 - 悬浮窗 2：`copy_text`、`hide_overlay`
 - 模型 4：`list_models`、`download_model`、`delete_model`、`resolve_model`
 - 历史 4：`list_history`、`delete_history_entries`、`clear_history`、`polish_history_entry`

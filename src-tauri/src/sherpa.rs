@@ -1,9 +1,9 @@
 //! 本地语音识别后端（sherpa-onnx 内嵌）。
 //!
 //! 支持两种引擎（`crate::model::EngineKind`）：SenseVoice（多语种自动检测）
-//! 与 FireRedASR2 CTC（中英混说更强）。模型在管道启动时加载一次并常驻内存，
-//! 之后每句话只做波形解码与推理。不走子进程方案：SenseVoice int8 模型
-//! 约 230 MB、FireRedASR2 CTC 约 740 MB，每次冷载往往比转写本身还久。
+//! 与 FireRedASR2 CTC（中英混说更强）。模型在管道启动时于后台加载一次并常驻内存，
+//! 加载期间监听与录音已经可用；之后每句话只做波形解码与推理。不走子进程方案：
+//! SenseVoice int8 模型约 230 MB、FireRedASR2 CTC 约 740 MB，每次冷载往往比转写本身还久。
 //!
 //! 推理是 CPU 密集的同步操作，通过 `tokio::task::spawn_blocking` 放进
 //! blocking 线程池，避免阻塞异步 runtime。
@@ -19,15 +19,23 @@ use sherpa_onnx::{
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// SenseVoice 离线识别器。
 ///
-/// `Clone` 极廉价（`Arc<OfflineRecognizer>` 共享），识别器本身线程安全
+/// `Clone` 极廉价：识别器按需加载并共享，识别器本身线程安全
 /// （sherpa-onnx 的 `unsafe impl Send + Sync`），可并发转写多个流。
 #[derive(Clone)]
 pub struct SherpaTranscriber {
-    recognizer: Arc<OfflineRecognizer>,
+    /// 按需加载的识别器槽位。失败原因记在槽里，后续调用返回同一个错误，不重试。
+    ///
+    /// 加载要数秒（SenseVoice int8 约 230 MB），放在构造期会把监听与录音一起挡在
+    /// 后面：用户刚打开软件就按触发键，那几秒里没有任何接收方。
+    recognizer: Arc<OnceLock<Result<Arc<OfflineRecognizer>, String>>>,
+    /// 加载识别器所需的配置，加载成功后不再使用。
+    config: Arc<OfflineRecognizerConfig>,
+    /// 只用于加载失败的提示文案。
+    model_dir: PathBuf,
     language: String,
 }
 
@@ -123,7 +131,8 @@ fn ensure_engine_matches(
 }
 
 impl SherpaTranscriber {
-    /// 创建常驻识别器并立即加载模型。
+    /// 创建识别器：只校验模型文件与引擎是否匹配，真正的加载留给
+    /// [`Self::warm_up`] 或首次转写。
     ///
     /// `model_dir` 应包含 `model.int8.onnx` 与 `tokens.txt`（见 `crate::model`
     /// 的下载逻辑），`engine` 决定用哪种识别器配置加载。
@@ -169,16 +178,43 @@ impl SherpaTranscriber {
         config.model_config.tokens = Some(tokens_path.to_string_lossy().to_string());
         config.model_config.num_threads = effective_threads(threads) as i32;
 
-        let recognizer = OfflineRecognizer::create(&config).ok_or_else(|| {
-            TranscriberError::ModelLoadFailed {
-                reason: format!("sherpa-onnx 加载模型失败: {}", model_dir.display()),
-            }
-        })?;
-
         Ok(Self {
-            recognizer: Arc::new(recognizer),
+            recognizer: Arc::new(OnceLock::new()),
+            config: Arc::new(config),
+            model_dir,
             language,
         })
+    }
+
+    /// 取识别器。首次调用真正读模型，之后直接返回同一个实例或同一个失败原因。
+    fn recognizer(&self) -> Result<&Arc<OfflineRecognizer>, TranscriberError> {
+        let loaded = self.recognizer.get_or_init(|| {
+            let started = std::time::Instant::now();
+            let created = OfflineRecognizer::create(&self.config)
+                .map(Arc::new)
+                .ok_or_else(|| format!("sherpa-onnx 加载模型失败: {}", self.model_dir.display()));
+            match &created {
+                Ok(_) => tracing::info!(
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "local model loaded"
+                ),
+                Err(reason) => tracing::warn!(reason, "local model load failed"),
+            }
+            created
+        });
+        match loaded {
+            Ok(recognizer) => Ok(recognizer),
+            Err(reason) => Err(TranscriberError::ModelLoadFailed {
+                reason: reason.clone(),
+            }),
+        }
+    }
+
+    /// 预热：把模型加载挪到后台线程，监听与录音不必等它。
+    ///
+    /// 失败原因留在槽里，首次转写会拿到同一个错误，不必在这里处理。
+    pub fn warm_up(&self) {
+        let _ = self.recognizer();
     }
 
     /// 同步转写：WAV 解码 → 推理 → 返回文本。调用方应放入 blocking 线程池。
@@ -190,9 +226,10 @@ impl SherpaTranscriber {
         let samples = crate::audio::decode_wav_to_f32(audio_data)
             .map_err(|e| TranscriberError::WavDecodeFailed(e.to_string()))?;
 
-        let stream = self.recognizer.create_stream();
+        let recognizer = self.recognizer()?;
+        let stream = recognizer.create_stream();
         stream.accept_waveform(crate::recorder::SAMPLE_RATE as i32, &samples);
-        self.recognizer.decode(&stream);
+        recognizer.decode(&stream);
 
         let text = stream
             .get_result()

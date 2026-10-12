@@ -139,16 +139,75 @@ pub async fn save_config(
 pub async fn capture_activation_key(
     controller: State<'_, PipelineController>,
 ) -> Result<crate::key_capture::CaptureActivationResponse, String> {
-    controller.stop().await;
-    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    stop_pipeline_and_settle(&controller).await;
 
-    match tokio::task::spawn_blocking(|| crate::key_capture::PlatformKeyCapture::new().capture())
-        .await
+    match capture_once(crate::key_capture::CAPTURE_TIMEOUT).await {
+        Ok(crate::key_capture::CaptureOutcome::Captured(response)) => Ok(response),
+        Ok(crate::key_capture::CaptureOutcome::TimedOut) => {
+            Err(crate::key_capture::capture_timeout_message().to_string())
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// 流水线停止后、重新挂钩前留出的间隔，避免与尚未注销的旧监听器抢钩子与设备节点。
+const KEY_CAPTURE_SETTLE_DELAY: Duration = Duration::from_millis(400);
+
+/// 停流水线并等它把键盘资源交还。“按下以设置”要独占键盘，收尾用这一段。
+async fn stop_pipeline_and_settle(controller: &PipelineController) {
+    controller.stop().await;
+    tokio::time::sleep(KEY_CAPTURE_SETTLE_DELAY).await;
+}
+
+/// 自检捕获就绪事件：界面收到后才提示用户按键。
+const KEY_PROBE_ARMED_EVENT: &str = "key-probe-armed";
+
+/// 在阻塞线程上跑一次平台按键捕获。调用方负责先停流水线。
+async fn capture_once(timeout: Duration) -> Result<crate::key_capture::CaptureOutcome, String> {
+    match tokio::task::spawn_blocking(move || {
+        crate::key_capture::PlatformKeyCapture::new().capture(timeout)
+    })
+    .await
     {
-        Ok(Ok(r)) => Ok(r),
-        Ok(Err(e)) => Err(e),
+        Ok(result) => result,
         Err(e) => Err(e.to_string()),
     }
+}
+
+/// 激活键自检：让用户按一次键，回报按键有没有到达监听器。
+///
+/// 走监听器自己的原始按键旁路，不自检期间另装钩子、也不停流水线。另外装的那个低级
+/// 钩子在应用窗口获得焦点时会被挡在别人的钩子之后收不到事件，而监听器自己的钩子一直
+/// 好用；按键照常录音，用户按下去就顺手得到一次真实转写，不必先停后起。
+#[tauri::command]
+pub async fn probe_activation_key(
+    app: AppHandle,
+    config_store: State<'_, ConfigStore>,
+) -> Result<crate::key_capture::ActivationKeyProbe, String> {
+    let mut subscription = crate::key_listener::subscribe_activation_keys();
+    // 订阅已就绪，界面收到这个事件之后才提示用户按键。
+    let _ = app.emit(KEY_PROBE_ARMED_EVENT, ());
+
+    let observed = subscription.next(crate::key_listener::PROBE_WINDOW).await;
+
+    let cfg = config_store.snapshot().await;
+    let probe = crate::key_capture::evaluate_probe(
+        observed,
+        cfg.key_listener.key_name.clone(),
+        crate::key_capture::configured_match_code_from_config(&cfg.key_listener),
+    );
+
+    tracing::info!(
+        configured_key_name = probe.configured_key_name,
+        configured_code = ?probe.configured_code,
+        observed_key_name = ?probe.observed.as_ref().map(|o| o.key_name.clone()),
+        observed_code = ?probe.observed.as_ref().and_then(|o| o.raw_code()),
+        injected = probe.injected,
+        matched = probe.matched,
+        "activation key probe"
+    );
+
+    Ok(probe)
 }
 
 #[tauri::command]
@@ -162,6 +221,24 @@ pub async fn start_pipeline(
     controller
         .start_with(|| crate::spawn_pipeline_thread(&app, cfg, status_arc))
         .await
+}
+
+/// 重启流水线，供界面从“监听已停止”恢复。
+///
+/// 监听线程自行退出（按键通道关闭）时控制器里仍留着句柄，直接 `start_pipeline`
+/// 会报“已在运行”，所以这里走先停后起的编排。
+#[tauri::command]
+pub async fn restart_listener(
+    app: AppHandle,
+    config_store: State<'_, ConfigStore>,
+    controller: State<'_, PipelineController>,
+) -> Result<(), String> {
+    let cfg = Arc::new(config_store.snapshot().await);
+    let status_arc = controller.status_arc();
+    restart_pipeline(&controller, cfg, move |cfg| {
+        crate::spawn_pipeline_thread(&app, cfg, status_arc)
+    })
+    .await
 }
 
 async fn copy_text_core(output: Arc<dyn output::Output>, text: String) -> Result<(), String> {

@@ -5,7 +5,7 @@
 //!
 //! 通过 `xmodmap -pke` 解析按键名称到 keycode 的映射（xinput 路径）。
 
-use super::{KeyEvent, KeyListener};
+use super::{publish_activation_key, KeyEvent, KeyListener};
 use crate::config::KeyListenerConfig;
 use crate::error::KeyListenerError;
 use std::collections::HashMap;
@@ -16,53 +16,102 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use tokio::sync::mpsc;
 
-/// xmodmap keycode 映射缓存。解析 xmodmap 输出开销大，
-/// 因此首次使用后缓存整张 keycode 表。
-static XMODMAP_CACHE: OnceLock<std::collections::HashMap<String, u8>> = OnceLock::new();
+/// xmodmap 解析结果。
+struct XmodmapKeys {
+    /// keysym 名到 keycode，按名字匹配用。
+    by_name: std::collections::HashMap<String, u8>,
+    /// keycode 到该行第一个 keysym。一个 keycode 常挂多个名字
+    /// （`keycode 108 = Alt_R Meta_R Alt_R Meta_R`），行内第一个才是主名，
+    /// 反查时取别名会把一个本来可用的键报成不匹配。
+    primary_by_keycode: std::collections::HashMap<u8, String>,
+}
 
-/// 运行 `xmodmap -pke` 并解析为 keysym 到 keycode 的映射，失败时返回空表。
-fn load_xmodmap_keycodes() -> std::collections::HashMap<String, u8> {
+/// xmodmap keycode 映射缓存。解析 xmodmap 输出开销大（要起子进程），
+/// 因此首次使用后缓存整张 keycode 表。
+static XMODMAP_CACHE: OnceLock<XmodmapKeys> = OnceLock::new();
+
+/// 运行 `xmodmap -pke` 并解析出两张表，失败时返回空表。
+fn load_xmodmap_keycodes() -> XmodmapKeys {
+    let empty = XmodmapKeys {
+        by_name: std::collections::HashMap::new(),
+        primary_by_keycode: std::collections::HashMap::new(),
+    };
+
     let output = match Command::new("xmodmap").arg("-pke").output() {
         Ok(o) => o,
         Err(e) => {
             tracing::error!(error = %e, "xmodmap not found or failed to run");
-            return std::collections::HashMap::new();
+            return empty;
         }
     };
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     if stdout.trim().is_empty() {
         tracing::error!("xmodmap returned empty output");
-        return std::collections::HashMap::new();
+        return empty;
     }
 
-    let mut map = std::collections::HashMap::new();
+    let mut by_name = std::collections::HashMap::new();
+    let mut primary_by_keycode = std::collections::HashMap::new();
 
-    // xmodmap -pke 输出格式：keycode <N> = keysym ...
-    // 如 "keycode  64 = Alt_L Meta_L Alt_L Meta_L"
     for line in stdout.lines() {
-        if let Some(keycode_str) = line.split_whitespace().nth(1) {
-            if let Ok(keycode) = keycode_str.parse::<u8>() {
-                // 提取行内所有 keysym（跳过 "keycode N =" 部分）
-                for keysym in line.split_whitespace().skip(3) {
-                    // 跳过可能存在的 "="
-                    let keysym = keysym.trim_end_matches('=');
-                    if !keysym.is_empty() && !map.contains_key(keysym) {
-                        map.insert(keysym.to_string(), keycode);
-                    }
-                }
-            }
-        }
+        absorb_xmodmap_line(line, &mut by_name, &mut primary_by_keycode);
     }
-    if map.is_empty() {
+    if by_name.is_empty() {
         tracing::error!("xmodmap output contained no parseable keycode mappings");
     }
-    map
+    XmodmapKeys {
+        by_name,
+        primary_by_keycode,
+    }
 }
 
-/// Alt 键的 evdev keycode（evtest 回退，与 `linux/input-event-codes.h` 一致）
-const EVDEV_KEY_ALT: u16 = 56; // KEY_LEFTALT
-const EVDEV_KEY_ALT_R: u16 = 100; // KEY_RIGHTALT
+/// 把 `xmodmap -pke` 的一行填进两张表。
+///
+/// 一行形如 `keycode  64 = Alt_L Meta_L Alt_L Meta_L`，行内第一个 keysym 是该 keycode
+/// 的主名。名字表保留每个名字首次出现的 keycode，与原实现一致。
+fn absorb_xmodmap_line(
+    line: &str,
+    by_name: &mut std::collections::HashMap<String, u8>,
+    primary_by_keycode: &mut std::collections::HashMap<u8, String>,
+) {
+    let Some(keycode) = line
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse::<u8>().ok())
+    else {
+        return;
+    };
+
+    let mut primary_taken = false;
+    // 跳过 "keycode N =" 部分
+    for keysym in line.split_whitespace().skip(3) {
+        // 跳过可能存在的 "="
+        let keysym = keysym.trim_end_matches('=');
+        if keysym.is_empty() {
+            continue;
+        }
+        if !primary_taken {
+            primary_by_keycode
+                .entry(keycode)
+                .or_insert_with(|| keysym.to_string());
+            primary_taken = true;
+        }
+        by_name.entry(keysym.to_string()).or_insert(keycode);
+    }
+}
+
+/// 在缓存的 xmodmap 表里反查 keycode 对应的主 keysym 名。
+///
+/// 取行内第一个名字，与配置里的键名对得上；旁路给出的名字会参与自检的名字比对，
+/// 取到别名（如 keycode 108 上的 `Meta_R`）会把一个本来就通的触发键报成不匹配。
+fn keysym_name_for_keycode(keycode: u8) -> Option<String> {
+    XMODMAP_CACHE
+        .get_or_init(load_xmodmap_keycodes)
+        .primary_by_keycode
+        .get(&keycode)
+        .cloned()
+}
 
 /// X11 按键监听器，使用 `xinput test-xi2` 捕获全局按键事件。
 ///
@@ -173,6 +222,15 @@ fn run_xinput_stdout_loop(
         } else if let Some(detail_str) = trimmed.strip_prefix("detail:") {
             if let Some(pressed) = event_type.take() {
                 if let Ok(detail) = detail_str.trim().parse::<u8>() {
+                    // 旁路保留过滤前的按键。xinput 只有 X11 keycode，反查回 keysym 名
+                    // 才能让自检判断“按的是不是配置的那个键”。
+                    publish_activation_key(crate::key_capture::CaptureActivationResponse {
+                        key_name: keysym_name_for_keycode(detail)
+                            .unwrap_or_else(|| format!("keycode_{detail}")),
+                        linux_evdev_code: None,
+                        windows_vk_code: None,
+                        injected: None,
+                    });
                     if detail == keycode && tx.send(KeyEvent { pressed }).is_err() {
                         tracing::warn!("key event receiver dropped, key listener thread exiting");
                         break;
@@ -214,20 +272,16 @@ fn evtest_fallback_devices() -> Result<Vec<PathBuf>, KeyListenerError> {
     Ok(keyboard_devices)
 }
 
-/// 把一行 evtest 输出解析为按键按下/松开，非 EV_KEY 行、解析失败、
-/// 不在允许集合内的码与自动重复都返回 `None`。
-fn evtest_line_to_key_event(line: &str, allowed: &[u16]) -> Option<bool> {
+/// 解析一行 evtest 输出的键码与按下状态：非 EV_KEY 行、解析失败与自动重复返回 `None`。
+///
+/// 不做允许集合过滤：原始按键旁路要看到全部按键，过滤由调用方按需要做。
+fn parse_evtest_key_line(line: &str) -> Option<(u16, bool)> {
     // 解析 evtest 输出："Event: time ..., type 1 (EV_KEY), code 100 (KEY_RIGHTALT), value 1"
     if !line.contains("EV_KEY") {
         return None;
     }
     let code_tail = line.split("code ").nth(1)?;
-    let code_str = code_tail.split_whitespace().next()?;
-    let code = code_str.parse::<u16>().ok()?;
-    // 仅匹配允许的 evdev 码（通常为单个，捕获模式为按下的物理码）。
-    if !allowed.contains(&code) {
-        return None;
-    }
+    let code = code_tail.split_whitespace().next()?.parse::<u16>().ok()?;
     let value_tail = line.split("value ").nth(1)?;
     let value_raw = value_tail
         .trim()
@@ -237,11 +291,12 @@ fn evtest_line_to_key_event(line: &str, allowed: &[u16]) -> Option<bool> {
     let value = value_raw.parse::<i32>().ok()?;
     // evdev：0 = 松开，1 = 按下，2 = 自动重复（键仍按住）。
     // 把 repeat 当作松开会破坏长按录音。
-    match value {
-        0 => Some(false),
-        1 => Some(true),
-        _ => None,
-    }
+    let pressed = match value {
+        0 => false,
+        1 => true,
+        _ => return None,
+    };
+    Some((code, pressed))
 }
 
 /// 为单个键盘设备启动 evtest 子进程，stdout 供读取线程消费。
@@ -398,9 +453,21 @@ fn run_evtest_stdout_loop(
             Err(_) => continue,
         };
 
-        let Some(pressed) = evtest_line_to_key_event(&line, &allowed) else {
+        let Some((code, pressed)) = parse_evtest_key_line(&line) else {
             continue;
         };
+        // 旁路保留过滤前的按键：自检要看的是“按下的是不是配置的那个键”，
+        // 按错键时也要能看到按的是哪个。
+        publish_activation_key(crate::key_capture::CaptureActivationResponse {
+            key_name: crate::key_capture::evdev_code_to_keysym_name(code),
+            linux_evdev_code: Some(code),
+            windows_vk_code: None,
+            injected: None,
+        });
+        // 仅转发允许的 evdev 码（通常为单个，捕获模式为按下的物理码）。
+        if !allowed.contains(&code) {
+            continue;
+        }
         if tx.send(KeyEvent { pressed }).is_err() {
             tracing::warn!("evtest: receiver dropped, exiting");
             break;
@@ -473,25 +540,13 @@ impl X11Listener {
         Ok((rx, "evtest"))
     }
 
-    /// evtest 回退允许的 evdev 码集合：有捕获码则只认该码。
-    /// 否则按 keysym 映射到 evdev（左/右 Alt 严格区分）。
+    /// evtest 回退允许的 evdev 码集合：键名与捕获码的映射统一在 `key_capture`，
+    /// 这里只取其结果，避免与自检比对各解析一遍。
     fn allowed_evdev_codes(&self) -> std::sync::Arc<[u16]> {
-        if let Some(c) = self.linux_evdev_code {
-            std::sync::Arc::from([c])
-        } else {
-            let code = match self.key_name.as_str() {
-                "Alt_L" => EVDEV_KEY_ALT,
-                "Alt_R" | "ISO_Level3_Shift" | "AltGr" => EVDEV_KEY_ALT_R,
-                _ => {
-                    tracing::warn!(
-                        key_name = self.key_name,
-                        "key_name not mapped for evtest fallback, defaulting to KEY_RIGHTALT"
-                    );
-                    EVDEV_KEY_ALT_R
-                }
-            };
-            std::sync::Arc::from([code])
-        }
+        std::sync::Arc::from([crate::key_capture::configured_match_code(
+            &self.key_name,
+            self.linux_evdev_code,
+        )])
     }
 
     /// 尝试 xinput 后端：解析 keycode 并启动 `xinput test-xi2` 读取循环。
@@ -642,7 +697,7 @@ impl X11Listener {
     }
 
     fn resolve_keycode(&self) -> Result<u8, KeyListenerError> {
-        let keycode_map = XMODMAP_CACHE.get_or_init(load_xmodmap_keycodes);
+        let keycode_map = &XMODMAP_CACHE.get_or_init(load_xmodmap_keycodes).by_name;
 
         if keycode_map.is_empty() {
             return Err(KeyListenerError::ResolveFailed(
@@ -861,25 +916,30 @@ mod tests {
         );
     }
 
+    /// 键名认不出时回退到右 Alt，且只放行这一个码，不会退化成放行所有键。
     #[test]
-    fn keysym_to_evdev_alt_r() {
-        // 直接测试内部映射逻辑
-        let code = match "Alt_R" {
-            "Alt_L" => EVDEV_KEY_ALT,
-            "Alt_R" | "ISO_Level3_Shift" | "AltGr" => EVDEV_KEY_ALT_R,
-            _ => EVDEV_KEY_ALT_R,
+    fn allowed_evdev_codes_falls_back_to_right_alt() {
+        let listener = X11Listener {
+            key_name: "SomeUnknownKey".to_string(),
+            linux_evdev_code: None,
+            running: Arc::new(AtomicBool::new(false)),
+            child: None,
+            evtest_children: Arc::new(Mutex::new(HashMap::new())),
         };
-        assert_eq!(code, EVDEV_KEY_ALT_R);
+        assert_eq!(&*listener.allowed_evdev_codes(), &[100]);
     }
 
+    /// “按下以设置”捕获到的码优先，改键后不再受键名映射影响。
     #[test]
-    fn keysym_to_evdev_alt_l() {
-        let code = match "Alt_L" {
-            "Alt_L" => EVDEV_KEY_ALT,
-            "Alt_R" | "ISO_Level3_Shift" | "AltGr" => EVDEV_KEY_ALT_R,
-            _ => EVDEV_KEY_ALT_R,
+    fn allowed_evdev_codes_prefers_captured_code() {
+        let listener = X11Listener {
+            key_name: "Alt_R".to_string(),
+            linux_evdev_code: Some(56),
+            running: Arc::new(AtomicBool::new(false)),
+            child: None,
+            evtest_children: Arc::new(Mutex::new(HashMap::new())),
         };
-        assert_eq!(code, EVDEV_KEY_ALT);
+        assert_eq!(&*listener.allowed_evdev_codes(), &[56]);
     }
 
     #[test]

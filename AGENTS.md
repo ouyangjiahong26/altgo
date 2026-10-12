@@ -20,7 +20,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 - 平台模块三文件布局：`mod.rs` 定 trait 与 `#[cfg(target_os)] Platform*` 别名，`linux.rs`/`windows.rs` 各自实现。Linux 走子进程（`xinput`/`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`），Windows 走原生 API（WH_KEYBOARD_LL、cpal/WASAPI、arboard 加 SendInput）。
 - 整条管道跑在独立 OS 线程的 current_thread tokio runtime 上（`lib.rs::spawn_pipeline_thread`）。一切阻塞工作（推理、剪贴板、历史 I/O、join 线程）走 `spawn_blocking`。
 - 状态管理：Tauri managed state 四件。`ConfigStore` 持锁更新，校验或落盘失败回滚内存。`HistoryStore` 模块级 I/O 锁，Unix 落盘 0o600。`PipelineController` 管生命周期与 `PipelineStatus` 五态。另有 `Arc<dyn Output>`。
-- IPC：`cmd.rs` 21 个 `#[tauri::command]`。事件有 `pipeline-status`/`transcription-result`/`polish-failed`/`history-updated`/`overlay-state` 等，emit 点在 `tauri_sink.rs` 与 `cmd.rs`，前端 `hooks/useTauri.ts` 统一 listen。
+- IPC：`cmd.rs` 23 个 `#[tauri::command]`。事件有 `pipeline-status`/`transcription-result`/`polish-failed`/`history-updated`/`overlay-state` 等，emit 点在 `tauri_sink.rs` 与 `cmd.rs`，前端 `hooks/useTauri.ts` 统一 listen。
 - 前端三个窗口。主窗（`index.html`，HashRouter 两个页面：主页含历史列表与设置，首次启动先显示引导向导）。悬浮窗（`overlay.html`，独立样式链，动画只动 transform 防 Linux WM 黑晕）。更新说明窗口（`update-notes.html`，手动检查发现新版本时弹出，随应用启动常驻加载，关闭走 hide）。主题、字体、窗口尺寸存 localStorage，不进 Tauri 配置。
 
 ## Key Directories
@@ -89,7 +89,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 ## Important Files
 
-- `src-tauri/src/lib.rs`：装配入口 `run()`、`spawn_pipeline_thread`、21 个命令注册。
+- `src-tauri/src/lib.rs`：装配入口 `run()`、`spawn_pipeline_thread`、23 个命令注册。
 - `src-tauri/src/voice_pipeline/context.rs`：select! 主循环。`handlers.rs`：录音、转写、润色、分发编排。
 - `src-tauri/src/cmd.rs`：全部 IPC 命令（测试在 `cmd/tests.rs`）。`tauri_sink.rs`：事件映射与悬浮窗相位切换。
 - `src-tauri/src/error.rs`：全部错误枚举。`state_machine.rs`：按键状态机。

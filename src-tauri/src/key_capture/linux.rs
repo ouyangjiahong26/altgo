@@ -9,9 +9,43 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::{evdev_code_to_keysym_name, CaptureActivationResponse, KeyCapture};
+use super::{evdev_code_to_keysym_name, CaptureActivationResponse, CaptureOutcome, KeyCapture};
 
-const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
+/// Alt 键的 evdev keycode（与 `linux/input-event-codes.h` 一致）。
+const EVDEV_KEY_ALT: u16 = 56; // KEY_LEFTALT
+const EVDEV_KEY_ALT_R: u16 = 100; // KEY_RIGHTALT
+
+/// evtest 路径实际用于匹配的 evdev 码：优先“按下以设置”捕获到的值，
+/// 否则按按键名映射，名字表认不出的键名回退到右 Alt 并记一条告警。
+///
+/// 监听器过滤与自检比对共用这一个函数，两处各解析一遍就会漂移，
+/// 也会让自检报出一个与监听器实际行为不符的结论。
+pub fn configured_match_code(key_name: &str, captured_code: Option<u16>) -> u16 {
+    if let Some(code) = captured_code {
+        return code;
+    }
+    match key_name {
+        "Alt_L" => EVDEV_KEY_ALT,
+        "Alt_R" | "ISO_Level3_Shift" | "AltGr" => EVDEV_KEY_ALT_R,
+        _ => {
+            tracing::warn!(
+                key_name,
+                "key_name not mapped for evtest fallback, defaulting to KEY_RIGHTALT"
+            );
+            EVDEV_KEY_ALT_R
+        }
+    }
+}
+
+/// 超时未检测到按键时给用户的提示。Linux 上最常见的原因是读不到输入设备节点。
+pub fn capture_timeout_message() -> &'static str {
+    "超时：未检测到按键（请确认对 /dev/input 有读权限，如在 input 组）"
+}
+
+/// 当前配置下监听器在 evtest 路径上实际用于匹配的键码。
+pub fn configured_match_code_from_config(cfg: &crate::config::KeyListenerConfig) -> Option<u16> {
+    Some(configured_match_code(&cfg.key_name, cfg.linux_evdev_code))
+}
 
 /// Linux 平台激活键捕获器。
 pub struct LinuxKeyCapture;
@@ -30,8 +64,8 @@ impl Default for LinuxKeyCapture {
 }
 
 impl KeyCapture for LinuxKeyCapture {
-    fn capture(&mut self) -> Result<CaptureActivationResponse, String> {
-        capture_activation_key_blocking()
+    fn capture(&mut self, timeout: Duration) -> Result<CaptureOutcome, String> {
+        capture_activation_key_blocking(timeout)
     }
 }
 
@@ -51,7 +85,7 @@ fn parse_ev_key_line(line: &str) -> Option<(u16, i32)> {
     Some((code, value))
 }
 
-fn capture_evdev_press(timeout: Duration) -> Result<u16, String> {
+fn capture_evdev_press(timeout: Duration) -> Result<Option<u16>, String> {
     let devices = crate::key_listener::list_keyboard_devices()
         .map_err(|e| format!("keyboard devices: {}", e))?;
     capture_evdev_press_with_devices(devices, timeout, |path| {
@@ -149,7 +183,7 @@ fn capture_evdev_press_with_devices<F>(
     devices: Vec<PathBuf>,
     timeout: Duration,
     mut spawn_evtest: F,
-) -> Result<u16, String>
+) -> Result<Option<u16>, String>
 where
     F: FnMut(&std::path::Path) -> std::io::Result<Box<dyn EvtestChild>>,
 {
@@ -163,23 +197,26 @@ where
 
     drop(tx);
     let remaining = deadline.saturating_duration_since(Instant::now());
-    let result = rx.recv_timeout(remaining).map_err(|_| {
-        "超时：未检测到按键（请确认对 /dev/input 有读权限，如在 input 组）".to_string()
-    });
+    // 超时与“设备都不出键”（接收端断开）都是没抓到按键，对调用方是同一件事。
+    let pressed = rx.recv_timeout(remaining).ok();
 
     reap_evtest_children(children, readers);
 
-    result
+    Ok(pressed)
 }
 
-fn capture_activation_key_blocking() -> Result<CaptureActivationResponse, String> {
-    let code = capture_evdev_press(CAPTURE_TIMEOUT)?;
+fn capture_activation_key_blocking(timeout: Duration) -> Result<CaptureOutcome, String> {
+    let Some(code) = capture_evdev_press(timeout)? else {
+        return Ok(CaptureOutcome::TimedOut);
+    };
     let key_name = evdev_code_to_keysym_name(code);
-    Ok(CaptureActivationResponse {
+    Ok(CaptureOutcome::Captured(CaptureActivationResponse {
         key_name,
         linux_evdev_code: Some(code),
         windows_vk_code: None,
-    })
+        // evdev 路径区分不出事件是不是其他程序注入的。
+        injected: None,
+    }))
 }
 
 #[cfg(test)]
@@ -208,6 +245,22 @@ mod tests {
         assert!(parse_ev_key_line(line).is_none());
     }
 
+    /// 字面量断言：键名映射改错时这两条要能直接指出是左边还是右边错了。
+    #[test]
+    fn configured_match_code_maps_alt_names() {
+        assert_eq!(configured_match_code("Alt_L", None), 56);
+        assert_eq!(configured_match_code("Alt_R", None), 100);
+        assert_eq!(configured_match_code("ISO_Level3_Shift", None), 100);
+        // 认不出的键名回退右 Alt，与监听器过滤行为一致。
+        assert_eq!(configured_match_code("F9", None), 100);
+    }
+
+    /// “按下以设置”捕获到的码优先于键名映射，否则改键后自检会拿错码比对。
+    #[test]
+    fn configured_match_code_prefers_captured_code() {
+        assert_eq!(configured_match_code("Alt_R", Some(0x29)), 0x29);
+    }
+
     #[test]
     fn capture_success_reaps_evtest_child() {
         let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -223,7 +276,7 @@ mod tests {
             },
         );
 
-        assert_eq!(result.unwrap(), 56);
+        assert_eq!(result.unwrap(), Some(56));
         assert_eq!(
             *calls.lock().unwrap(),
             vec![TestChildCall::Kill, TestChildCall::Wait]
@@ -245,7 +298,7 @@ mod tests {
             },
         );
 
-        assert!(result.is_err());
+        assert!(result.unwrap().is_none());
         assert_eq!(
             *calls.lock().unwrap(),
             vec![TestChildCall::Kill, TestChildCall::Wait]
@@ -266,7 +319,8 @@ mod tests {
             },
         );
 
-        assert!(result.is_err());
+        // 设备一个键都不出：对调用方与超时同义，仍要回收子进程。
+        assert!(result.unwrap().is_none());
         assert_eq!(
             *calls.lock().unwrap(),
             vec![TestChildCall::Kill, TestChildCall::Wait]

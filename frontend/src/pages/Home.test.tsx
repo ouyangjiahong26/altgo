@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import Home from "./Home";
 
 type EventListener = (event: { payload: unknown }) => void;
@@ -37,8 +38,18 @@ const pendingInfo = {
   error: { code: "transcriber.http_error", params: { detail: "timeout" } },
 };
 
+/** 主页用了 useNavigate，测试里也要给一个路由上下文。 */
+function renderHome() {
+  return render(
+    <MemoryRouter>
+      <Home />
+    </MemoryRouter>,
+  );
+}
+
 beforeEach(() => {
   localStorage.setItem("altgo-lang", "zh");
+  localStorage.removeItem("altgo-hotkey-hint-seen");
   listeners.clear();
   invokeMock.mockReset();
   invokeMock.mockImplementation((cmd: string) => {
@@ -57,7 +68,7 @@ beforeEach(() => {
 
 describe("Home 待重试录音横幅", () => {
   it("有待重试录音时展示时长与失败原因", async () => {
-    render(<Home />);
+    renderHome();
     const banner = await screen.findByRole("status");
     expect(banner.textContent).toContain("上次转写失败，录音已保留");
     expect(banner.textContent).toContain("13 秒");
@@ -67,7 +78,7 @@ describe("Home 待重试录音横幅", () => {
   });
 
   it("点击重新识别与放弃分别调用对应命令", async () => {
-    render(<Home />);
+    renderHome();
     await screen.findByRole("status");
 
     fireEvent.click(screen.getByRole("button", { name: /重新识别/ }));
@@ -78,7 +89,7 @@ describe("Home 待重试录音横幅", () => {
   });
 
   it("pending-recording-changed 事件送 null 后横幅消失", async () => {
-    render(<Home />);
+    renderHome();
     await screen.findByRole("status");
 
     act(() => {
@@ -86,5 +97,211 @@ describe("Home 待重试录音横幅", () => {
     });
 
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("Home 监听状态", () => {
+  it("流水线停止时状态行不再说等待说话，给的是重启入口而不是自检", async () => {
+    renderHome();
+    await screen.findByText("等待说话");
+
+    act(() => {
+      emit("pipeline-status", "stopped");
+    });
+
+    expect(await screen.findByText("监听已停止")).toBeTruthy();
+    expect(screen.queryByText("等待说话")).toBeNull();
+    // 监听停了就没有原始按键的生产方，自检必然超时，入口要换成恢复动作。
+    expect(screen.queryByRole("button", { name: /检测触发键/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /重新启动监听/ }));
+    expect(invokeMock).toHaveBeenCalledWith("restart_listener");
+  });
+});
+
+describe("Home 触发键自检卡", () => {
+  /** 让自检命令返回给定的观测结果。 */
+  function stubProbe(result: unknown) {
+    invokeMock.mockImplementation((cmd: string) => {
+      switch (cmd) {
+        case "get_config":
+          return Promise.resolve({ keyName: "Alt_R" });
+        case "probe_activation_key":
+          return Promise.resolve(result);
+        case "get_pending_recording":
+          return Promise.resolve(null);
+        case "list_history":
+          return Promise.resolve([]);
+        default:
+          return Promise.resolve(null);
+      }
+    });
+  }
+
+  it("首次进主页展开自检卡，跳过之后只留入口按钮", async () => {
+    renderHome();
+
+    expect(await screen.findByText("先确认触发键能用")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "以后再说" }));
+
+    expect(screen.queryByText("先确认触发键能用")).toBeNull();
+    expect(screen.getByRole("button", { name: /检测触发键/ })).toBeTruthy();
+  });
+
+  it("展开过提示卡后重新挂载不再自动展开", async () => {
+    const first = renderHome();
+    expect(await screen.findByText("先确认触发键能用")).toBeTruthy();
+    first.unmount();
+
+    renderHome();
+
+    await screen.findByRole("button", { name: /检测触发键/ });
+    expect(screen.queryByText("先确认触发键能用")).toBeNull();
+  });
+
+  it("收到就绪信号前停在准备中，收到后才提示按键", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      switch (cmd) {
+        case "get_config":
+          return Promise.resolve({ keyName: "Alt_R" });
+        case "probe_activation_key":
+          // ES2021 的 lib 没有 Promise.withResolvers，这里只要一个永不落定的 promise，让界面停在“准备中”。
+          return new Promise(() => {});
+        case "list_history":
+          return Promise.resolve([]);
+        default:
+          return Promise.resolve(null);
+      }
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+
+    expect(await screen.findByText("正在准备按键捕获")).toBeTruthy();
+    expect(screen.queryByText(/请按住/)).toBeNull();
+
+    act(() => {
+      emit("key-probe-armed", null);
+    });
+
+    expect(await screen.findByText("请按住 右Alt 说一句话")).toBeTruthy();
+  });
+
+  it("已看过提示时只显示入口按钮", async () => {
+    localStorage.setItem("altgo-hotkey-hint-seen", "1");
+    renderHome();
+
+    await screen.findByRole("button", { name: /检测触发键/ });
+    expect(screen.queryByText("先确认触发键能用")).toBeNull();
+  });
+
+  it("抓到与配置一致的键时报告可用", async () => {
+    stubProbe({
+      observed: { keyName: "Alt_R", linuxEvdevCode: null, windowsVkCode: 0xa5 },
+      configuredKeyName: "Alt_R",
+      configuredCode: 0xa5,
+      matched: true,
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+
+    expect(await screen.findByText("已检测到 右Alt，触发键可用")).toBeTruthy();
+  });
+
+  it("键不一致时给出两边键名与诊断键码", async () => {
+    stubProbe({
+      observed: { keyName: "vk_0xA4", linuxEvdevCode: null, windowsVkCode: 0xa4 },
+      configuredKeyName: "Alt_R",
+      configuredCode: 0xa5,
+      matched: false,
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+
+    expect(
+      await screen.findByText("你按下的是 vk_0xA4，当前触发键是 右Alt"),
+    ).toBeTruthy();
+    expect(screen.getByText("诊断信息：抓到 0xA4，当前触发键 0xA5")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /去设置/ })).toBeTruthy();
+  });
+
+  it("抓到的是其他程序注入的键时说明不会起录", async () => {
+    stubProbe({
+      observed: { keyName: "Alt_R", linuxEvdevCode: null, windowsVkCode: 0xa5, injected: true },
+      configuredKeyName: "Alt_R",
+      configuredCode: 0xa5,
+      injected: true,
+      matched: false,
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+
+    expect(await screen.findByText("检测到的 右Alt 是其他程序注入的")).toBeTruthy();
+    expect(screen.getByText(/altgo 会忽略注入的按键/)).toBeTruthy();
+  });
+
+  it("检测命中后进入录音与结果相位，结论仍然可见", async () => {
+    stubProbe({
+      observed: { keyName: "Alt_R", linuxEvdevCode: null, windowsVkCode: 0xa5 },
+      configuredKeyName: "Alt_R",
+      configuredCode: 0xa5,
+      injected: false,
+      matched: true,
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+    expect(await screen.findByText("已检测到 右Alt，触发键可用")).toBeTruthy();
+
+    act(() => {
+      emit("pipeline-status", "recording");
+    });
+    expect(screen.getByText("已检测到 右Alt，触发键可用")).toBeTruthy();
+
+    act(() => {
+      emit("transcription-result", "你好");
+    });
+    expect(screen.getByText("已检测到 右Alt，触发键可用")).toBeTruthy();
+  });
+
+  it("没有收到按键时报超时并给重试", async () => {
+    stubProbe({
+      observed: null,
+      configuredKeyName: "Alt_R",
+      configuredCode: 0xa5,
+      matched: false,
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+
+    expect(await screen.findByText("没有收到任何按键")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /重试/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /去设置/ })).toBeTruthy();
+  });
+
+  it("检测命令失败时显示原因", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      switch (cmd) {
+        case "get_config":
+          return Promise.resolve({ keyName: "Alt_R" });
+        case "probe_activation_key":
+          return Promise.reject("键盘钩子启动失败: 5");
+        case "list_history":
+          return Promise.resolve([]);
+        default:
+          return Promise.resolve(null);
+      }
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+
+    expect(
+      await screen.findByText("检测失败：键盘钩子启动失败: 5"),
+    ).toBeTruthy();
   });
 });

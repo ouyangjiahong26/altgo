@@ -261,49 +261,20 @@ where
         .all(|file| is_ready(file, &dir.join(file.filename)))
 }
 
-/// 指定模型的文件是否齐全且校验和匹配官方发布版本。
-fn model_files_ready(dir: &Path, files: &[ModelFile]) -> bool {
-    model_files_ready_with(dir, files, model_file_ready)
-}
-
 /// 自定义模型目录是否包含可供 SenseVoice 加载的文件。
 fn custom_model_files_ready(dir: &Path) -> bool {
     model_files_ready_with(dir, SENSE_VOICE_FILES, model_file_structurally_ready)
 }
 
-/// 扫描已下载的模型，返回存在的模型名称列表。
-pub fn list_downloaded() -> Vec<String> {
-    let dir = models_dir();
-    if !dir.exists() {
-        return Vec::new();
-    }
-
-    let mut downloaded = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(&dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-            let Some(name) = path.file_name().map(|n| n.to_string_lossy().to_string()) else {
-                continue;
-            };
-            if let Some(m) = MODELS.iter().find(|m| m.name == name) {
-                if model_files_ready(&path, &m.files) {
-                    downloaded.push(name);
-                }
-            }
-        }
-    }
-    downloaded
-}
-
 /// 检查指定模型是否已下载。
+///
+/// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
+/// 一次 SHA256 要数秒，而设置页的模型列表会对每个模型问一次“文件在不在”。
+/// 完整性在下载时确认，见 `model_file_ready_blocking` 与 `finalize_model_download_blocking`。
 pub fn is_downloaded(name: &str) -> bool {
-    MODELS
-        .iter()
-        .find(|m| m.name == name)
-        .is_some_and(|m| model_files_ready(&model_dir(name), &m.files))
+    MODELS.iter().find(|m| m.name == name).is_some_and(|m| {
+        model_files_ready_with(&model_dir(name), &m.files, model_file_structurally_ready)
+    })
 }
 
 /// 模型列表项（含下载状态），供 IPC 返回给前端。
@@ -360,6 +331,11 @@ pub fn delete(name: &str) -> Result<(), ModelError> {
 /// 如果 `config_model` 是模型名称（如 "sense-voice"），返回已下载的模型目录。
 /// 如果是目录路径，直接返回。如果是 `.onnx` 文件路径，返回其父目录。
 /// 如果为空或目录不完整，返回 None。
+///
+/// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
+/// 一次 SHA256 要近 5 秒，而这条路径在管道启动时跑，那几秒里监听与录音都还没起来，
+/// 用户按触发键会毫无反应。校验和用于确认下载完整，见下载路径里的
+/// `model_file_ready_blocking` 与 `finalize_model_download_blocking`。
 pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
     if config_model.is_empty() {
         return None;
@@ -368,7 +344,7 @@ pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
     // 是模型名吗？
     if let Some(m) = MODELS.iter().find(|m| m.name == config_model) {
         let dir = model_dir(config_model);
-        if model_files_ready(&dir, &m.files) {
+        if model_files_ready_with(&dir, &m.files, model_file_structurally_ready) {
             return Some(dir);
         }
         return None;
