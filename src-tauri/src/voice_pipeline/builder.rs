@@ -67,6 +67,14 @@ impl PipelineBuilder {
         )
         .map_err(PipelineError::fatal_transcriber)?;
 
+        // 模型加载要数秒，放到后台：留在构造期的话监听器与录音都要排在它后面，
+        // 用户刚打开软件就按触发键的那几秒会白按。加载成败不在这里处理，
+        // 首次转写会拿到同一个结果。
+        let warm_up = transcriber.clone();
+        let _ = std::thread::Builder::new()
+            .name("model-warm-up".into())
+            .spawn(move || warm_up.warm_up());
+
         Ok(Box::new(transcriber))
     }
 
@@ -107,11 +115,29 @@ impl PipelineBuilder {
         pending_store: super::pending::PendingRecordingStore,
         retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
     ) -> Result<PipelineContext, PipelineError> {
+        let started = std::time::Instant::now();
         let recorder = self.build_recorder();
+        let recorder_ms = started.elapsed().as_millis() as u64;
+
+        let started = std::time::Instant::now();
         let transcriber = self.build_transcriber()?;
+        let transcriber_ms = started.elapsed().as_millis() as u64;
+
+        let started = std::time::Instant::now();
         let formatter = self.build_polisher()?;
+        let polisher_ms = started.elapsed().as_millis() as u64;
         let polish_level = self.polish_level();
+
+        let started = std::time::Instant::now();
         let listener = self.build_key_listener()?;
+        // 构造顺序决定触发键什么时候才有人接：任何一步慢下来，用户按下的键都白按。
+        tracing::debug!(
+            recorder_ms,
+            transcriber_ms,
+            polisher_ms,
+            listener_ms = started.elapsed().as_millis() as u64,
+            "pipeline components built"
+        );
 
         Ok(PipelineContext {
             recorder,

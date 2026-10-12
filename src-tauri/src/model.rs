@@ -360,6 +360,10 @@ pub fn delete(name: &str) -> Result<(), ModelError> {
 /// 如果 `config_model` 是模型名称（如 "sense-voice"），返回已下载的模型目录。
 /// 如果是目录路径，直接返回。如果是 `.onnx` 文件路径，返回其父目录。
 /// 如果为空或目录不完整，返回 None。
+///
+/// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
+/// 一次 SHA256 要近 5 秒，而这条路径在管道启动时跑，那几秒里监听与录音都还没起来，
+/// 用户按触发键会毫无反应。校验和用于确认下载完整，见 `is_downloaded` 与下载后的校验。
 pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
     if config_model.is_empty() {
         return None;
@@ -368,7 +372,7 @@ pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
     // 是模型名吗？
     if let Some(m) = MODELS.iter().find(|m| m.name == config_model) {
         let dir = model_dir(config_model);
-        if model_files_ready(&dir, &m.files) {
+        if model_files_ready_with(&dir, &m.files, model_file_structurally_ready) {
             return Some(dir);
         }
         return None;

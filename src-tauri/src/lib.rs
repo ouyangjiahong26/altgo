@@ -98,6 +98,7 @@ fn pipeline_thread_main(
         .enable_all()
         .build()
         .expect("failed to build tokio runtime");
+    tracing::info!("pipeline thread starting");
     let output: Arc<dyn output::Output> = app_handle
         .state::<Arc<dyn output::Output>>()
         .inner()
@@ -131,6 +132,8 @@ fn pipeline_thread_main(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     init_logging();
+    // 记一条时间标记：进程启动到这里的耗时（加载器、杀毒扫描）与之后各段可以分开算。
+    tracing::info!("altgo starting");
 
     // Wayland 会话需在 GUI 初始化前切到 X11 后端，见 prefer_x11_backend。
     #[cfg(target_os = "linux")]
