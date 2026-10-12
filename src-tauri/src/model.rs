@@ -334,7 +334,8 @@ pub fn delete(name: &str) -> Result<(), ModelError> {
 ///
 /// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
 /// 一次 SHA256 要近 5 秒，而这条路径在管道启动时跑，那几秒里监听与录音都还没起来，
-/// 用户按触发键会毫无反应。校验和用于确认下载完整，见 `is_downloaded` 与下载后的校验。
+/// 用户按触发键会毫无反应。校验和用于确认下载完整，见下载路径里的
+/// `model_file_ready_blocking` 与 `finalize_model_download_blocking`。
 pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
     if config_model.is_empty() {
         return None;

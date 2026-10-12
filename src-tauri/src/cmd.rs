@@ -223,6 +223,24 @@ pub async fn start_pipeline(
         .await
 }
 
+/// 重启流水线，供界面从“监听已停止”恢复。
+///
+/// 监听线程自行退出（按键通道关闭）时控制器里仍留着句柄，直接 `start_pipeline`
+/// 会报“已在运行”，所以这里走先停后起的编排。
+#[tauri::command]
+pub async fn restart_listener(
+    app: AppHandle,
+    config_store: State<'_, ConfigStore>,
+    controller: State<'_, PipelineController>,
+) -> Result<(), String> {
+    let cfg = Arc::new(config_store.snapshot().await);
+    let status_arc = controller.status_arc();
+    restart_pipeline(&controller, cfg, move |cfg| {
+        crate::spawn_pipeline_thread(&app, cfg, status_arc)
+    })
+    .await
+}
+
 async fn copy_text_core(output: Arc<dyn output::Output>, text: String) -> Result<(), String> {
     let out = output.clone_box();
     tokio::task::spawn_blocking(move || out.write_clipboard(&text))

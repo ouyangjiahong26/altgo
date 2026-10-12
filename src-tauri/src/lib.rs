@@ -208,6 +208,7 @@ fn assemble_builder(
         cmd::get_config,
         cmd::save_config,
         cmd::start_pipeline,
+        cmd::restart_listener,
         cmd::copy_text,
         cmd::hide_overlay,
         cmd::list_models,

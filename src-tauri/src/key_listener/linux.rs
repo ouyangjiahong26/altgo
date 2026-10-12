@@ -54,29 +54,8 @@ fn load_xmodmap_keycodes() -> XmodmapKeys {
     let mut by_name = std::collections::HashMap::new();
     let mut primary_by_keycode = std::collections::HashMap::new();
 
-    // xmodmap -pke 输出格式：keycode <N> = keysym ...
-    // 如 "keycode  64 = Alt_L Meta_L Alt_L Meta_L"
     for line in stdout.lines() {
-        if let Some(keycode_str) = line.split_whitespace().nth(1) {
-            if let Ok(keycode) = keycode_str.parse::<u8>() {
-                // 提取行内所有 keysym（跳过 "keycode N =" 部分）
-                let mut primary_taken = false;
-                for keysym in line.split_whitespace().skip(3) {
-                    // 跳过可能存在的 "="
-                    let keysym = keysym.trim_end_matches('=');
-                    if keysym.is_empty() {
-                        continue;
-                    }
-                    if !primary_taken {
-                        primary_by_keycode
-                            .entry(keycode)
-                            .or_insert_with(|| keysym.to_string());
-                        primary_taken = true;
-                    }
-                    by_name.entry(keysym.to_string()).or_insert(keycode);
-                }
-            }
-        }
+        absorb_xmodmap_line(line, &mut by_name, &mut primary_by_keycode);
     }
     if by_name.is_empty() {
         tracing::error!("xmodmap output contained no parseable keycode mappings");
@@ -84,6 +63,41 @@ fn load_xmodmap_keycodes() -> XmodmapKeys {
     XmodmapKeys {
         by_name,
         primary_by_keycode,
+    }
+}
+
+/// 把 `xmodmap -pke` 的一行填进两张表。
+///
+/// 一行形如 `keycode  64 = Alt_L Meta_L Alt_L Meta_L`，行内第一个 keysym 是该 keycode
+/// 的主名。名字表保留每个名字首次出现的 keycode，与原实现一致。
+fn absorb_xmodmap_line(
+    line: &str,
+    by_name: &mut std::collections::HashMap<String, u8>,
+    primary_by_keycode: &mut std::collections::HashMap<u8, String>,
+) {
+    let Some(keycode) = line
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse::<u8>().ok())
+    else {
+        return;
+    };
+
+    let mut primary_taken = false;
+    // 跳过 "keycode N =" 部分
+    for keysym in line.split_whitespace().skip(3) {
+        // 跳过可能存在的 "="
+        let keysym = keysym.trim_end_matches('=');
+        if keysym.is_empty() {
+            continue;
+        }
+        if !primary_taken {
+            primary_by_keycode
+                .entry(keycode)
+                .or_insert_with(|| keysym.to_string());
+            primary_taken = true;
+        }
+        by_name.entry(keysym.to_string()).or_insert(keycode);
     }
 }
 
@@ -258,20 +272,16 @@ fn evtest_fallback_devices() -> Result<Vec<PathBuf>, KeyListenerError> {
     Ok(keyboard_devices)
 }
 
-/// 把一行 evtest 输出解析为按键按下/松开，非 EV_KEY 行、解析失败、
-/// 不在允许集合内的码与自动重复都返回 `None`。
-fn evtest_line_to_key_event(line: &str, allowed: &[u16]) -> Option<bool> {
+/// 解析一行 evtest 输出的键码与按下状态：非 EV_KEY 行、解析失败与自动重复返回 `None`。
+///
+/// 不做允许集合过滤：原始按键旁路要看到全部按键，过滤由调用方按需要做。
+fn parse_evtest_key_line(line: &str) -> Option<(u16, bool)> {
     // 解析 evtest 输出："Event: time ..., type 1 (EV_KEY), code 100 (KEY_RIGHTALT), value 1"
     if !line.contains("EV_KEY") {
         return None;
     }
     let code_tail = line.split("code ").nth(1)?;
-    let code_str = code_tail.split_whitespace().next()?;
-    let code = code_str.parse::<u16>().ok()?;
-    // 仅匹配允许的 evdev 码（通常为单个，捕获模式为按下的物理码）。
-    if !allowed.contains(&code) {
-        return None;
-    }
+    let code = code_tail.split_whitespace().next()?.parse::<u16>().ok()?;
     let value_tail = line.split("value ").nth(1)?;
     let value_raw = value_tail
         .trim()
@@ -281,11 +291,12 @@ fn evtest_line_to_key_event(line: &str, allowed: &[u16]) -> Option<bool> {
     let value = value_raw.parse::<i32>().ok()?;
     // evdev：0 = 松开，1 = 按下，2 = 自动重复（键仍按住）。
     // 把 repeat 当作松开会破坏长按录音。
-    match value {
-        0 => Some(false),
-        1 => Some(true),
-        _ => None,
-    }
+    let pressed = match value {
+        0 => false,
+        1 => true,
+        _ => return None,
+    };
+    Some((code, pressed))
 }
 
 /// 为单个键盘设备启动 evtest 子进程，stdout 供读取线程消费。
@@ -442,19 +453,21 @@ fn run_evtest_stdout_loop(
             Err(_) => continue,
         };
 
-        let Some((code, _value)) = parse_ev_key_line(&line) else {
+        let Some((code, pressed)) = parse_evtest_key_line(&line) else {
             continue;
         };
-        // 旁路保留过滤前的按键：自检要看的正是“有没有到达监听器”。
+        // 旁路保留过滤前的按键：自检要看的是“按下的是不是配置的那个键”，
+        // 按错键时也要能看到按的是哪个。
         publish_activation_key(crate::key_capture::CaptureActivationResponse {
             key_name: crate::key_capture::evdev_code_to_keysym_name(code),
             linux_evdev_code: Some(code),
             windows_vk_code: None,
             injected: None,
         });
-        let Some(pressed) = evtest_line_to_key_event(&line, &allowed) else {
+        // 仅转发允许的 evdev 码（通常为单个，捕获模式为按下的物理码）。
+        if !allowed.contains(&code) {
             continue;
-        };
+        }
         if tx.send(KeyEvent { pressed }).is_err() {
             tracing::warn!("evtest: receiver dropped, exiting");
             break;

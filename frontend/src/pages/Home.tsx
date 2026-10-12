@@ -303,7 +303,8 @@ export default function Home() {
 
   const handleRestartListener = async () => {
     try {
-      await invoke("start_pipeline");
+      // 先停后起：监听线程自行退出时控制器的句柄还在，start_pipeline 会报“已在运行”。
+      await invoke("restart_listener");
     } catch {
       // 起不来就维持“监听已停止”，用户可到设置页查看配置校验失败的原因。
     }
