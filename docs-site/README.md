@@ -24,6 +24,21 @@ npm run build
 
 产物在 `build/` 目录，可用任意静态文件服务托管。
 
+## 依赖覆盖
+
+`package.json` 的 `overrides` 把四个传递依赖抬到已修复安全公告的版本。Docusaurus 3.10 的依赖树把它们声明在旧的大版本区间里，锁文件刷新升不上去，只有强制覆盖才能装到修复版本：
+
+| 包 | 覆盖到 | 声明旧区间的上游 | 对应公告 |
+| --- | --- | --- | --- |
+| `tinypool` | `^2.1.2` | `@docusaurus/core` 的 `^1.0.2` | GHSA-5gmw-xhrv-c9v3、GHSA-85c8-ppgw-ccpr |
+| `serialize-javascript` | `^7.1.2` | `copy-webpack-plugin` 与 `css-minimizer-webpack-plugin` 的 `^6` | GHSA-5c6j-r48x-rmvq、GHSA-qj8w-gfj5-8c6v |
+| `postcss-selector-parser` | `^7.1.6` | cssnano 6 的六个插件声明的 `^6` | GHSA-rj75-hqrm-r3gf |
+| `uuid` | `^11.1.1` | `sockjs` 的 `^8.3.2` | GHSA-w5hq-g745-h8pq |
+
+这几个包只参与构建与本地开发服务器，不进站点产物：`tinypool` 供静态生成在页数够多时起线程池，`serialize-javascript`、`postcss-selector-parser`、`uuid` 分别属于 webpack 构建路径、cssnano 与 `sockjs` 开发服务器。升级 Docusaurus 或上述上游后应重新评估这些条目，上游若已声明安全的区间就删掉对应覆盖。
+
+另有一个告警无法通过升级消除：`braces` 停在 3.0.3，是 GHSA-vfj7-8cjw-p6xm 报出的最后一个可用版本，上游没有发布修复版。它只被 `chokidar` 与 `micromatch` 用来展开仓库自己的 glob 模式，等 Docusaurus 换掉这条依赖链后才会消失。
+
 ## 内容与侧边栏
 
 - 文档页面：`docs/*.mdx`（侧边栏由 [`sidebars.ts`](sidebars.ts) 配置）
