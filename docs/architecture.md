@@ -223,9 +223,9 @@ lib.rs
 
 ### 命令
 
-`cmd.rs` 暴露 21 个命令：
+`cmd.rs` 暴露 22 个命令：
 
-- 配置 5：`get_config`、`save_config`、`capture_activation_key`、`test_polisher_connection`、`fetch_provider_catalog`
+- 配置 6：`get_config`、`save_config`、`capture_activation_key`、`probe_activation_key`、`test_polisher_connection`、`fetch_provider_catalog`
 - 更新 2：`check_update`、`install_update`
 - 流水线 1：`start_pipeline`
 - 悬浮窗 2：`copy_text`、`hide_overlay`

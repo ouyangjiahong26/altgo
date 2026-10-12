@@ -138,9 +138,7 @@ pub struct WindowsKeyListener {
 
 impl WindowsKeyListener {
     pub fn new(cfg: &KeyListenerConfig) -> Result<Self, KeyListenerError> {
-        let vk_code = cfg
-            .windows_vk_code
-            .or_else(|| key_name_to_windows_vk_checked(&cfg.key_name))
+        let vk_code = crate::key_capture::configured_match_code(&cfg.key_name, cfg.windows_vk_code)
             .ok_or_else(|| {
                 KeyListenerError::UnsupportedKey(format!(
                     "无法将按键 '{}' 解析为 Windows VK 码，请通过“按下以设置”重新捕获",
@@ -153,10 +151,6 @@ impl WindowsKeyListener {
             hook: None,
         })
     }
-}
-
-fn key_name_to_windows_vk_checked(name: &str) -> Option<u16> {
-    crate::key_capture::key_name_to_windows_vk(name)
 }
 
 impl KeyListener for WindowsKeyListener {

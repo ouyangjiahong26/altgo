@@ -116,6 +116,70 @@
   margin: 0 3px;
 }
 
+/* ── 触发键自检卡 ───────────────────────────────
+   空态里的自检入口：默认收成一行按钮，展开后把“按下的键能不能被认出来”
+   讲成一句话，并给出下一步动作。 */
+
+.home-probe-area {
+  width: 100%;
+  margin-top: var(--space-2);
+  display: flex;
+  justify-content: center;
+}
+
+/* 入口保持安静：空态的主角是“按住哪个键说话”，自检是备选动作 */
+.home-probe-open {
+  color: var(--color-text-muted);
+}
+
+.home-probe-open:hover {
+  color: var(--color-text);
+}
+
+.home-probe {
+  width: 100%;
+  max-width: 34ch;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  text-align: left;
+}
+
+.home-probe-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--color-text);
+  line-height: var(--leading-normal);
+}
+
+.home-probe-detail {
+  margin-top: var(--space-1);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+/* 键码原文：出问题的机器不在开发者手边，用户要能原样抄回来 */
+.home-probe-diagnostic {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+  word-break: break-word;
+}
+
+.home-probe-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
 /* 历史面板嵌在主页内，去掉其页面级留白 */
 .home .history-page {
   max-width: none;

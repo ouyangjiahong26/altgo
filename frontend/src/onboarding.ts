@@ -16,3 +16,22 @@ export function completeOnboarding(): void {
     /* 忽略 */
   }
 }
+
+/** 触发键自检提示标记：首次进主页把检测卡展开一次，之后只留入口按钮。 */
+export const HOTKEY_HINT_KEY = "altgo-hotkey-hint-seen";
+
+export function hasSeenHotkeyHint(): boolean {
+  try {
+    return localStorage.getItem(HOTKEY_HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markHotkeyHintSeen(): void {
+  try {
+    localStorage.setItem(HOTKEY_HINT_KEY, "1");
+  } catch {
+    /* 忽略 */
+  }
+}

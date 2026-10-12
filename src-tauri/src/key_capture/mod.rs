@@ -1,4 +1,9 @@
-//! 短时捕获用户按下的物理键，用于设置激活录音键。
+//! 短时捕获用户按下的物理键，用于“按下以设置”触发键与触发键自检。
+//!
+//! 捕获结果带平台原始键码（Windows 为 VK，Linux 为 evdev），与监听器
+//! 实际用于匹配的码一致，因此可以直接判断按下的键能不能触发录音。
+
+use std::time::Duration;
 
 mod evdev_names;
 #[cfg(target_os = "linux")]
@@ -18,6 +23,11 @@ pub type PlatformKeyCapture = LinuxKeyCapture;
 #[cfg(target_os = "windows")]
 pub type PlatformKeyCapture = WindowsKeyCapture;
 
+#[cfg(target_os = "linux")]
+pub use linux::configured_match_code;
+#[cfg(target_os = "windows")]
+pub use windows::configured_match_code;
+
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -30,16 +40,101 @@ pub struct CaptureActivationResponse {
     pub windows_vk_code: Option<u16>,
 }
 
+impl CaptureActivationResponse {
+    /// 本次捕获的原始键码：Windows 为 VK，Linux 为 evdev。
+    pub fn raw_code(&self) -> Option<u16> {
+        self.windows_vk_code.or(self.linux_evdev_code)
+    }
+}
+
+/// “按下以设置”等待按键的时长。
+pub const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
+
+/// 触发键自检等待按键的时长。用户正盯着结果看，不必等满捕获时长。
+pub const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+
+/// 一次捕获的结局。
+///
+/// 超时是与“抓到按键”并列的独立结局：设置页把它当失败展示，
+/// 触发键自检要把它和“抓到了但键不对”讲成两件事。
+#[derive(Debug)]
+pub enum CaptureOutcome {
+    Captured(CaptureActivationResponse),
+    TimedOut,
+}
+
+/// 超时未检测到按键时给用户的提示。各平台的排查方向不同。
+pub fn capture_timeout_message() -> &'static str {
+    #[cfg(target_os = "linux")]
+    const MESSAGE: &str = "超时：未检测到按键（请确认对 /dev/input 有读权限，如在 input 组）";
+    #[cfg(target_os = "windows")]
+    const MESSAGE: &str = "超时：未检测到按键";
+    MESSAGE
+}
+
+/// 触发键自检结果：按下触发键后能不能被监听器认出来。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivationKeyProbe {
+    /// 实际抓到的按键，超时为 `None`。
+    pub observed: Option<CaptureActivationResponse>,
+    /// 当前配置里的触发键名。
+    pub configured_key_name: String,
+    /// 监听器实际用于匹配的键码（Windows 为 VK，Linux 为 evdev），解析不出为 `None`。
+    pub configured_code: Option<u16>,
+    /// 观测键码与配置键码是否一致。
+    pub matched: bool,
+}
+
+/// 由观测值与配置解析出的匹配码判定自检结果。
+///
+/// 比对用平台原始码而不是键名：名字表可能把两个码映到同一个名字，
+/// 而监听器匹配用的就是原始码。
+pub fn evaluate_probe(
+    observed: Option<CaptureActivationResponse>,
+    configured_key_name: String,
+    configured_code: Option<u16>,
+) -> ActivationKeyProbe {
+    let observed_code = observed
+        .as_ref()
+        .and_then(CaptureActivationResponse::raw_code);
+    let matched = match (observed_code, configured_code) {
+        (Some(observed_code), Some(configured_code)) => observed_code == configured_code,
+        _ => false,
+    };
+    ActivationKeyProbe {
+        observed,
+        configured_key_name,
+        configured_code,
+        matched,
+    }
+}
+
+/// 当前配置下监听器实际用于匹配的键码，供自检比对。
+///
+/// 平台差异只在取哪个配置字段：Windows 用 VK，Linux 用 evdev。
+pub fn configured_match_code_from_config(cfg: &crate::config::KeyListenerConfig) -> Option<u16> {
+    #[cfg(target_os = "linux")]
+    {
+        Some(configured_match_code(&cfg.key_name, cfg.linux_evdev_code))
+    }
+    #[cfg(target_os = "windows")]
+    {
+        configured_match_code(&cfg.key_name, cfg.windows_vk_code)
+    }
+}
+
 /// 平台激活键捕获的 trait seam。
 ///
-/// 由 Linux adapter 实现。`capture()` 为同步阻塞方法，调用方负责在独立线程执行。
+/// 由平台 adapter 实现。`capture()` 为同步阻塞方法，调用方负责在独立线程执行。
 pub trait KeyCapture: Send {
-    fn capture(&mut self) -> Result<CaptureActivationResponse, String>;
+    /// 阻塞等待一次物理按键，`timeout` 内没有按键时返回 [`CaptureOutcome::TimedOut`]。
+    fn capture(&mut self, timeout: Duration) -> Result<CaptureOutcome, String>;
 }
 
 /// Windows 虚拟键码（Win32 `VK_*` 常量，与 `winuser.h` 一致）。
 pub mod windows_vk {
-    pub const VK_LMENU: u16 = 0x12;
+    pub const VK_LMENU: u16 = 0xA4;
     pub const VK_RMENU: u16 = 0xA5;
     pub const VK_LSHIFT: u16 = 0xA0;
     pub const VK_RSHIFT: u16 = 0xA1;
@@ -135,6 +230,89 @@ mod tests {
     #[test]
     fn evdev_code_to_keysym_name_maps_right_alt() {
         assert_eq!(evdev_code_to_keysym_name(100), "ISO_Level3_Shift");
+    }
+
+    /// 常量表必须与 winuser.h 一致。用字面量而不是另一张表断言，
+    /// 否则表与测试一起改就锁不住偏差。
+    #[test]
+    fn windows_vk_constants_match_winuser_h() {
+        assert_eq!(windows_vk::VK_LSHIFT, 0xA0);
+        assert_eq!(windows_vk::VK_RSHIFT, 0xA1);
+        assert_eq!(windows_vk::VK_LCONTROL, 0xA2);
+        assert_eq!(windows_vk::VK_RCONTROL, 0xA3);
+        assert_eq!(windows_vk::VK_LMENU, 0xA4);
+        assert_eq!(windows_vk::VK_RMENU, 0xA5);
+        assert_eq!(windows_vk::VK_LWIN, 0x5B);
+        assert_eq!(windows_vk::VK_RWIN, 0x5C);
+    }
+
+    /// 左 Alt 必须解析成 0xA4 并解码回可读名字。0x12 是通用 VK_MENU，
+    /// 钩子按左右区分上报时它永远匹配不上。
+    #[test]
+    fn windows_vk_left_alt_uses_dedicated_code() {
+        assert_eq!(key_name_to_windows_vk("Alt_L"), Some(0xA4));
+        assert_eq!(windows_vk_code_to_name(0xA4), "Alt_L");
+        assert_ne!(key_name_to_windows_vk("Alt_L"), Some(0x12));
+    }
+
+    #[test]
+    fn probe_matched_when_observed_code_equals_configured() {
+        let observed = CaptureActivationResponse {
+            key_name: "Alt_R".to_string(),
+            linux_evdev_code: None,
+            windows_vk_code: Some(0xA5),
+        };
+        let probe = evaluate_probe(Some(observed), "Alt_R".to_string(), Some(0xA5));
+        assert!(probe.matched);
+    }
+
+    #[test]
+    fn probe_reports_mismatch_between_observed_and_configured() {
+        let observed = CaptureActivationResponse {
+            key_name: "vk_0xA4".to_string(),
+            linux_evdev_code: None,
+            windows_vk_code: Some(0xA4),
+        };
+        let probe = evaluate_probe(Some(observed), "Alt_R".to_string(), Some(0xA5));
+        assert!(!probe.matched);
+        assert_eq!(probe.observed.as_ref().unwrap().raw_code(), Some(0xA4));
+        assert_eq!(probe.configured_code, Some(0xA5));
+    }
+
+    #[test]
+    fn probe_without_observed_key_is_not_matched() {
+        let probe = evaluate_probe(None, "Alt_R".to_string(), Some(0xA5));
+        assert!(!probe.matched);
+        assert!(probe.observed.is_none());
+    }
+
+    /// 配置的键名解析不出码时不能算命中，否则会把“配置本身有问题”报成正常。
+    #[test]
+    fn probe_without_configured_code_is_not_matched() {
+        let observed = CaptureActivationResponse {
+            key_name: "ISO_Level3_Shift".to_string(),
+            linux_evdev_code: Some(100),
+            windows_vk_code: None,
+        };
+        let probe = evaluate_probe(Some(observed), "不存在的键".to_string(), None);
+        assert!(!probe.matched);
+    }
+
+    #[test]
+    fn raw_code_prefers_platform_specific_field() {
+        let windows = CaptureActivationResponse {
+            key_name: "Alt_R".to_string(),
+            linux_evdev_code: None,
+            windows_vk_code: Some(0xA5),
+        };
+        assert_eq!(windows.raw_code(), Some(0xA5));
+
+        let linux = CaptureActivationResponse {
+            key_name: "ISO_Level3_Shift".to_string(),
+            linux_evdev_code: Some(100),
+            windows_vk_code: None,
+        };
+        assert_eq!(linux.raw_code(), Some(100));
     }
 
     #[test]

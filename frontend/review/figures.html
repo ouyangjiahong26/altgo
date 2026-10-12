@@ -95,6 +95,56 @@
                 <span class="home-status-text" style="color: var(--color-text-muted)">等待说话</span>
               </div>
               <p class="home-trigger-hint">按住 <span class="kbd">右Alt</span> 说话，松开即得文字</p>
+              <div class="home-probe-area">
+                <button type="button" class="btn btn-sm btn-secondary home-probe-open">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
+                  <span>检测触发键</span>
+                </button>
+              </div>
+              <p class="home-key-backend">监听方式：X11 xinput</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ═══════════ 主窗 · 触发键自检 ═══════════ -->
+    <div data-fig="home-probe-mismatch" class="fig-main">
+      <div class="layout">
+        <header class="layout-header">
+          <div class="layout-header-left">
+            <div class="layout-logo-wrapper">
+              <img src="../public/altgo-logo.svg" alt="" width="22" height="22" class="layout-logo-mark" />
+              <span class="layout-logo">altgo</span>
+            </div>
+            <span class="layout-subtitle">语音转文字</span>
+          </div>
+          <div class="layout-header-right">
+            <nav class="layout-nav">
+              <a class="layout-nav-link active" href="#">主页</a>
+              <a class="layout-nav-link" href="#">设置</a>
+            </nav>
+          </div>
+        </header>
+        <main class="layout-main">
+          <div class="home">
+            <div class="home-idle">
+              <div class="home-status-line">
+                <span class="home-status-dot" style="background: var(--color-text-muted)"></span>
+                <span class="home-status-text" style="color: var(--color-text-muted)">等待说话</span>
+              </div>
+              <p class="home-trigger-hint">按住 <span class="kbd">右Alt</span> 说话，松开即得文字</p>
+              <div class="home-probe-area">
+                <div class="home-probe">
+                  <div class="home-probe-head"><span>你按下的是 vk_0xA4，当前触发键是 右Alt</span></div>
+                  <p class="home-probe-detail">想用它录音，请到设置里把触发键改成 vk_0xA4。</p>
+                  <p class="home-probe-diagnostic">诊断信息：抓到 0xA4，当前触发键 0xA5</p>
+                  <div class="home-probe-actions">
+                    <button class="btn btn-sm btn-primary"><span>去设置</span></button>
+                    <button class="btn btn-sm btn-secondary"><span>关闭</span></button>
+                  </div>
+                </div>
+              </div>
               <p class="home-key-backend">监听方式：X11 xinput</p>
             </div>
           </div>
@@ -530,6 +580,8 @@
             describe(".select", document.querySelector(".select"));
             describe(".btn.btn-primary", document.querySelector(".btn.btn-primary"));
             describe(".home-trigger-hint .kbd", document.querySelector(".home-trigger-hint .kbd"));
+            describe(".home-probe", document.querySelector(".home-probe"));
+            describe(".home-probe-diagnostic", document.querySelector(".home-probe-diagnostic"));
             document.body.insertAdjacentHTML(
               "beforeend",
               `<pre style="position:fixed;left:0;bottom:0;z-index:99;margin:0;padding:8px;font:11px/1.6 monospace;background:#000;color:#0f0;white-space:pre-wrap">${rows.join("\n")}</pre>`,

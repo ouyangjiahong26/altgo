@@ -21,6 +21,12 @@ title: 常见问题
 
 ### 按右 Alt 没有反应
 
+先在主页空态点“检测触发键”。它会暂停录音并等你按一次键，然后把实际抓到的键名与键码和当前配置的触发键对照，按结果分三种情况：
+
+- **提示“触发键可用”**：按键能到达 altgo，问题在录音或转写环节，按“录音相关”与“转写相关”两节排查。
+- **显示你按下的是另一个键**：收到的键与配置不一致，记下界面上的两个键码，到设置页用“按下以设置”把触发键改成实际按下的那个。
+- **提示没有收到任何按键**：按键没有到达 altgo，按下面的清单排查。
+
 **Linux：**
 
 1. 用户是否在 `input` 组并已重新登录？无法读取 `/dev/input/event*` 时，按键监听会失败：`sudo usermod -aG input "$USER"` 后注销/重启再试。
@@ -28,6 +34,10 @@ title: 常见问题
 3. 检查 Alt 绑定：`xmodmap -pke | grep Alt`。配置里默认 `key_name = "Alt_R"`，与设置页“按下以设置”一致即可。
 4. **Wayland**：仍依赖能访问 evdev。若仅用 XWayland 且无权限，现象与未加 `input` 组类似。剪贴板在 Wayland 上建议安装 `wl-copy`（或 `xclip`/`xsel` 经 XWayland）。
 5. 若使用 IME，可适当增大 `min_press_duration` 减轻误触。
+
+**Windows：**
+
+altgo 在 Windows 上用的是全局低级键盘钩子，其他程序注册同一个热键不会让钩子收不到按键，所以“被别的软件占用”通常不是原因。钩子本身失灵集中在三种情况：`SetWindowsHookExW` 失败、回调超时被系统摘钩、键位重映射工具在更底层把按键换掉。用 `RUST_LOG=altgo=debug altgo` 启动，日志里应当出现带 `key` 与 `vk` 字段的 `Windows keyboard hook installed`。要报问题时把检测卡上的两个键码与这段日志一并附上。
 
 ### 误触发 / IME 冲突
 

@@ -212,6 +212,7 @@ fn assemble_builder(
         cmd::delete_model,
         cmd::resolve_model,
         cmd::capture_activation_key,
+        cmd::probe_activation_key,
         cmd::test_polisher_connection,
         cmd::fetch_provider_catalog,
         cmd::list_history,

@@ -142,13 +142,94 @@ pub async fn capture_activation_key(
     controller.stop().await;
     tokio::time::sleep(std::time::Duration::from_millis(400)).await;
 
-    match tokio::task::spawn_blocking(|| crate::key_capture::PlatformKeyCapture::new().capture())
-        .await
+    match capture_once(crate::key_capture::CAPTURE_TIMEOUT).await {
+        Ok(crate::key_capture::CaptureOutcome::Captured(response)) => Ok(response),
+        Ok(crate::key_capture::CaptureOutcome::TimedOut) => {
+            Err(crate::key_capture::capture_timeout_message().to_string())
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// 在阻塞线程上跑一次平台按键捕获。调用方负责先停流水线。
+async fn capture_once(timeout: Duration) -> Result<crate::key_capture::CaptureOutcome, String> {
+    match tokio::task::spawn_blocking(move || {
+        crate::key_capture::PlatformKeyCapture::new().capture(timeout)
+    })
+    .await
     {
-        Ok(Ok(r)) => Ok(r),
-        Ok(Err(e)) => Err(e),
+        Ok(result) => result,
         Err(e) => Err(e.to_string()),
     }
+}
+
+/// 触发键自检：让用户按一次键，回报抓到的键与当前配置的触发键是否一致。
+///
+/// 探测期间停流水线：不停的话按下触发键会真的录一段音，用户拿到的是
+/// 一段无声转写。无论探测成败都要把流水线起回来，否则自检一次就失灵。
+///
+/// 抓到的键码与配置键码都记进日志：Windows 上“按了没反应”的机器往往不在
+/// 开发者手边，这两行是唯一的现场数据。
+#[tauri::command]
+pub async fn probe_activation_key(
+    app: AppHandle,
+    controller: State<'_, PipelineController>,
+    config_store: State<'_, ConfigStore>,
+) -> Result<crate::key_capture::ActivationKeyProbe, String> {
+    let cfg = Arc::new(config_store.snapshot().await);
+
+    controller.stop().await;
+    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    let outcome = capture_once(crate::key_capture::PROBE_TIMEOUT).await;
+
+    let status_arc = controller.status_arc();
+    let app_for_spawn = app.clone();
+    probe_activation_key_core(&controller, cfg, outcome, move |cfg| {
+        crate::spawn_pipeline_thread(&app_for_spawn, cfg, status_arc)
+    })
+    .await
+}
+
+/// 自检收尾：判定命中，并把探测期间停掉的流水线起回来。
+///
+/// 注入 `spawn` 使编排可测，与 [`restart_pipeline`] 同一范式。
+pub(crate) async fn probe_activation_key_core<S>(
+    controller: &PipelineController,
+    cfg: Arc<crate::config::Config>,
+    outcome: Result<crate::key_capture::CaptureOutcome, String>,
+    spawn: S,
+) -> Result<crate::key_capture::ActivationKeyProbe, String>
+where
+    S: FnOnce(Arc<crate::config::Config>) -> crate::PipelineHandle,
+{
+    let configured_key_name = cfg.key_listener.key_name.clone();
+    let configured_code = crate::key_capture::configured_match_code_from_config(&cfg.key_listener);
+
+    let observed = match outcome {
+        Ok(crate::key_capture::CaptureOutcome::Captured(response)) => Some(response),
+        Ok(crate::key_capture::CaptureOutcome::TimedOut) => None,
+        Err(e) => {
+            // 抓取失败同样要把流水线起回来；起不回来只记日志，先把手边这条
+            // 抓取原因交回前端，它才是用户此刻追问的东西。
+            if let Err(restart) = controller.start_with(|| spawn(cfg)).await {
+                tracing::error!(error = %restart, "failed to restart pipeline after key probe");
+            }
+            return Err(e);
+        }
+    };
+
+    let probe = crate::key_capture::evaluate_probe(observed, configured_key_name, configured_code);
+    tracing::info!(
+        configured_key_name = probe.configured_key_name,
+        configured_code = ?probe.configured_code,
+        observed_key_name = ?probe.observed.as_ref().map(|o| o.key_name.clone()),
+        observed_code = ?probe.observed.as_ref().and_then(|o| o.raw_code()),
+        matched = probe.matched,
+        "activation key probe"
+    );
+
+    controller.start_with(|| spawn(cfg)).await?;
+    Ok(probe)
 }
 
 #[tauri::command]

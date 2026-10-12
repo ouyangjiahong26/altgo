@@ -60,10 +60,6 @@ fn load_xmodmap_keycodes() -> std::collections::HashMap<String, u8> {
     map
 }
 
-/// Alt 键的 evdev keycode（evtest 回退，与 `linux/input-event-codes.h` 一致）
-const EVDEV_KEY_ALT: u16 = 56; // KEY_LEFTALT
-const EVDEV_KEY_ALT_R: u16 = 100; // KEY_RIGHTALT
-
 /// X11 按键监听器，使用 `xinput test-xi2` 捕获全局按键事件。
 ///
 /// 无需 root 权限，依赖 XInput2 扩展。
@@ -473,25 +469,13 @@ impl X11Listener {
         Ok((rx, "evtest"))
     }
 
-    /// evtest 回退允许的 evdev 码集合：有捕获码则只认该码。
-    /// 否则按 keysym 映射到 evdev（左/右 Alt 严格区分）。
+    /// evtest 回退允许的 evdev 码集合：键名与捕获码的映射统一在 `key_capture`，
+    /// 这里只取其结果，避免与自检比对各解析一遍。
     fn allowed_evdev_codes(&self) -> std::sync::Arc<[u16]> {
-        if let Some(c) = self.linux_evdev_code {
-            std::sync::Arc::from([c])
-        } else {
-            let code = match self.key_name.as_str() {
-                "Alt_L" => EVDEV_KEY_ALT,
-                "Alt_R" | "ISO_Level3_Shift" | "AltGr" => EVDEV_KEY_ALT_R,
-                _ => {
-                    tracing::warn!(
-                        key_name = self.key_name,
-                        "key_name not mapped for evtest fallback, defaulting to KEY_RIGHTALT"
-                    );
-                    EVDEV_KEY_ALT_R
-                }
-            };
-            std::sync::Arc::from([code])
-        }
+        std::sync::Arc::from([crate::key_capture::configured_match_code(
+            &self.key_name,
+            self.linux_evdev_code,
+        )])
     }
 
     /// 尝试 xinput 后端：解析 keycode 并启动 `xinput test-xi2` 读取循环。
@@ -861,25 +845,30 @@ mod tests {
         );
     }
 
+    /// 键名认不出时回退到右 Alt，且只放行这一个码，不会退化成放行所有键。
     #[test]
-    fn keysym_to_evdev_alt_r() {
-        // 直接测试内部映射逻辑
-        let code = match "Alt_R" {
-            "Alt_L" => EVDEV_KEY_ALT,
-            "Alt_R" | "ISO_Level3_Shift" | "AltGr" => EVDEV_KEY_ALT_R,
-            _ => EVDEV_KEY_ALT_R,
+    fn allowed_evdev_codes_falls_back_to_right_alt() {
+        let listener = X11Listener {
+            key_name: "SomeUnknownKey".to_string(),
+            linux_evdev_code: None,
+            running: Arc::new(AtomicBool::new(false)),
+            child: None,
+            evtest_children: Arc::new(Mutex::new(HashMap::new())),
         };
-        assert_eq!(code, EVDEV_KEY_ALT_R);
+        assert_eq!(&*listener.allowed_evdev_codes(), &[100]);
     }
 
+    /// “按下以设置”捕获到的码优先，改键后不再受键名映射影响。
     #[test]
-    fn keysym_to_evdev_alt_l() {
-        let code = match "Alt_L" {
-            "Alt_L" => EVDEV_KEY_ALT,
-            "Alt_R" | "ISO_Level3_Shift" | "AltGr" => EVDEV_KEY_ALT_R,
-            _ => EVDEV_KEY_ALT_R,
+    fn allowed_evdev_codes_prefers_captured_code() {
+        let listener = X11Listener {
+            key_name: "Alt_R".to_string(),
+            linux_evdev_code: Some(56),
+            running: Arc::new(AtomicBool::new(false)),
+            child: None,
+            evtest_children: Arc::new(Mutex::new(HashMap::new())),
         };
-        assert_eq!(code, EVDEV_KEY_ALT);
+        assert_eq!(&*listener.allowed_evdev_codes(), &[56]);
     }
 
     #[test]
