@@ -25,6 +25,61 @@ pub struct KeyEvent {
     pub pressed: bool,
 }
 
+/// 自检等原始按键观察的等待窗口。
+pub const PROBE_WINDOW: std::time::Duration = std::time::Duration::from_secs(8);
+
+/// 监听器原始按键的旁路通道。
+///
+/// 监听器按配置过滤后才发 [`KeyEvent`]，过滤掉的那些在管道里看不到；自检要看的是
+/// “按键到底有没有到达监听器”，所以需要一条保留过滤前全部按键的旁路。放在进程级：
+/// 应用是单实例，任一时刻只有一个监听器在跑，自检也不会并发，单槽够用。
+type ActivationKeySender =
+    tokio::sync::mpsc::UnboundedSender<crate::key_capture::CaptureActivationResponse>;
+
+static ACTIVATION_KEY_TAP: std::sync::LazyLock<std::sync::Mutex<Option<ActivationKeySender>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(None));
+
+/// 原始按键订阅：drop 时自行注销，避免把已无接收者的通道留在槽里。
+pub struct ActivationKeySubscription {
+    rx: tokio::sync::mpsc::UnboundedReceiver<crate::key_capture::CaptureActivationResponse>,
+}
+
+impl ActivationKeySubscription {
+    /// 取下一个原始按键，窗口内没有按键则返回 `None`。
+    pub async fn next(
+        &mut self,
+        window: std::time::Duration,
+    ) -> Option<crate::key_capture::CaptureActivationResponse> {
+        tokio::time::timeout(window, self.rx.recv())
+            .await
+            .ok()
+            .flatten()
+    }
+}
+
+impl Drop for ActivationKeySubscription {
+    fn drop(&mut self) {
+        let mut slot = ACTIVATION_KEY_TAP.lock().unwrap_or_else(|e| e.into_inner());
+        *slot = None;
+    }
+}
+
+/// 订阅监听器收到的原始按键。已有订阅者时旧订阅被顶掉，其接收端随即失效。
+pub fn subscribe_activation_keys() -> ActivationKeySubscription {
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut slot = ACTIVATION_KEY_TAP.lock().unwrap_or_else(|e| e.into_inner());
+    *slot = Some(tx);
+    ActivationKeySubscription { rx }
+}
+
+/// 监听器每收到一个原始按键就调它一次；没有订阅者时什么也不做。
+pub(crate) fn publish_activation_key(observation: crate::key_capture::CaptureActivationResponse) {
+    let slot = ACTIVATION_KEY_TAP.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(tx) = slot.as_ref() {
+        let _ = tx.send(observation);
+    }
+}
+
 use crate::error::KeyListenerError;
 
 /// 持续监听激活键的 trait seam。

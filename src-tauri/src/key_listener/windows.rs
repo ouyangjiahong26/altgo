@@ -5,7 +5,7 @@
 //! VK 匹配都在回调里做，保证钩子过程快速返回
 //! （`LowLevelHooksTimeout` 超时会导致系统摘除钩子）。
 
-use super::{KeyEvent, KeyListener};
+use super::{publish_activation_key, KeyEvent, KeyListener};
 use crate::config::KeyListenerConfig;
 use crate::error::KeyListenerError;
 use std::thread::JoinHandle;
@@ -57,10 +57,16 @@ unsafe extern "system" fn ll_keyboard_proc(
             pressed,
             injected: (info.flags.0 & LLKHF_INJECTED.0) != 0,
         };
-        HOOK_CALLBACK.with(|cb| {
-            if let Some(cb) = cb.borrow().as_ref() {
-                cb(event);
-            }
+        HOOK_CALLBACK.with(|cb| match cb.borrow().as_ref() {
+            Some(callback) => callback(event),
+            // 事件投到没有回调的线程上时，钩子看起来“装好了却收不到”，
+            // 这条日志是区分它与“系统根本没调用”的唯一线索。
+            None => tracing::debug!(
+                thread_id = GetCurrentThreadId(),
+                vk = event.vk,
+                injected = event.injected,
+                "keyboard hook event delivered to a thread with no callback"
+            ),
         });
     }
     CallNextHookEx(None, n_code, w_param, l_param)
@@ -73,6 +79,11 @@ pub(crate) struct HookHandle {
 }
 
 impl HookHandle {
+    /// 钩子线程 id，供日志与诊断定位。
+    pub(crate) fn thread_id(&self) -> u32 {
+        self.thread_id
+    }
+
     /// 请求钩子线程退出（post WM_QUIT）并回收线程。
     pub fn stop(mut self) {
         self.stop_impl();
@@ -123,11 +134,24 @@ where
                     let _ = UnhookWindowsHookEx(hook);
                     return;
                 }
+                tracing::debug!(thread_id, "keyboard hook installed and pumping messages");
 
                 let mut msg = Default::default();
                 // GetMessageW 返回 0 表示收到 WM_QUIT，-1 表示错误。
-                while GetMessageW(&mut msg, None, 0, 0).0 > 0 {}
+                // 两种退出都要留下原因：钩子线程悄悄死掉时，钩子看起来还是装好的。
+                loop {
+                    let ret = GetMessageW(&mut msg, None, 0, 0).0;
+                    if ret == 0 {
+                        tracing::debug!(thread_id, "keyboard hook thread received WM_QUIT");
+                        break;
+                    }
+                    if ret == -1 {
+                        tracing::debug!(thread_id, "GetMessageW failed in keyboard hook thread");
+                        break;
+                    }
+                }
                 let _ = UnhookWindowsHookEx(hook);
+                tracing::debug!(thread_id, "keyboard hook removed");
             }
         })
         .map_err(|e| format!("failed to spawn hook thread: {e}"))?;
@@ -179,6 +203,13 @@ impl KeyListener for WindowsKeyListener {
         let (tx, rx) = mpsc::unbounded_channel();
         let vk = self.vk_code;
         let hook = spawn_ll_keyboard_hook(move |event| {
+            // 旁路先发：过滤掉的按键也要能被自检看到，用户按错了键才知道自己按的是哪个。
+            publish_activation_key(crate::key_capture::CaptureActivationResponse {
+                key_name: crate::key_capture::windows_vk_code_to_name(event.vk),
+                linux_evdev_code: None,
+                windows_vk_code: Some(event.vk),
+                injected: Some(event.injected),
+            });
             // 忽略 SendInput 等注入的合成事件，避免应用自动注入文本时自我反馈。
             if event.injected {
                 if event.vk == vk {
@@ -198,8 +229,9 @@ impl KeyListener for WindowsKeyListener {
         .map_err(KeyListenerError::StartFailed)?;
 
         tracing::info!(
-            key = %self.key_name,
+            key = self.key_name,
             vk = format!("0x{:02X}", self.vk_code),
+            thread_id = hook.thread_id(),
             "Windows keyboard hook installed"
         );
         self.hook = Some(hook);

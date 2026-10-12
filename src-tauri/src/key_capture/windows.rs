@@ -3,10 +3,9 @@
 //! 临时挂一个低级键盘钩子，阻塞等待下一次物理按键。
 
 use std::sync::mpsc;
+use std::time::Duration;
 
-use super::{
-    windows_vk_code_to_name, CaptureActivationResponse, CaptureOptions, CaptureOutcome, KeyCapture,
-};
+use super::{windows_vk_code_to_name, CaptureActivationResponse, CaptureOutcome, KeyCapture};
 use crate::key_listener::windows::{spawn_ll_keyboard_hook, HookHandle};
 
 /// Windows 平台激活键捕获器。
@@ -25,27 +24,14 @@ impl Default for WindowsKeyCapture {
 }
 
 impl KeyCapture for WindowsKeyCapture {
-    fn capture(&mut self, options: CaptureOptions) -> Result<CaptureOutcome, String> {
-        let CaptureOptions {
-            timeout,
-            accept_injected,
-            on_armed,
-        } = options;
-        let (tx, rx) = mpsc::sync_channel::<(u16, bool)>(1);
+    fn capture(&mut self, timeout: Duration) -> Result<CaptureOutcome, String> {
+        let (tx, rx) = mpsc::sync_channel::<u16>(1);
         let hook: HookHandle = spawn_ll_keyboard_hook(move |event| {
-            tracing::debug!(
-                vk = event.vk,
-                pressed = event.pressed,
-                injected = event.injected,
-                "key capture hook event"
-            );
-            if !event.pressed {
+            // 注入的合成事件一律忽略：防止应用自动注入文本时自我反馈。
+            if event.injected || !event.pressed {
                 return;
             }
-            if event.injected && !accept_injected {
-                return;
-            }
-            if tx.send((event.vk, event.injected)).is_ok() {
+            if tx.send(event.vk).is_ok() {
                 // 收到第一个按键即结束钩子线程。
                 unsafe {
                     let tid = windows::Win32::System::Threading::GetCurrentThreadId();
@@ -60,26 +46,17 @@ impl KeyCapture for WindowsKeyCapture {
         })
         .map_err(|e| format!("键盘钩子启动失败: {e}"))?;
 
-        // 钩子已挂上，此后按键才收得到。
-        tracing::debug!(
-            timeout_ms = timeout.as_millis() as u64,
-            accept_injected,
-            "key capture hook armed"
-        );
-        if let Some(on_armed) = on_armed {
-            on_armed();
-        }
-
         let pressed = rx.recv_timeout(timeout).ok();
 
         drop(hook); // 确保 WM_QUIT 后钩子线程被回收
 
         Ok(match pressed {
-            Some((vk, injected)) => CaptureOutcome::Captured(CaptureActivationResponse {
+            Some(vk) => CaptureOutcome::Captured(CaptureActivationResponse {
                 key_name: windows_vk_code_to_name(vk),
                 linux_evdev_code: None,
                 windows_vk_code: Some(vk),
-                injected: Some(injected),
+                // “按下以设置”只认物理按键，走到这里的必然不是注入事件。
+                injected: Some(false),
             }),
             None => CaptureOutcome::TimedOut,
         })

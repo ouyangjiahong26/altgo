@@ -174,13 +174,13 @@ describe("Home 触发键自检卡", () => {
     fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
 
     expect(await screen.findByText("正在准备按键捕获")).toBeTruthy();
-    expect(screen.queryByText(/请按下/)).toBeNull();
+    expect(screen.queryByText(/请按住/)).toBeNull();
 
     act(() => {
       emit("key-probe-armed", null);
     });
 
-    expect(await screen.findByText("请按下 右Alt")).toBeTruthy();
+    expect(await screen.findByText("请按住 右Alt 说一句话")).toBeTruthy();
   });
 
   it("已看过提示时只显示入口按钮", async () => {

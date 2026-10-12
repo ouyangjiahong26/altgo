@@ -5,7 +5,7 @@
 //!
 //! 通过 `xmodmap -pke` 解析按键名称到 keycode 的映射（xinput 路径）。
 
-use super::{KeyEvent, KeyListener};
+use super::{publish_activation_key, KeyEvent, KeyListener};
 use crate::config::KeyListenerConfig;
 use crate::error::KeyListenerError;
 use std::collections::HashMap;
@@ -58,6 +58,17 @@ fn load_xmodmap_keycodes() -> std::collections::HashMap<String, u8> {
         tracing::error!("xmodmap output contained no parseable keycode mappings");
     }
     map
+}
+
+/// 在缓存的 xmodmap 表里反查 keycode 对应的 keysym 名。
+///
+/// 一个 keycode 上可能挂多个 keysym（如 `Alt_L Meta_L Alt_L Meta_L`），
+/// 这里只取任意一个：旁路只用于告诉用户“按的是哪个键”，不参与匹配判定。
+fn keysym_name_for_keycode(keycode: u8) -> Option<String> {
+    load_xmodmap_keycodes()
+        .into_iter()
+        .find(|(_, code)| *code == keycode)
+        .map(|(name, _)| name)
 }
 
 /// X11 按键监听器，使用 `xinput test-xi2` 捕获全局按键事件。
@@ -169,6 +180,15 @@ fn run_xinput_stdout_loop(
         } else if let Some(detail_str) = trimmed.strip_prefix("detail:") {
             if let Some(pressed) = event_type.take() {
                 if let Ok(detail) = detail_str.trim().parse::<u8>() {
+                    // 旁路保留过滤前的按键。xinput 只有 X11 keycode，反查回 keysym 名
+                    // 才能让自检判断“按的是不是配置的那个键”。
+                    publish_activation_key(crate::key_capture::CaptureActivationResponse {
+                        key_name: keysym_name_for_keycode(detail)
+                            .unwrap_or_else(|| format!("keycode_{detail}")),
+                        linux_evdev_code: None,
+                        windows_vk_code: None,
+                        injected: None,
+                    });
                     if detail == keycode && tx.send(KeyEvent { pressed }).is_err() {
                         tracing::warn!("key event receiver dropped, key listener thread exiting");
                         break;
@@ -394,6 +414,16 @@ fn run_evtest_stdout_loop(
             Err(_) => continue,
         };
 
+        let Some((code, _value)) = parse_ev_key_line(&line) else {
+            continue;
+        };
+        // 旁路保留过滤前的按键：自检要看的正是“有没有到达监听器”。
+        publish_activation_key(crate::key_capture::CaptureActivationResponse {
+            key_name: crate::key_capture::evdev_code_to_keysym_name(code),
+            linux_evdev_code: Some(code),
+            windows_vk_code: None,
+            injected: None,
+        });
         let Some(pressed) = evtest_line_to_key_event(&line, &allowed) else {
             continue;
         };

@@ -56,10 +56,7 @@ impl CaptureActivationResponse {
 }
 
 /// “按下以设置”等待按键的时长。
-const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
-
-/// 激活键自检等待按键的时长。用户正盯着结果看，不必等满捕获时长。
-const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+pub const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// 一次捕获的结局。
 ///
@@ -87,11 +84,23 @@ pub struct ActivationKeyProbe {
     pub matched: bool,
 }
 
+/// 键名的等价比较：`AltGr` 与 `ISO_Level3_Shift` 是右 Alt 的别名。
+fn key_names_equivalent(left: &str, right: &str) -> bool {
+    fn canonical(name: &str) -> &str {
+        match name {
+            "AltGr" | "ISO_Level3_Shift" => "Alt_R",
+            other => other,
+        }
+    }
+    canonical(left) == canonical(right)
+}
+
 /// 由观测值与配置解析出的匹配码判定自检结果。
 ///
-/// 比对用平台原始码而不是键名：名字表可能把两个码映到同一个名字，
-/// 而监听器匹配用的就是原始码。注入的按键即使键码对得上也触发起不了录，
-/// 因为监听器一律忽略注入事件，所以这里直接判为不命中。
+/// 比对以平台原始码为准，因为名字表可能把两个码映到同一个名字，而监听器匹配用的
+/// 就是原始码；原始码缺失时（X11 的 xinput 路径只能给出键名）退回按名字判。
+/// 注入的按键即使键码对得上也触发起不了录，因为监听器一律忽略注入事件，
+/// 所以这里直接判为不命中。
 pub fn evaluate_probe(
     observed: Option<CaptureActivationResponse>,
     configured_key_name: String,
@@ -108,47 +117,16 @@ pub fn evaluate_probe(
         (Some(observed_code), Some(configured_code)) => observed_code == configured_code,
         _ => false,
     };
+    let name_matched = observed
+        .as_ref()
+        .map(|response| key_names_equivalent(&response.key_name, &configured_key_name))
+        .unwrap_or(false);
     ActivationKeyProbe {
         observed,
         configured_key_name,
         configured_code,
         injected,
-        matched: code_matched && !injected,
-    }
-}
-
-/// 一次捕获的行为选项。
-pub struct CaptureOptions {
-    /// 等待按键的时长。
-    pub timeout: Duration,
-    /// 是否接受其他程序注入的按键。
-    ///
-    /// Windows 的低级钩子能区分注入事件：监听器一律忽略（防止应用自动注入文本时
-    /// 自我反馈），自检则要看得到它们，否则被改键工具、键盘厂商驱动或输入法改写的键
-    /// 会被报成“没有收到任何按键”。Linux 的 evdev 路径区分不出注入，该选项无效。
-    pub accept_injected: bool,
-    /// 捕获真正就绪时回调一次。调用方据此告诉界面“现在可以按了”。
-    ///
-    /// 就绪之前必然收不到按键（要等旧监听器收尾、钩子或子进程起好），
-    /// 这段时间界面若已经写着“请按下”，用户按下的那几次就白按了。
-    pub on_armed: Option<Box<dyn FnOnce() + Send>>,
-}
-
-/// “按下以设置”的捕获选项：等满捕获时长，只认物理按键，不需要就绪回调。
-pub fn settings_capture_options() -> CaptureOptions {
-    CaptureOptions {
-        timeout: CAPTURE_TIMEOUT,
-        accept_injected: false,
-        on_armed: None,
-    }
-}
-
-/// 自检的捕获选项：等得短一些，接受注入事件，并在就绪时通知界面。
-pub fn probe_capture_options(on_armed: Box<dyn FnOnce() + Send>) -> CaptureOptions {
-    CaptureOptions {
-        timeout: PROBE_TIMEOUT,
-        accept_injected: true,
-        on_armed: Some(on_armed),
+        matched: (code_matched || name_matched) && !injected,
     }
 }
 
@@ -156,8 +134,8 @@ pub fn probe_capture_options(on_armed: Box<dyn FnOnce() + Send>) -> CaptureOptio
 ///
 /// 由平台 adapter 实现。`capture()` 为同步阻塞方法，调用方负责在独立线程执行。
 pub trait KeyCapture: Send {
-    /// 阻塞等待一次物理按键，时限内没有可接受的按键时返回 [`CaptureOutcome::TimedOut`]。
-    fn capture(&mut self, options: CaptureOptions) -> Result<CaptureOutcome, String>;
+    /// 阻塞等待一次物理按键，`timeout` 内没有按键时返回 [`CaptureOutcome::TimedOut`]。
+    fn capture(&mut self, timeout: Duration) -> Result<CaptureOutcome, String>;
 }
 
 /// Windows 虚拟键码（Win32 `VK_*` 常量，与 `winuser.h` 一致）。

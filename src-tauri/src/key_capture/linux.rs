@@ -9,10 +9,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::{
-    evdev_code_to_keysym_name, CaptureActivationResponse, CaptureOptions, CaptureOutcome,
-    KeyCapture,
-};
+use super::{evdev_code_to_keysym_name, CaptureActivationResponse, CaptureOutcome, KeyCapture};
 
 /// Alt 键的 evdev keycode（与 `linux/input-event-codes.h` 一致）。
 const EVDEV_KEY_ALT: u16 = 56; // KEY_LEFTALT
@@ -67,8 +64,8 @@ impl Default for LinuxKeyCapture {
 }
 
 impl KeyCapture for LinuxKeyCapture {
-    fn capture(&mut self, options: CaptureOptions) -> Result<CaptureOutcome, String> {
-        capture_activation_key_blocking(options.timeout, options.on_armed)
+    fn capture(&mut self, timeout: Duration) -> Result<CaptureOutcome, String> {
+        capture_activation_key_blocking(timeout)
     }
 }
 
@@ -88,13 +85,10 @@ fn parse_ev_key_line(line: &str) -> Option<(u16, i32)> {
     Some((code, value))
 }
 
-fn capture_evdev_press(
-    timeout: Duration,
-    on_armed: Option<Box<dyn FnOnce() + Send>>,
-) -> Result<Option<u16>, String> {
+fn capture_evdev_press(timeout: Duration) -> Result<Option<u16>, String> {
     let devices = crate::key_listener::list_keyboard_devices()
         .map_err(|e| format!("keyboard devices: {}", e))?;
-    capture_evdev_press_with_devices(devices, timeout, on_armed, |path| {
+    capture_evdev_press_with_devices(devices, timeout, |path| {
         let child = Command::new("evtest")
             .arg(path)
             .stdout(Stdio::piped())
@@ -188,7 +182,6 @@ fn reap_evtest_children(children: Vec<Box<dyn EvtestChild>>, readers: Vec<thread
 fn capture_evdev_press_with_devices<F>(
     devices: Vec<PathBuf>,
     timeout: Duration,
-    on_armed: Option<Box<dyn FnOnce() + Send>>,
     mut spawn_evtest: F,
 ) -> Result<Option<u16>, String>
 where
@@ -202,11 +195,6 @@ where
     let deadline = Instant::now() + timeout;
     let (children, readers) = spawn_evtest_readers(devices, &tx, &mut spawn_evtest);
 
-    // evtest 读者已就位，此后按键才收得到。
-    if let Some(on_armed) = on_armed {
-        on_armed();
-    }
-
     drop(tx);
     let remaining = deadline.saturating_duration_since(Instant::now());
     // 超时与“设备都不出键”（接收端断开）都是没抓到按键，对调用方是同一件事。
@@ -217,11 +205,8 @@ where
     Ok(pressed)
 }
 
-fn capture_activation_key_blocking(
-    timeout: Duration,
-    on_armed: Option<Box<dyn FnOnce() + Send>>,
-) -> Result<CaptureOutcome, String> {
-    let Some(code) = capture_evdev_press(timeout, on_armed)? else {
+fn capture_activation_key_blocking(timeout: Duration) -> Result<CaptureOutcome, String> {
+    let Some(code) = capture_evdev_press(timeout)? else {
         return Ok(CaptureOutcome::TimedOut);
     };
     let key_name = evdev_code_to_keysym_name(code);
@@ -283,7 +268,6 @@ mod tests {
         let result = capture_evdev_press_with_devices(
             vec![PathBuf::from("/controlled/event0")],
             Duration::from_secs(1),
-            None,
             |_| {
                 Ok(Box::new(TestEvtestChild::new(
                     b"Event: type 1 (EV_KEY), code 56 (KEY_LEFTALT), value 1\n".to_vec(),
@@ -306,7 +290,6 @@ mod tests {
         let result = capture_evdev_press_with_devices(
             vec![PathBuf::from("/controlled/event0")],
             Duration::from_millis(10),
-            None,
             |_| {
                 Ok(Box::new(TestEvtestChild::new(
                     Vec::new(),
@@ -329,7 +312,6 @@ mod tests {
         let result = capture_evdev_press_with_devices(
             vec![PathBuf::from("/controlled/event0")],
             Duration::from_secs(1),
-            None,
             |_| {
                 Ok(Box::new(TestEvtestChild::without_stdout(
                     spawned_calls.clone(),

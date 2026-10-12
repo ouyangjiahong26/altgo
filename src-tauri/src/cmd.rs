@@ -141,7 +141,7 @@ pub async fn capture_activation_key(
 ) -> Result<crate::key_capture::CaptureActivationResponse, String> {
     stop_pipeline_and_settle(&controller).await;
 
-    match capture_result(start_capture(crate::key_capture::settings_capture_options())).await {
+    match capture_once(crate::key_capture::CAPTURE_TIMEOUT).await {
         Ok(crate::key_capture::CaptureOutcome::Captured(response)) => Ok(response),
         Ok(crate::key_capture::CaptureOutcome::TimedOut) => {
             Err(crate::key_capture::capture_timeout_message().to_string())
@@ -153,7 +153,7 @@ pub async fn capture_activation_key(
 /// 流水线停止后、重新挂钩前留出的间隔，避免与尚未注销的旧监听器抢钩子与设备节点。
 const KEY_CAPTURE_SETTLE_DELAY: Duration = Duration::from_millis(400);
 
-/// 停流水线并等它把键盘资源交还。捕获与自检都要独占键盘，收尾共用这一段。
+/// 停流水线并等它把键盘资源交还。“按下以设置”要独占键盘，收尾用这一段。
 async fn stop_pipeline_and_settle(controller: &PipelineController) {
     controller.stop().await;
     tokio::time::sleep(KEY_CAPTURE_SETTLE_DELAY).await;
@@ -162,90 +162,41 @@ async fn stop_pipeline_and_settle(controller: &PipelineController) {
 /// 自检捕获就绪事件：界面收到后才提示用户按键。
 const KEY_PROBE_ARMED_EVENT: &str = "key-probe-armed";
 
-/// 阻塞线程上的按键捕获句柄。
-type CaptureTask = tokio::task::JoinHandle<Result<crate::key_capture::CaptureOutcome, String>>;
-
-/// 在阻塞线程上启动一次平台按键捕获。调用方决定先停流水线还是先装钩子，
-/// 再取结果：两者顺序不同，丢失按键的窗口落在不同的人身上。
-fn start_capture(options: crate::key_capture::CaptureOptions) -> CaptureTask {
-    tokio::task::spawn_blocking(move || {
-        crate::key_capture::PlatformKeyCapture::new().capture(options)
+/// 在阻塞线程上跑一次平台按键捕获。调用方负责先停流水线。
+async fn capture_once(timeout: Duration) -> Result<crate::key_capture::CaptureOutcome, String> {
+    match tokio::task::spawn_blocking(move || {
+        crate::key_capture::PlatformKeyCapture::new().capture(timeout)
     })
-}
-
-/// 取捕获结果，把阻塞线程自身的失败也折成错误串。
-async fn capture_result(task: CaptureTask) -> Result<crate::key_capture::CaptureOutcome, String> {
-    match task.await {
+    .await
+    {
         Ok(result) => result,
         Err(e) => Err(e.to_string()),
     }
 }
 
-/// 激活键自检：让用户按一次键，回报抓到的键与当前配置的激活键是否一致。
+/// 激活键自检：让用户按一次键，回报按键有没有到达监听器。
 ///
-/// 探测期间停流水线：不停的话按下激活键会真的录一段音，用户拿到的是
-/// 一段无声转写。无论探测成败都要把流水线起回来，否则自检一次就失灵。
-///
-/// 抓到的键码与配置键码都记进日志：Windows 上“按了没反应”的机器往往不在
-/// 开发者手边，这两行是唯一的现场数据。
+/// 走监听器自己的原始按键旁路，不自检期间另装钩子、也不停流水线。另外装的那个低级
+/// 钩子在应用窗口获得焦点时会被挡在别人的钩子之后收不到事件，而监听器自己的钩子一直
+/// 好用；按键照常录音，用户按下去就顺手得到一次真实转写，不必先停后起。
 #[tauri::command]
 pub async fn probe_activation_key(
     app: AppHandle,
-    controller: State<'_, PipelineController>,
     config_store: State<'_, ConfigStore>,
 ) -> Result<crate::key_capture::ActivationKeyProbe, String> {
-    let cfg = Arc::new(config_store.snapshot().await);
+    let mut subscription = crate::key_listener::subscribe_activation_keys();
+    // 订阅已就绪，界面收到这个事件之后才提示用户按键。
+    let _ = app.emit(KEY_PROBE_ARMED_EVENT, ());
 
-    // 先装捕获钩子再停流水线：装钩子只要几毫秒，而用户往往一点下就按键，
-    // 顺序反了就会有一段“界面已提示、钩子还没装”的空档，那几次按下的键全丢。
-    // 停流水线本身只要几毫秒，期间按键最多触发一次随即被丢弃的录音。
-    let app_for_armed = app.clone();
-    let capture = start_capture(crate::key_capture::probe_capture_options(Box::new(
-        move || {
-            let _ = app_for_armed.emit(KEY_PROBE_ARMED_EVENT, ());
-        },
-    )));
+    let observed = subscription.next(crate::key_listener::PROBE_WINDOW).await;
 
-    stop_pipeline_and_settle(&controller).await;
-    let outcome = capture_result(capture).await;
+    let cfg = config_store.snapshot().await;
+    let probe = crate::key_capture::evaluate_probe(
+        observed,
+        cfg.key_listener.key_name.clone(),
+        crate::key_capture::configured_match_code_from_config(&cfg.key_listener),
+    );
 
-    let status_arc = controller.status_arc();
-    let app_for_spawn = app.clone();
-    probe_activation_key_core(&controller, cfg, outcome, move |cfg| {
-        crate::spawn_pipeline_thread(&app_for_spawn, cfg, status_arc)
-    })
-    .await
-}
-
-/// 自检收尾：判定命中，并把探测期间停掉的流水线起回来。
-///
-/// 注入 `spawn` 使编排可测，与 [`restart_pipeline`] 同一范式。
-pub(crate) async fn probe_activation_key_core<S>(
-    controller: &PipelineController,
-    cfg: Arc<crate::config::Config>,
-    outcome: Result<crate::key_capture::CaptureOutcome, String>,
-    spawn: S,
-) -> Result<crate::key_capture::ActivationKeyProbe, String>
-where
-    S: FnOnce(Arc<crate::config::Config>) -> crate::PipelineHandle,
-{
-    let configured_key_name = cfg.key_listener.key_name.clone();
-    let configured_code = crate::key_capture::configured_match_code_from_config(&cfg.key_listener);
-
-    let observed = match outcome {
-        Ok(crate::key_capture::CaptureOutcome::Captured(response)) => Some(response),
-        Ok(crate::key_capture::CaptureOutcome::TimedOut) => None,
-        Err(e) => {
-            // 抓取失败同样要把流水线起回来；起不回来只记日志，先把手边这条
-            // 抓取原因交回前端，它才是用户此刻追问的东西。
-            if let Err(restart) = controller.start_with(|| spawn(cfg)).await {
-                tracing::error!(error = %restart, "failed to restart pipeline after key probe");
-            }
-            return Err(e);
-        }
-    };
-
-    let probe = crate::key_capture::evaluate_probe(observed, configured_key_name, configured_code);
     tracing::info!(
         configured_key_name = probe.configured_key_name,
         configured_code = ?probe.configured_code,
@@ -256,7 +207,6 @@ where
         "activation key probe"
     );
 
-    controller.start_with(|| spawn(cfg)).await?;
     Ok(probe)
 }
 

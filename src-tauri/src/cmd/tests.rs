@@ -145,65 +145,6 @@ async fn restart_pipeline_passes_supplied_config_to_spawn() {
     );
 }
 
-/// 自检只在探测期间停流水线，探测结束必须把它起回来。停完不起，
-/// 用户点一次“检测触发键”就会把激活键彻底弄失灵，且没有任何提示。
-#[tokio::test]
-async fn probe_activation_key_core_restarts_pipeline() {
-    let controller = PipelineController::new();
-    let (handle, stopped) = fake_spawn();
-    controller.start_with(move || handle).await.unwrap();
-    // 命令在探测前停掉流水线，收尾逻辑只负责起回来。
-    controller.stop().await;
-    assert!(stopped.load(Ordering::SeqCst));
-
-    let (new_handle, _new_stopped) = fake_spawn();
-    let probe = probe_activation_key_core(
-        &controller,
-        Arc::new(Config::default()),
-        Ok(crate::key_capture::CaptureOutcome::Captured(
-            crate::key_capture::CaptureActivationResponse {
-                key_name: "Alt_R".to_string(),
-                linux_evdev_code: None,
-                windows_vk_code: Some(0xA5),
-                injected: None,
-            },
-        )),
-        move |_cfg| new_handle,
-    )
-    .await
-    .unwrap();
-
-    assert_eq!(probe.configured_key_name, "Alt_R");
-    let (extra, _stopped) = fake_spawn();
-    assert!(
-        controller.start_with(move || extra).await.is_err(),
-        "自检结束后流水线应当已在运行"
-    );
-}
-
-/// 抓取失败同样要把流水线起回来，并把抓取原因原样交回前端。
-#[tokio::test]
-async fn probe_activation_key_core_restarts_pipeline_after_capture_error() {
-    let controller = PipelineController::new();
-
-    let (new_handle, _new_stopped) = fake_spawn();
-    let err = probe_activation_key_core(
-        &controller,
-        Arc::new(Config::default()),
-        Err("键盘钩子启动失败: 5".to_string()),
-        move |_cfg| new_handle,
-    )
-    .await
-    .expect_err("抓取失败必须仍是失败");
-
-    assert_eq!(err, "键盘钩子启动失败: 5");
-    let (extra, _stopped) = fake_spawn();
-    assert!(
-        controller.start_with(move || extra).await.is_err(),
-        "抓取失败后流水线也应当已在运行"
-    );
-}
-
 #[tokio::test]
 async fn restart_pipeline_keeps_its_save_config_current() {
     let temp_dir = tempfile::tempdir().unwrap();
