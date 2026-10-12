@@ -16,27 +16,43 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use tokio::sync::mpsc;
 
-/// xmodmap keycode 映射缓存。解析 xmodmap 输出开销大，
-/// 因此首次使用后缓存整张 keycode 表。
-static XMODMAP_CACHE: OnceLock<std::collections::HashMap<String, u8>> = OnceLock::new();
+/// xmodmap 解析结果。
+struct XmodmapKeys {
+    /// keysym 名到 keycode，按名字匹配用。
+    by_name: std::collections::HashMap<String, u8>,
+    /// keycode 到该行第一个 keysym。一个 keycode 常挂多个名字
+    /// （`keycode 108 = Alt_R Meta_R Alt_R Meta_R`），行内第一个才是主名，
+    /// 反查时取别名会把一个本来可用的键报成不匹配。
+    primary_by_keycode: std::collections::HashMap<u8, String>,
+}
 
-/// 运行 `xmodmap -pke` 并解析为 keysym 到 keycode 的映射，失败时返回空表。
-fn load_xmodmap_keycodes() -> std::collections::HashMap<String, u8> {
+/// xmodmap keycode 映射缓存。解析 xmodmap 输出开销大（要起子进程），
+/// 因此首次使用后缓存整张 keycode 表。
+static XMODMAP_CACHE: OnceLock<XmodmapKeys> = OnceLock::new();
+
+/// 运行 `xmodmap -pke` 并解析出两张表，失败时返回空表。
+fn load_xmodmap_keycodes() -> XmodmapKeys {
+    let empty = XmodmapKeys {
+        by_name: std::collections::HashMap::new(),
+        primary_by_keycode: std::collections::HashMap::new(),
+    };
+
     let output = match Command::new("xmodmap").arg("-pke").output() {
         Ok(o) => o,
         Err(e) => {
             tracing::error!(error = %e, "xmodmap not found or failed to run");
-            return std::collections::HashMap::new();
+            return empty;
         }
     };
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     if stdout.trim().is_empty() {
         tracing::error!("xmodmap returned empty output");
-        return std::collections::HashMap::new();
+        return empty;
     }
 
-    let mut map = std::collections::HashMap::new();
+    let mut by_name = std::collections::HashMap::new();
+    let mut primary_by_keycode = std::collections::HashMap::new();
 
     // xmodmap -pke 输出格式：keycode <N> = keysym ...
     // 如 "keycode  64 = Alt_L Meta_L Alt_L Meta_L"
@@ -44,31 +60,43 @@ fn load_xmodmap_keycodes() -> std::collections::HashMap<String, u8> {
         if let Some(keycode_str) = line.split_whitespace().nth(1) {
             if let Ok(keycode) = keycode_str.parse::<u8>() {
                 // 提取行内所有 keysym（跳过 "keycode N =" 部分）
+                let mut primary_taken = false;
                 for keysym in line.split_whitespace().skip(3) {
                     // 跳过可能存在的 "="
                     let keysym = keysym.trim_end_matches('=');
-                    if !keysym.is_empty() && !map.contains_key(keysym) {
-                        map.insert(keysym.to_string(), keycode);
+                    if keysym.is_empty() {
+                        continue;
                     }
+                    if !primary_taken {
+                        primary_by_keycode
+                            .entry(keycode)
+                            .or_insert_with(|| keysym.to_string());
+                        primary_taken = true;
+                    }
+                    by_name.entry(keysym.to_string()).or_insert(keycode);
                 }
             }
         }
     }
-    if map.is_empty() {
+    if by_name.is_empty() {
         tracing::error!("xmodmap output contained no parseable keycode mappings");
     }
-    map
+    XmodmapKeys {
+        by_name,
+        primary_by_keycode,
+    }
 }
 
-/// 在缓存的 xmodmap 表里反查 keycode 对应的 keysym 名。
+/// 在缓存的 xmodmap 表里反查 keycode 对应的主 keysym 名。
 ///
-/// 一个 keycode 上可能挂多个 keysym（如 `Alt_L Meta_L Alt_L Meta_L`），
-/// 这里只取任意一个：旁路只用于告诉用户“按的是哪个键”，不参与匹配判定。
+/// 取行内第一个名字，与配置里的键名对得上；旁路给出的名字会参与自检的名字比对，
+/// 取到别名（如 keycode 108 上的 `Meta_R`）会把一个本来就通的触发键报成不匹配。
 fn keysym_name_for_keycode(keycode: u8) -> Option<String> {
-    load_xmodmap_keycodes()
-        .into_iter()
-        .find(|(_, code)| *code == keycode)
-        .map(|(name, _)| name)
+    XMODMAP_CACHE
+        .get_or_init(load_xmodmap_keycodes)
+        .primary_by_keycode
+        .get(&keycode)
+        .cloned()
 }
 
 /// X11 按键监听器，使用 `xinput test-xi2` 捕获全局按键事件。
@@ -656,7 +684,7 @@ impl X11Listener {
     }
 
     fn resolve_keycode(&self) -> Result<u8, KeyListenerError> {
-        let keycode_map = XMODMAP_CACHE.get_or_init(load_xmodmap_keycodes);
+        let keycode_map = &XMODMAP_CACHE.get_or_init(load_xmodmap_keycodes).by_name;
 
         if keycode_map.is_empty() {
             return Err(KeyListenerError::ResolveFailed(

@@ -101,7 +101,7 @@ describe("Home 待重试录音横幅", () => {
 });
 
 describe("Home 监听状态", () => {
-  it("流水线停止时状态行不再说等待说话", async () => {
+  it("流水线停止时状态行不再说等待说话，给的是重启入口而不是自检", async () => {
     renderHome();
     await screen.findByText("等待说话");
 
@@ -111,6 +111,10 @@ describe("Home 监听状态", () => {
 
     expect(await screen.findByText("监听已停止")).toBeTruthy();
     expect(screen.queryByText("等待说话")).toBeNull();
+    // 监听停了就没有原始按键的生产方，自检必然超时，入口要换成恢复动作。
+    expect(screen.queryByRole("button", { name: /检测触发键/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /重新启动监听/ }));
+    expect(invokeMock).toHaveBeenCalledWith("start_pipeline");
   });
 });
 

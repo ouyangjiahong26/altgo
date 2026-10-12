@@ -301,6 +301,14 @@ export default function Home() {
     }
   };
 
+  const handleRestartListener = async () => {
+    try {
+      await invoke("start_pipeline");
+    } catch {
+      // 起不来就维持“监听已停止”，用户可到设置页查看配置校验失败的原因。
+    }
+  };
+
   const handleCopy = async () => {
     if (transcription) {
       const ok = await copyToClipboard(transcription);
@@ -442,7 +450,7 @@ export default function Home() {
           {mappedStatus === "idle" && triggerLabel && (
             <p className="home-trigger-hint">{renderTriggerPrompt(t("main.trigger_prompt"), triggerLabel)}</p>
           )}
-          {(mappedStatus === "idle" || mappedStatus === "stopped") && triggerLabel && probe.kind === "closed" && (
+          {mappedStatus === "idle" && triggerLabel && probe.kind === "closed" && (
             <div className="home-probe-area">
               <button
                 type="button"
@@ -451,6 +459,19 @@ export default function Home() {
               >
                 <Keyboard size={13} />
                 <span>{t("main.probe_open")}</span>
+              </button>
+            </div>
+          )}
+          {/* 监听已停止时自检必然收不到按键（旁路没有生产方），这里给的是恢复入口 */}
+          {mappedStatus === "stopped" && (
+            <div className="home-probe-area">
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary home-probe-open"
+                onClick={handleRestartListener}
+              >
+                <RotateCcw size={13} />
+                <span>{t("main.restart_listener")}</span>
               </button>
             </div>
           )}
