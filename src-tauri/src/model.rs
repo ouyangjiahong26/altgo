@@ -266,35 +266,6 @@ fn custom_model_files_ready(dir: &Path) -> bool {
     model_files_ready_with(dir, SENSE_VOICE_FILES, model_file_structurally_ready)
 }
 
-/// 扫描已下载的模型，返回存在的模型名称列表。
-///
-/// 只按文件齐全与大小下限判断，理由同 [`is_downloaded`]。
-pub fn list_downloaded() -> Vec<String> {
-    let dir = models_dir();
-    if !dir.exists() {
-        return Vec::new();
-    }
-
-    let mut downloaded = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(&dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-            let Some(name) = path.file_name().map(|n| n.to_string_lossy().to_string()) else {
-                continue;
-            };
-            if let Some(m) = MODELS.iter().find(|m| m.name == name) {
-                if model_files_ready_with(&path, &m.files, model_file_structurally_ready) {
-                    downloaded.push(name);
-                }
-            }
-        }
-    }
-    downloaded
-}
-
 /// 检查指定模型是否已下载。
 ///
 /// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
