@@ -239,6 +239,30 @@ describe("Home 触发键自检卡", () => {
     expect(screen.getByText(/altgo 会忽略注入的按键/)).toBeTruthy();
   });
 
+  it("检测命中后进入录音与结果相位，结论仍然可见", async () => {
+    stubProbe({
+      observed: { keyName: "Alt_R", linuxEvdevCode: null, windowsVkCode: 0xa5 },
+      configuredKeyName: "Alt_R",
+      configuredCode: 0xa5,
+      injected: false,
+      matched: true,
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+    expect(await screen.findByText("已检测到 右Alt，触发键可用")).toBeTruthy();
+
+    act(() => {
+      emit("pipeline-status", "recording");
+    });
+    expect(screen.getByText("已检测到 右Alt，触发键可用")).toBeTruthy();
+
+    act(() => {
+      emit("transcription-result", "你好");
+    });
+    expect(screen.getByText("已检测到 右Alt，触发键可用")).toBeTruthy();
+  });
+
   it("没有收到按键时报超时并给重试", async () => {
     stubProbe({
       observed: null,

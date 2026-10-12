@@ -415,6 +415,21 @@ export default function Home() {
           </div>
         </div>
       )}
+      {/* 自检卡常驻在内容流顶部：按键一生效就会进入录音相位，卡片若挂在空态里
+          会被整个换掉，用户看不到自检的结论。 */}
+      {probe.kind !== "closed" && triggerLabel && (
+        <div className="home-probe-area">
+          <ProbeCard
+            probe={probe}
+            triggerLabel={triggerLabel}
+            t={t}
+            onBegin={() => void runProbe()}
+            onRetry={() => void runProbe()}
+            onClose={() => setProbe({ kind: "closed" })}
+            onSettings={() => navigate("/settings")}
+          />
+        </div>
+      )}
       {!transcription ? (
         <div className="home-idle">
           <div className="home-status-line">
@@ -429,28 +444,16 @@ export default function Home() {
           {mappedStatus === "idle" && triggerLabel && (
             <p className="home-trigger-hint">{renderTriggerPrompt(t("main.trigger_prompt"), triggerLabel)}</p>
           )}
-          {(mappedStatus === "idle" || mappedStatus === "stopped") && triggerLabel && (
+          {(mappedStatus === "idle" || mappedStatus === "stopped") && triggerLabel && probe.kind === "closed" && (
             <div className="home-probe-area">
-              {probe.kind === "closed" ? (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary home-probe-open"
-                  onClick={() => void runProbe()}
-                >
-                  <Keyboard size={13} />
-                  <span>{t("main.probe_open")}</span>
-                </button>
-              ) : (
-                <ProbeCard
-                  probe={probe}
-                  triggerLabel={triggerLabel}
-                  t={t}
-                  onBegin={() => void runProbe()}
-                  onRetry={() => void runProbe()}
-                  onClose={() => setProbe({ kind: "closed" })}
-                  onSettings={() => navigate("/settings")}
-                />
-              )}
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary home-probe-open"
+                onClick={() => void runProbe()}
+              >
+                <Keyboard size={13} />
+                <span>{t("main.probe_open")}</span>
+              </button>
             </div>
           )}
           {mappedStatus === "processing" && (
