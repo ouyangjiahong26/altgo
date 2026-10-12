@@ -159,6 +159,9 @@ async fn stop_pipeline_and_settle(controller: &PipelineController) {
     tokio::time::sleep(KEY_CAPTURE_SETTLE_DELAY).await;
 }
 
+/// 自检捕获就绪事件：界面收到后才提示用户按键。
+const KEY_PROBE_ARMED_EVENT: &str = "key-probe-armed";
+
 /// 在阻塞线程上跑一次平台按键捕获。调用方负责先停流水线。
 async fn capture_once(
     options: crate::key_capture::CaptureOptions,
@@ -189,7 +192,16 @@ pub async fn probe_activation_key(
     let cfg = Arc::new(config_store.snapshot().await);
 
     stop_pipeline_and_settle(&controller).await;
-    let outcome = capture_once(crate::key_capture::probe_capture_options()).await;
+
+    // 停流水线到钩子挂上之间有一段空档，期间按下的键必然收不到，
+    // 所以先让界面停在“准备中”，钩子就绪后再发事件请用户按。
+    let app_for_armed = app.clone();
+    let outcome = capture_once(crate::key_capture::probe_capture_options(Box::new(
+        move || {
+            let _ = app_for_armed.emit(KEY_PROBE_ARMED_EVENT, ());
+        },
+    )))
+    .await;
 
     let status_arc = controller.status_arc();
     let app_for_spawn = app.clone();

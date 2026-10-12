@@ -26,12 +26,17 @@ impl Default for WindowsKeyCapture {
 
 impl KeyCapture for WindowsKeyCapture {
     fn capture(&mut self, options: CaptureOptions) -> Result<CaptureOutcome, String> {
+        let CaptureOptions {
+            timeout,
+            accept_injected,
+            on_armed,
+        } = options;
         let (tx, rx) = mpsc::sync_channel::<(u16, bool)>(1);
         let hook: HookHandle = spawn_ll_keyboard_hook(move |event| {
             if !event.pressed {
                 return;
             }
-            if event.injected && !options.accept_injected {
+            if event.injected && !accept_injected {
                 return;
             }
             if tx.send((event.vk, event.injected)).is_ok() {
@@ -49,7 +54,12 @@ impl KeyCapture for WindowsKeyCapture {
         })
         .map_err(|e| format!("键盘钩子启动失败: {e}"))?;
 
-        let pressed = rx.recv_timeout(options.timeout).ok();
+        // 钩子已挂上，此后按键才收得到。
+        if let Some(on_armed) = on_armed {
+            on_armed();
+        }
+
+        let pressed = rx.recv_timeout(timeout).ok();
 
         drop(hook); // 确保 WM_QUIT 后钩子线程被回收
 

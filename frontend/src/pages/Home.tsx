@@ -3,6 +3,7 @@ import {
   useLatestTranscription,
   usePipelineError,
   useKeyListenerBackend,
+  useKeyProbeArmed,
   useTranscriptionProgress,
   usePendingRecording,
 } from "../hooks/useTauri";
@@ -69,6 +70,7 @@ interface ActivationKeyProbeResponse {
 type ProbeView =
   | { kind: "prompt" }
   | { kind: "closed" }
+  | { kind: "arming" }
   | { kind: "probing" }
   | { kind: "matched"; key: string }
   | { kind: "injected"; key: string }
@@ -147,6 +149,11 @@ function probeText(
   switch (probe.kind) {
     case "prompt":
       return { head: t("main.probe_prompt_title"), detail: t("main.probe_prompt_detail") };
+    case "arming":
+      return {
+        head: t("main.probe_arming"),
+        detail: t("main.probe_arming_detail"),
+      };
     case "probing":
       return {
         head: fill(t("main.probe_prompt"), { key: triggerLabel }),
@@ -194,6 +201,8 @@ function probeActions(
         },
         { label: t("main.probe_skip"), onClick: handlers.onClose },
       ];
+    case "arming":
+      return [];
     case "probing":
       return [];
     case "matched":
@@ -265,6 +274,7 @@ export default function Home() {
   const keyBackend = useKeyListenerBackend();
   const txProgress = useTranscriptionProgress();
   const pending = usePendingRecording();
+  const probeArmed = useKeyProbeArmed();
   const [copied, setCopied] = useState(false);
   const [triggerLabel, setTriggerLabel] = useState("");
   // 首次进主页把自检卡展开一次，展开即记下：用户没交互就离开，回来也不再展开。
@@ -313,8 +323,13 @@ export default function Home() {
     if (probe.kind === "prompt") markHotkeyHintSeen();
   }, [probe.kind]);
 
+  // 捕获钩子就绪后才把“准备中”切成“请按下”，用户在空档里按的键本来也收不到。
+  useEffect(() => {
+    setProbe((current) => (current.kind === "arming" ? { kind: "probing" } : current));
+  }, [probeArmed]);
+
   const runProbe = async () => {
-    setProbe({ kind: "probing" });
+    setProbe({ kind: "arming" });
     try {
       const result = await invoke<ActivationKeyProbeResponse>("probe_activation_key");
       const observed = result.observed;

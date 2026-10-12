@@ -75,6 +75,17 @@ export function useKeyListenerBackend(): string | null {
   return useTauriEvent<string | null>("key-listener-backend", null);
 }
 
+/**
+ * 自检的捕获就绪信号：停流水线到捕获钩子挂上之间按下的键收不到，
+ * 界面要等到这个信号之后才提示用户按键。返回累计就绪次数，
+ * 调用方据此把“准备中”切成“可以按了”。
+ */
+export function useKeyProbeArmed(): number {
+  const [armed, setArmed] = useState(0);
+  useTauriEvent("key-probe-armed", null, () => setArmed((count) => count + 1));
+  return armed;
+}
+
 export function useTranscriptionProgress(): {
   phase: string;
   fraction: number | null;

@@ -118,7 +118,6 @@ pub fn evaluate_probe(
 }
 
 /// 一次捕获的行为选项。
-#[derive(Debug, Clone, Copy)]
 pub struct CaptureOptions {
     /// 等待按键的时长。
     pub timeout: Duration,
@@ -128,21 +127,28 @@ pub struct CaptureOptions {
     /// 自我反馈），自检则要看得到它们，否则被改键工具、键盘厂商驱动或输入法改写的键
     /// 会被报成“没有收到任何按键”。Linux 的 evdev 路径区分不出注入，该选项无效。
     pub accept_injected: bool,
+    /// 捕获真正就绪时回调一次。调用方据此告诉界面“现在可以按了”。
+    ///
+    /// 就绪之前必然收不到按键（要等旧监听器收尾、钩子或子进程起好），
+    /// 这段时间界面若已经写着“请按下”，用户按下的那几次就白按了。
+    pub on_armed: Option<Box<dyn FnOnce() + Send>>,
 }
 
-/// “按下以设置”的捕获选项：等满捕获时长，只认物理按键。
+/// “按下以设置”的捕获选项：等满捕获时长，只认物理按键，不需要就绪回调。
 pub fn settings_capture_options() -> CaptureOptions {
     CaptureOptions {
         timeout: CAPTURE_TIMEOUT,
         accept_injected: false,
+        on_armed: None,
     }
 }
 
-/// 自检的捕获选项：等得短一些，并且要看到注入事件。
-pub fn probe_capture_options() -> CaptureOptions {
+/// 自检的捕获选项：等得短一些，接受注入事件，并在就绪时通知界面。
+pub fn probe_capture_options(on_armed: Box<dyn FnOnce() + Send>) -> CaptureOptions {
     CaptureOptions {
         timeout: PROBE_TIMEOUT,
         accept_injected: true,
+        on_armed: Some(on_armed),
     }
 }
 

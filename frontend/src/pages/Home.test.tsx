@@ -141,6 +141,34 @@ describe("Home 触发键自检卡", () => {
     expect(screen.queryByText("先确认触发键能用")).toBeNull();
   });
 
+  it("收到就绪信号前停在准备中，收到后才提示按键", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      switch (cmd) {
+        case "get_config":
+          return Promise.resolve({ keyName: "Alt_R" });
+        case "probe_activation_key":
+          // ES2021 的 lib 没有 Promise.withResolvers，这里只要一个永不落定的 promise，让界面停在“准备中”。
+          return new Promise(() => {});
+        case "list_history":
+          return Promise.resolve([]);
+        default:
+          return Promise.resolve(null);
+      }
+    });
+    renderHome();
+
+    fireEvent.click(await screen.findByRole("button", { name: /开始检测/ }));
+
+    expect(await screen.findByText("正在准备按键捕获")).toBeTruthy();
+    expect(screen.queryByText(/请按下/)).toBeNull();
+
+    act(() => {
+      emit("key-probe-armed", null);
+    });
+
+    expect(await screen.findByText("请按下 右Alt")).toBeTruthy();
+  });
+
   it("已看过提示时只显示入口按钮", async () => {
     localStorage.setItem("altgo-hotkey-hint-seen", "1");
     renderHome();
