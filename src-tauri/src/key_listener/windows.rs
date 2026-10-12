@@ -180,7 +180,15 @@ impl KeyListener for WindowsKeyListener {
         let vk = self.vk_code;
         let hook = spawn_ll_keyboard_hook(move |event| {
             // 忽略 SendInput 等注入的合成事件，避免应用自动注入文本时自我反馈。
-            if !event.injected && event.vk == vk {
+            if event.injected {
+                if event.vk == vk {
+                    // 改键工具、键盘厂商驱动与输入法注入的按键走这里。丢得无声无息时
+                    // 用户看到的就是“按了没反应”，所以至少要留一行日志。
+                    tracing::debug!(vk, "configured key arrived as injected input, ignored");
+                }
+                return;
+            }
+            if event.vk == vk {
                 let _ = tx.send(KeyEvent {
                     pressed: event.pressed,
                 });

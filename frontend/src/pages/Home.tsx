@@ -22,6 +22,7 @@ const statusColor = {
   recording: "var(--color-red)",
   processing: "var(--color-amber)",
   done: "var(--color-green)",
+  stopped: "var(--color-red)",
 } as const;
 
 const statusI18n = {
@@ -29,7 +30,11 @@ const statusI18n = {
   recording: "status.recording",
   processing: "status.processing",
   done: "status.done",
+  stopped: "status.stopped",
 } as const;
+
+/** 界面上可呈现的流水线状态。`stopped` 表示监听已停，此时按键不会有任何反应。 */
+type HomeStatus = keyof typeof statusColor;
 
 /** 触发键名的显示文案：预设键名走 i18n，其余（自定义键名、键码兜底名）原样显示。 */
 function keyDisplayName(name: string, t: (key: string) => string): string {
@@ -359,11 +364,12 @@ export default function Home() {
     }
   };
 
-  const statusMap: Record<string, "idle" | "recording" | "processing" | "done"> = {
+  const statusMap: Record<string, HomeStatus> = {
     idle: "idle",
     recording: "recording",
     processing: "processing",
     done: "done",
+    stopped: "stopped",
   };
 
   const mappedStatus = statusMap[status] || "idle";
@@ -423,7 +429,7 @@ export default function Home() {
           {mappedStatus === "idle" && triggerLabel && (
             <p className="home-trigger-hint">{renderTriggerPrompt(t("main.trigger_prompt"), triggerLabel)}</p>
           )}
-          {mappedStatus === "idle" && triggerLabel && (
+          {(mappedStatus === "idle" || mappedStatus === "stopped") && triggerLabel && (
             <div className="home-probe-area">
               {probe.kind === "closed" ? (
                 <button

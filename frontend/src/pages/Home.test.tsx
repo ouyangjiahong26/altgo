@@ -100,6 +100,20 @@ describe("Home 待重试录音横幅", () => {
   });
 });
 
+describe("Home 监听状态", () => {
+  it("流水线停止时状态行不再说等待说话", async () => {
+    renderHome();
+    await screen.findByText("等待说话");
+
+    act(() => {
+      emit("pipeline-status", "stopped");
+    });
+
+    expect(await screen.findByText("监听已停止")).toBeTruthy();
+    expect(screen.queryByText("等待说话")).toBeNull();
+  });
+});
+
 describe("Home 触发键自检卡", () => {
   /** 让自检命令返回给定的观测结果。 */
   function stubProbe(result: unknown) {
