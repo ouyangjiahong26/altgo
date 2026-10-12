@@ -261,17 +261,14 @@ where
         .all(|file| is_ready(file, &dir.join(file.filename)))
 }
 
-/// 指定模型的文件是否齐全且校验和匹配官方发布版本。
-fn model_files_ready(dir: &Path, files: &[ModelFile]) -> bool {
-    model_files_ready_with(dir, files, model_file_ready)
-}
-
 /// 自定义模型目录是否包含可供 SenseVoice 加载的文件。
 fn custom_model_files_ready(dir: &Path) -> bool {
     model_files_ready_with(dir, SENSE_VOICE_FILES, model_file_structurally_ready)
 }
 
 /// 扫描已下载的模型，返回存在的模型名称列表。
+///
+/// 只按文件齐全与大小下限判断，理由同 [`is_downloaded`]。
 pub fn list_downloaded() -> Vec<String> {
     let dir = models_dir();
     if !dir.exists() {
@@ -289,7 +286,7 @@ pub fn list_downloaded() -> Vec<String> {
                 continue;
             };
             if let Some(m) = MODELS.iter().find(|m| m.name == name) {
-                if model_files_ready(&path, &m.files) {
+                if model_files_ready_with(&path, &m.files, model_file_structurally_ready) {
                     downloaded.push(name);
                 }
             }
@@ -299,11 +296,14 @@ pub fn list_downloaded() -> Vec<String> {
 }
 
 /// 检查指定模型是否已下载。
+///
+/// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
+/// 一次 SHA256 要数秒，而设置页的模型列表会对每个模型问一次“文件在不在”。
+/// 完整性在下载时确认，见 `model_file_ready_blocking` 与 `finalize_model_download_blocking`。
 pub fn is_downloaded(name: &str) -> bool {
-    MODELS
-        .iter()
-        .find(|m| m.name == name)
-        .is_some_and(|m| model_files_ready(&model_dir(name), &m.files))
+    MODELS.iter().find(|m| m.name == name).is_some_and(|m| {
+        model_files_ready_with(&model_dir(name), &m.files, model_file_structurally_ready)
+    })
 }
 
 /// 模型列表项（含下载状态），供 IPC 返回给前端。

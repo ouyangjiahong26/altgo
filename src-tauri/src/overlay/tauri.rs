@@ -178,7 +178,10 @@ fn parse_xrandr_geometry(output: &str) -> Vec<(i32, i32, i32, i32, bool)> {
     monitors
 }
 
-#[cfg(test)]
+/// 这些用例只覆盖 Linux 的 xrandr 解析路径，Windows 路径需要 AppHandle、只能在
+/// 真实运行时验证，所以整个模块按平台门控：否则 Windows 上会留下用不到的
+/// `use super::*`，`clippy --all-targets` 会因此失败。
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
 
