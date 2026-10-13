@@ -147,6 +147,15 @@ pub trait KeyListener: Send {
     ) -> Result<(tokio::sync::mpsc::UnboundedReceiver<KeyEvent>, &'static str), KeyListenerError>;
 }
 
+/// 旁路槽是进程级单槽，新订阅会顶掉旧订阅，所以碰它的测试必须串行。
+///
+/// 只给测试用：生产侧同一时刻只有一个观察者。用 tokio 的互斥量，异步测试里可以跨 await 持有。
+#[cfg(test)]
+pub(crate) async fn lock_bypass_test() -> tokio::sync::MutexGuard<'static, ()> {
+    static LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    LOCK.lock().await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,6 +214,7 @@ mod tests {
     /// 旁路槽是进程级单槽，两条断言合在一个用例里跑，避免并发订阅互相顶掉。
     #[tokio::test]
     async fn next_physical_skips_injected_and_times_out_without_one() {
+        let _guard = lock_bypass_test().await;
         let mut subscription = subscribe_activation_keys();
 
         publish_activation_key(observation(true));

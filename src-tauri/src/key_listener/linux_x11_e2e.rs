@@ -90,6 +90,7 @@ fn install_tracing() {
 #[tokio::test]
 async fn xinput_stdout_loop_publishes_bypass_and_filters_by_keycode() {
     install_tracing();
+    let _guard = crate::key_listener::lock_bypass_test().await;
     let mut sub = subscribe_activation_keys();
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
