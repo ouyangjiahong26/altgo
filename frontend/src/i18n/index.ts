@@ -432,7 +432,7 @@ const translations: Record<string, Record<string, string>> = {
     "history.submit": "Apply",
     "history.cancel": "Cancel",
     "onboarding.welcome_title": "Welcome to altgo",
-    "onboarding.welcome_text": "Hold the shortcut to speak; release to transcribe and polish straight to the clipboard. Take a minute to finish the basics.",
+    "onboarding.welcome_text": "Hold the trigger key to speak; release to transcribe and polish straight to the clipboard. Take a minute to finish the basics.",
     "onboarding.step_label": "Step {n} of 3",
     "onboarding.key_title": "Trigger key",
     "onboarding.engine_title": "Transcription engine",

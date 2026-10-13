@@ -149,7 +149,7 @@ pub async fn capture_activation_key(
         return subscription
             .next_physical(crate::key_capture::CAPTURE_TIMEOUT)
             .await
-            .ok_or_else(|| crate::key_capture::capture_timeout_message().to_string());
+            .ok_or_else(|| crate::key_capture::capture_bypass_timeout_message().to_string());
     }
 
     match capture_once(crate::key_capture::CAPTURE_TIMEOUT).await? {
@@ -163,7 +163,10 @@ pub async fn capture_activation_key(
 /// 自检捕获就绪事件：界面收到后才提示用户按键。
 const KEY_PROBE_ARMED_EVENT: &str = "key-probe-armed";
 
-/// 在阻塞线程上跑一次平台按键捕获。调用方负责先停流水线。
+/// 在阻塞线程上跑一次平台按键捕获。
+///
+/// 只在监听器没在跑时走这条回退路径（那时没有旁路可订），它会临时装钩子或自起 evtest，
+/// 完成前不需要、也无从停流水线。
 async fn capture_once(timeout: Duration) -> Result<crate::key_capture::CaptureOutcome, String> {
     match tokio::task::spawn_blocking(move || {
         crate::key_capture::PlatformKeyCapture::new().capture(timeout)
