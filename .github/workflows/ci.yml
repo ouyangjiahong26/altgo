@@ -99,7 +99,7 @@ jobs:
         run: cargo test --manifest-path=src-tauri/Cargo.toml --lib
 
       # xinput 路径端到端：单开 xvfb 并用过滤器只跑这一条，避免其余三百多条
-      # 测试去连 X 服务器；--test-threads=1 因为旁路订阅是进程级单槽。
+      # 测试去连 X 服务器。--test-threads=1 因为旁路订阅是进程级单槽。
       # 只在 amd64 跑（arm 跳过，避免重复耗时）。
       - name: Run X11 key listener end-to-end test
         if: matrix.arch == 'amd64'

@@ -33,7 +33,7 @@ pub const PROBE_WINDOW: std::time::Duration = std::time::Duration::from_secs(8);
 
 /// 监听器是否正在运行。
 ///
-/// 只有监听器在跑时原始按键旁路才有人喂；“按下以设置”据此决定走旁路还是退回临时钩子。
+/// 只有监听器在跑时原始按键旁路才有人喂，“按下以设置”据此决定走旁路还是退回临时钩子。
 static LISTENER_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// 流水线在监听器启动成功后置位、主循环收尾时清除。
@@ -42,7 +42,7 @@ pub(crate) fn set_listener_active(active: bool) {
 }
 
 /// 监听器是否正在运行。
-pub fn is_listener_active() -> bool {
+pub(crate) fn is_listener_active() -> bool {
     LISTENER_ACTIVE.load(std::sync::atomic::Ordering::SeqCst)
 }
 
@@ -74,7 +74,7 @@ impl ActivationKeySubscription {
             .flatten()
     }
 
-    /// 取下一个物理按键，跳过其他程序注入的合成事件；窗口内没有可用按键则返回 `None`。
+    /// 取下一个物理按键，跳过其他程序注入的合成事件，窗口内没有可用按键则返回 `None`。
     ///
     /// “按下以设置”要的是能真正触发起录的键，注入事件一律不算，与旧的自装钩子路径一致。
     /// 自检报的是“按键有没有到达”，注入的也要看得见，所以只有捕获用这个入口。
@@ -187,7 +187,7 @@ mod tests {
         }
     }
 
-    /// 捕获要的是能起录的物理键，注入的合成事件要跳过；只有注入事件时按超时收尾。
+    /// 捕获要的是能起录的物理键，注入的合成事件要跳过。只有注入事件时按超时收尾。
     ///
     /// 旁路槽是进程级单槽，两条断言合在一个用例里跑，避免并发订阅互相顶掉。
     #[tokio::test]

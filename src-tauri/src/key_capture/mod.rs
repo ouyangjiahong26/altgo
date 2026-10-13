@@ -30,8 +30,7 @@ pub use linux::{
 };
 #[cfg(target_os = "windows")]
 pub use windows::{
-    capture_fallback_timeout_message, capture_timeout_message, configured_match_code,
-    configured_match_code_from_config,
+    capture_fallback_timeout_message, configured_match_code, configured_match_code_from_config,
 };
 
 use serde::Serialize;

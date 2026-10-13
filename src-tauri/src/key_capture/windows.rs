@@ -70,11 +70,6 @@ pub fn configured_match_code(key_name: &str, captured_code: Option<u16>) -> Opti
     captured_code.or_else(|| super::key_name_to_windows_vk(key_name))
 }
 
-/// 超时未检测到按键时给用户的提示。
-pub fn capture_timeout_message() -> &'static str {
-    "超时：未检测到按键"
-}
-
 /// 监听没在跑、退回临时钩子时的超时提示。
 ///
 /// 临时钩子是后装的，altgo 窗口获得焦点时可能收不到按键，把焦点移开就能用。
