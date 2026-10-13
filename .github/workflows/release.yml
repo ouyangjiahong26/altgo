@@ -159,7 +159,7 @@ jobs:
       # rust-cache 的清理（会删掉 target 下非 Cargo 目录里的文件）才不会把它删空。
       - name: Cache sherpa-onnx prebuilt libs
         id: sherpa-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: src-tauri/target/sherpa-onnx-prebuilt
           key: sherpa-onnx-${{ matrix.sherpa-archive }}
