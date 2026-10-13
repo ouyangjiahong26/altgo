@@ -32,10 +32,10 @@
 接收运行中管道事件的 trait：状态变更、进度、错误、转写结果。`tauri_sink.rs` 的 `TauriPipelineSink` 是生产环境唯一的实体适配器。转写结果路径把业务工作（剪贴板写入 + 历史追加）委托给构造时注入的 `TranscriptionDispatch` trait 对象。sink 本身只发 Tauri 事件并切换悬浮窗状态。
 
 **按下响应（Press Response）**
-按下激活键到悬浮窗录音相位可见的延迟。由长按阈值（`key_listener.long_press_threshold`，等待区分单击与长按）、录音器启动与悬浮窗显示三段构成；录音 PCM 的到达节奏也影响可感知的起录时机（Linux 由 parecord 的 `--latency-msec` 决定出块间隔）。_Avoid_: 按下延迟、UI 延迟。
+按下触发键到悬浮窗录音相位可见的延迟。由长按阈值（`key_listener.long_press_threshold`，等待区分单击与长按）、录音器启动与悬浮窗显示三段构成；录音 PCM 的到达节奏也影响可感知的起录时机（Linux 由 parecord 的 `--latency-msec` 决定出块间隔）。_Avoid_: 按下延迟、UI 延迟。
 
 **出稿延迟（Release-to-Result Latency）**
-松开激活键到结果文本就绪的延迟：done 悬浮窗与剪贴板终稿同时产生。当前为单段出稿：转写与润色全部完成后一次性出稿（区分“原文出稿后再润色更新”的两段式方案，未被采纳）。由录音收尾、转写网络往返与润色网络往返构成。_Avoid_: 出稿时间、结果延迟。
+松开触发键到结果文本就绪的延迟：done 悬浮窗与剪贴板终稿同时产生。当前为单段出稿：转写与润色全部完成后一次性出稿（区分“原文出稿后再润色更新”的两段式方案，未被采纳）。由录音收尾、转写网络往返与润色网络往返构成。_Avoid_: 出稿时间、结果延迟。
 
 ## 配置
 
@@ -88,21 +88,30 @@
 录音期间由录音器从实时 PCM 音频块计算出的感知音量大小（范围 0.0 ~ 1.0）。录音线程在读取音频流时计算均方根（RMS）并通过非线性增益映射为感知电平，经 `PipelineSink::on_audio_level` 记录最新电平，录音期间由 Tauri `audio-level` 事件以固定 100 ms 间隔（10 次/秒）定时派发给悬浮窗，作为电平轨迹的实时采样来源。
 
 **电平轨迹（Level Trace）**
-录音期间由连续音频电平采样累积成的滚动历史，显示最近一段时间的说话痕迹。仅在录音相位渲染，松开激活键后随相位切换移除。_Avoid_: 声纹、波形图。
+录音期间由连续音频电平采样累积成的滚动历史，显示最近一段时间的说话痕迹。仅在录音相位渲染，松开触发键后随相位切换移除。_Avoid_: 声纹、波形图。
 
 
 ## 按键输入
 
 **按键监听器（KeyListener）**
-管道运行期间持续监听配置的激活键并发出 `KeyEvent` 的接口。Linux 实现（`X11Listener`）在 X11 用 `xinput test-xi2`、失败回退 `evtest`，Wayland 会话优先 `evtest`；evtest 路径带设备热插拔监视，蓝牙键盘断链重连等设备集合变化后一秒内自动补启或回收各设备的读者。Windows 用 WH_KEYBOARD_LL 低级键盘钩子。管道以 `Box<dyn KeyListener>` 消费它。
+管道运行期间持续监听配置的触发键并发出 `KeyEvent` 的接口。Linux 实现（`X11Listener`）在 X11 用 `xinput test-xi2`、失败回退 `evtest`，Wayland 会话优先 `evtest`；evtest 路径带设备热插拔监视，蓝牙键盘断链重连等设备集合变化后一秒内自动补启或回收各设备的读者。Windows 用 WH_KEYBOARD_LL 低级键盘钩子。管道以 `Box<dyn KeyListener>` 消费它。
 _Avoid_: key listener（指概念时小写）、platform listener。
 
 **按键捕获（KeyCapture）**
-设置配置期间一次性捕获任意物理键的接口，返回 `KeyListenerConfig` 所需的键标识符（`key_name`、`linux_evdev_code`）。Linux 通过 `evtest` 子进程监听 `/dev/input/event*`。Windows 临时挂 WH_KEYBOARD_LL 钩子等待一次按键。暴露同步阻塞式 API。
+设置配置期间一次性捕获任意物理键的接口，返回 `KeyListenerConfig` 所需的键标识符（`key_name`、`linux_evdev_code`）。设置页的“按下以设置”用它。监听器在跑时走原始按键旁路，不停流水线也不另装钩子。监听没在跑时退回临时钩子（Windows 挂 WH_KEYBOARD_LL，Linux 起 `evtest` 子进程），那条路径上后装的钩子在 altgo 窗口获得焦点时可能收不到按键。注入按键不算捕获结果。暴露同步阻塞式 API。
 _Avoid_: capture mode、key capture mode。
 
-**激活键（Activation Key）**
-按住即开始录音的物理键。按设备配置为 X11 keysym 名（`key_name`）或 evdev 扫描码（`linux_evdev_code`）。Wayland 上优先 evdev 路径。
+**触发键自检（Trigger Key Self-check）**
+主页空态的一次性检查：请用户按一次键，把监听器看到的键与当前配置的触发键对照，判断这个键能不能起录。走原始按键旁路，不停流水线也不另装钩子，按键照常录音。_Avoid_: 检测按键、按键测试。
+
+**原始按键旁路（Raw Key Tap）**
+监听器把过滤前的每一个按键（含被当作注入事件忽略的那些）发出来的一条进程级单槽通道，供触发键自检与按键捕获使用。后端标识与过滤细节不进这条通道。
+
+**注入按键（Injected Key）**
+由其他程序合成并注入队列的按键事件，来源有改键工具、键盘厂商驱动与部分输入法。Windows 低级键盘钩子会带上这个标记，altgo 一律忽略，不用它起录。Linux 的 X11 与 evdev 路径拿不到这个标记。
+
+**触发键（Trigger Key）**
+按住即开始录音的物理键。按设备配置为 X11 keysym 名（`key_name`）或 evdev 扫描码（`linux_evdev_code`）。Wayland 上优先 evdev 路径。_Avoid_: 激活键、快捷键。
 
 **状态机（State Machine）**
 把原始按键事件翻译成管道 `StartRecord` / `StopRecord` 命令的 5 状态 FSM（`Idle → PotentialPress → Recording → WaitSecondClick → ContinuousRecording`）。

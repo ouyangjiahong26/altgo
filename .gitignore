@@ -4,6 +4,9 @@
 /altgo
 /altgo.exe
 
+# Tauri 生成的 ACL 与 JSON schema：每次构建都会按依赖重写，入库只会带来噪音
+/src-tauri/gen/
+
 # Test artifacts
 test.*
 

@@ -34,7 +34,6 @@ pub trait PipelineEventEmitter: Send + Sync + 'static {
     fn emit_polish_failed(&self, error: &UserFacingError);
     fn emit_transcription_progress(&self, phase: &str, fraction: Option<f32>);
     fn emit_audio_level(&self, level: f32);
-    fn emit_key_listener_backend(&self, backend: &str);
     fn emit_history_updated(&self);
     fn emit_pending_recording(&self, pending: Option<&crate::voice_pipeline::PendingRecordingInfo>);
 }
@@ -76,10 +75,6 @@ impl PipelineEventEmitter for TauriEventEmitter {
 
     fn emit_audio_level(&self, level: f32) {
         let _ = self.app.emit("audio-level", level);
-    }
-
-    fn emit_key_listener_backend(&self, backend: &str) {
-        let _ = self.app.emit("key-listener-backend", backend);
     }
 
     fn emit_history_updated(&self) {
@@ -286,10 +281,6 @@ impl PipelineSink for TauriPipelineSink {
         }
     }
 
-    fn on_key_listener_backend(&self, backend: &str) {
-        self.emitter.emit_key_listener_backend(backend);
-    }
-
     fn on_pending_recording(&self, pending: Option<&crate::voice_pipeline::PendingRecordingInfo>) {
         self.emitter.emit_pending_recording(pending);
     }
@@ -361,7 +352,6 @@ mod tests {
             fraction: Option<f32>,
         },
         AudioLevel(f32),
-        KeyListenerBackend(String),
         HistoryUpdated,
         PendingRecording(Option<crate::voice_pipeline::PendingRecordingInfo>),
     }
@@ -427,13 +417,6 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push(EmittedEvent::AudioLevel(level));
-        }
-
-        fn emit_key_listener_backend(&self, backend: &str) {
-            self.events
-                .lock()
-                .unwrap()
-                .push(EmittedEvent::KeyListenerBackend(backend.into()));
         }
 
         fn emit_history_updated(&self) {
@@ -832,27 +815,6 @@ mod tests {
                     phase: "done".into(),
                     fraction: Some(1.0),
                 },
-            ]
-        );
-    }
-
-    // -----------------------------------------------------------------------
-    // on_key_listener_backend 测试
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn on_key_listener_backend_emits_backend() {
-        let fx = make_fixture(true, None);
-        fx.sink.on_key_listener_backend("xinput");
-        fx.sink.on_key_listener_backend("evtest");
-        fx.sink.on_key_listener_backend("");
-
-        assert_eq!(
-            fx.emitter.recorded_events(),
-            vec![
-                EmittedEvent::KeyListenerBackend("xinput".into()),
-                EmittedEvent::KeyListenerBackend("evtest".into()),
-                EmittedEvent::KeyListenerBackend("".into()),
             ]
         );
     }

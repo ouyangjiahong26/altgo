@@ -335,7 +335,7 @@ export default function Home() {
     if (probe.kind === "prompt") markHotkeyHintSeen();
   }, [probe.kind]);
 
-  // 捕获钩子就绪后才把“准备中”切成“请按下”，用户在空档里按的键本来也收不到。
+  // 订阅就绪后才把“准备中”切成“请按下”，注册之前按下的键收不到。
   useEffect(() => {
     setProbe((current) => (current.kind === "arming" ? { kind: "probing" } : current));
   }, [probeArmed]);

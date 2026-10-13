@@ -1,4 +1,4 @@
-//! Linux 激活键捕获（evtest）。
+//! Linux 触发键捕获（evtest）。
 //!
 //! 通过 `evtest` 监听 `/dev/input/event*`，阻塞等待一次按键。
 
@@ -42,12 +42,17 @@ pub fn capture_timeout_message() -> &'static str {
     "超时：未检测到按键（请确认对 /dev/input 有读权限，如在 input 组）"
 }
 
+/// 监听没在跑、退回自起 evtest 时的超时提示。
+pub fn capture_fallback_timeout_message() -> &'static str {
+    capture_timeout_message()
+}
+
 /// 当前配置下监听器在 evtest 路径上实际用于匹配的键码。
 pub fn configured_match_code_from_config(cfg: &crate::config::KeyListenerConfig) -> Option<u16> {
     Some(configured_match_code(&cfg.key_name, cfg.linux_evdev_code))
 }
 
-/// Linux 平台激活键捕获器。
+/// Linux 平台触发键捕获器。
 pub struct LinuxKeyCapture;
 
 impl LinuxKeyCapture {

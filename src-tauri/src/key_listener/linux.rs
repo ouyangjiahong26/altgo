@@ -181,8 +181,14 @@ fn watch_xinput_stderr(stderr: Option<std::process::ChildStderr>) {
     };
     std::thread::spawn(move || {
         let reader = std::io::BufReader::new(stderr);
-        for line in reader.lines().take(10).flatten() {
-            if line.contains("Xwayland") || line.contains("BadAccess") {
+        // 读端必须活到子进程结束，提前析构会让子进程之后的 stderr 写入拿到 EPIPE。
+        // 每行都记一条 debug，子进程启动期退出时只有这里能看到原因；告警只看前十行。
+        for (index, line) in reader.lines().enumerate() {
+            let Ok(line) = line else {
+                break;
+            };
+            tracing::debug!(line = %line, "xinput stderr");
+            if index < 10 && (line.contains("Xwayland") || line.contains("BadAccess")) {
                 tracing::warn!("detected XWayland, xinput test-xi2 will not work");
             }
         }
@@ -190,8 +196,10 @@ fn watch_xinput_stderr(stderr: Option<std::process::ChildStderr>) {
 }
 
 /// 读取 xinput stdout 行流并解析为按键事件发往 `tx`，直到停止标志置位或流关闭。
-fn run_xinput_stdout_loop(
-    stdout: std::process::ChildStdout,
+///
+/// 泛型读入是为了让测试能直接喂受控输出，不必依赖真实 X 服务器。
+pub(crate) fn run_xinput_stdout_loop<R: std::io::Read>(
+    stdout: R,
     keycode: u8,
     tx: tokio::sync::mpsc::UnboundedSender<KeyEvent>,
     running: Arc<AtomicBool>,

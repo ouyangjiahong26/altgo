@@ -65,6 +65,7 @@ Linux 平台接缝：
 
 - `key_capture`：evtest 输出解析、子进程回收（成功/超时/无输出）
 - `key_listener`：X11 监听构造、keysym ↔ evdev 映射
+- `key_listener` 的 xinput 路径（`key_listener/linux_x11_e2e.rs`）：解析、过滤与旁路发布用受控输出喂真实的 `run_xinput_stdout_loop`，不依赖 X 服务器，Linux 上的常规测试就会跑；后端选择另有 `x11_backend_is_xinput_when_xmodmap_resolves` 在 Xvfb 里验一次，缺 `DISPLAY` 或 `xinput`/`xmodmap` 时跳过。CI 在 Linux amd64 作业加 `xvfb-run` 单跑后端选择那一条（`--test-threads=1` 加用例名过滤器），arm 与其余测试不受影响。
 - `recorder`：PulseRecorder 构造冒烟、类型化错误
 - `output`：剪贴板工具探测（xclip/xsel/wl-copy）
 
@@ -90,7 +91,7 @@ Linux 平台接缝：
 
 当前没有任何端到端测试。以下用户流程缺少自动化保护：
 
-1. 按住激活键开始录音，SenseVoice 本地转写，文本进剪贴板，悬浮窗各相位切换
+1. 按住触发键开始录音，SenseVoice 本地转写，文本进剪贴板，悬浮窗各相位切换
 2. 首次使用：从设置页下载 SenseVoice 模型，完成 SHA-256 校验，转写可用
 3. 修改设置并保存，重启应用后生效（真实 IPC、真实配置文件）
 4. 主页历史列表浏览、删除、对旧条目重新润色（真实 LLM API）

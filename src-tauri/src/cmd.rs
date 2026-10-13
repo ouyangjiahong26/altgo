@@ -135,34 +135,38 @@ pub async fn save_config(
     result
 }
 
+/// 触发键捕获：让用户按一次键，把按键的键名与平台键码回给设置页。
+///
+/// 监听器在跑就走它的原始按键旁路。altgo 窗口获得焦点时，后装的低级挂钩子收不到按键，
+/// 监听器自己的钩子没有这个问题。走旁路也不必为捕获停掉流水线再重启，省掉一次模型重载。
+/// 按键照常录音，与自检一致。监听没在跑时（例如配置校验失败导致流水线没起来）退回临时
+/// 钩子，那条路径仍是后装的钩子，超时提示里要带一句让用户先把焦点移开。
 #[tauri::command]
 pub async fn capture_activation_key(
-    controller: State<'_, PipelineController>,
 ) -> Result<crate::key_capture::CaptureActivationResponse, String> {
-    stop_pipeline_and_settle(&controller).await;
-
-    match capture_once(crate::key_capture::CAPTURE_TIMEOUT).await {
-        Ok(crate::key_capture::CaptureOutcome::Captured(response)) => Ok(response),
-        Ok(crate::key_capture::CaptureOutcome::TimedOut) => {
-            Err(crate::key_capture::capture_timeout_message().to_string())
-        }
-        Err(e) => Err(e),
+    if crate::key_listener::is_listener_active() {
+        let mut subscription = crate::key_listener::subscribe_activation_keys();
+        return subscription
+            .next_physical(crate::key_capture::CAPTURE_TIMEOUT)
+            .await
+            .ok_or_else(|| crate::key_capture::capture_bypass_timeout_message().to_string());
     }
-}
 
-/// 流水线停止后、重新挂钩前留出的间隔，避免与尚未注销的旧监听器抢钩子与设备节点。
-const KEY_CAPTURE_SETTLE_DELAY: Duration = Duration::from_millis(400);
-
-/// 停流水线并等它把键盘资源交还。“按下以设置”要独占键盘，收尾用这一段。
-async fn stop_pipeline_and_settle(controller: &PipelineController) {
-    controller.stop().await;
-    tokio::time::sleep(KEY_CAPTURE_SETTLE_DELAY).await;
+    match capture_once(crate::key_capture::CAPTURE_TIMEOUT).await? {
+        crate::key_capture::CaptureOutcome::Captured(response) => Ok(response),
+        crate::key_capture::CaptureOutcome::TimedOut => {
+            Err(crate::key_capture::capture_fallback_timeout_message().to_string())
+        }
+    }
 }
 
 /// 自检捕获就绪事件：界面收到后才提示用户按键。
 const KEY_PROBE_ARMED_EVENT: &str = "key-probe-armed";
 
-/// 在阻塞线程上跑一次平台按键捕获。调用方负责先停流水线。
+/// 在阻塞线程上跑一次平台按键捕获。
+///
+/// 只在监听器没在跑时走这条回退路径（那时没有旁路可订），它会临时装钩子或自起 evtest，
+/// 完成前不需要、也无从停流水线。
 async fn capture_once(timeout: Duration) -> Result<crate::key_capture::CaptureOutcome, String> {
     match tokio::task::spawn_blocking(move || {
         crate::key_capture::PlatformKeyCapture::new().capture(timeout)
@@ -174,7 +178,7 @@ async fn capture_once(timeout: Duration) -> Result<crate::key_capture::CaptureOu
     }
 }
 
-/// 激活键自检：让用户按一次键，回报按键有没有到达监听器。
+/// 触发键自检：让用户按一次键，回报按键有没有到达监听器。
 ///
 /// 走监听器自己的原始按键旁路，不自检期间另装钩子、也不停流水线。另外装的那个低级
 /// 钩子在应用窗口获得焦点时会被挡在别人的钩子之后收不到事件，而监听器自己的钩子一直

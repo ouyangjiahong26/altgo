@@ -211,7 +211,7 @@ lib.rs
 | `key_listener` | `KeyListener::start()` | X11 用 `xinput test-xi2`、失败回退 `evtest`，Wayland 会话优先 `evtest`；evtest 路径每秒调和设备集合，热插拔后补启或回收读者 | WH_KEYBOARD_LL 低级键盘钩子 |
 | `recorder` | `Recorder::start_recording/stop_recording/is_recording` | `parecord` 子进程 | cpal/WASAPI |
 | `output` | `Output::write_clipboard` + `clone_box` | `xclip`/`xsel`/`wl-copy` 探测一次 | arboard 剪贴板 + SendInput 文本注入 |
-| `key_capture` | 无（自由函数） | `evtest` 监听 `/dev/input/event*` 等一次按键 | 临时 WH_KEYBOARD_LL 钩子等一次按键 |
+| `key_capture` | 无（自由函数） | 监听器在跑时走原始按键旁路，监听没在跑时起 `evtest` 子进程 | 监听器在跑时走原始按键旁路，监听没在跑时挂临时 WH_KEYBOARD_LL 钩子 |
 
 另有两处平台相关但不走 trait 的分支：`display_backend.rs` 在 GUI 初始化前探测 Wayland 会话并切 GDK 后端。悬浮窗的主显示器几何在 `overlay/tauri.rs` 内按平台取值：Linux 解析 `xrandr` 输出，Windows 用 Tauri `primary_monitor()`。
 
@@ -237,7 +237,7 @@ lib.rs
 
 共 12 个 Tauri 事件：
 
-`pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`key-listener-backend`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`、`pending-recording-changed`。
+`pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`、`pending-recording-changed`、`key-probe-armed`。
 
 `pending-recording-changed` 载荷为待重试录音元信息（`durationMs` + 错误码结构）或 null。保留与清空（重试成功、用户放弃）都会发出，主窗横幅据此显隐。
 
