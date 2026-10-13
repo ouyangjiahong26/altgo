@@ -213,9 +213,14 @@ fn assert_stopped(listener: &mut X11Listener, rx: &mut KeyEventReceiver) {
     assert!(rx.try_recv().is_err(), "stop() 后通道不应再产出事件");
 }
 
-/// 进程是否还活着（`/proc` 下还有这个 pid）。
-fn process_alive(pid: u32) -> bool {
-    std::path::Path::new(&format!("/proc/{pid}")).exists()
+/// 把监听器内部的 tracing 输出接进测试日志。
+///
+/// 子进程沉默或异常退出时，只有监听器自己的 info 与 warn 能说明它走到了哪一步。
+fn install_tracing() {
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .with_writer(std::io::stderr)
+        .try_init();
 }
 
 /// xinput 路径的端到端测试：在 Xvfb 里用 xdotool 注入合成键，验证后端选择、
@@ -232,6 +237,7 @@ async fn x11_xinput_end_to_end_injects_and_filters_activation_key() {
         eprintln!("skipping x11 e2e: DISPLAY, xinput, xdotool, xmodmap 或键表钉定不可用");
         return;
     }
+    install_tracing();
 
     let mut listener = X11Listener::new(&test_config()).expect("xinput 存在时 new() 应成功");
     let (mut rx, backend) = listener.start().expect("start() 应成功");
@@ -250,17 +256,16 @@ async fn x11_xinput_end_to_end_injects_and_filters_activation_key() {
         "xdotool 注入的按键未进入 XI2，该 Xvfb 环境不支持这条端到端路径"
     );
     // 监听器自己的子进程先看还活着没有：它中途死掉会让后面每条断言都指向错的方向。
-    let pid = listener.child_pid().expect("监听器应持有 xinput 子进程");
+    let exit = listener.child_status();
     assert!(
-        process_alive(pid),
-        "监听器的 xinput 子进程已退出（pid {pid}），环境探针看到的 keycode: {probe_details:?}"
+        exit.is_none(),
+        "监听器的 xinput 子进程已退出（{exit:?}），环境探针看到的 keycode: {probe_details:?}"
     );
     // 旁路带着监听器自己解析出的键名，断言失败时能看出它到底看到了什么。
     let observations = collect_observations(&mut sub).await;
     assert!(
         !observations.is_empty(),
-        "监听器没从 xinput 收到任何按键，环境探针看到的 keycode: {probe_details:?}，子进程存活 {}",
-        process_alive(pid)
+        "监听器没从 xinput 收到任何按键，环境探针看到的 keycode: {probe_details:?}，子进程退出状态 {exit:?}"
     );
     assert!(
         press_seen,

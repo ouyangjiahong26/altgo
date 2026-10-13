@@ -702,10 +702,14 @@ impl X11Listener {
         }
     }
 
-    /// xinput 子进程 pid，供端到端测试判断监听器是否还活着。
+    /// xinput 子进程的退出状态，已退出返回 `Some`。
+    ///
+    /// 供端到端测试区分“还活着”与“已经退出成了僵尸”，`/proc/<pid>` 存在与否分不出这两者。
     #[cfg(test)]
-    pub(crate) fn child_pid(&self) -> Option<u32> {
-        self.child.as_ref().map(std::process::Child::id)
+    pub(crate) fn child_status(&mut self) -> Option<std::process::ExitStatus> {
+        self.child
+            .as_mut()
+            .and_then(|child| child.try_wait().ok().flatten())
     }
 
     fn resolve_keycode(&self) -> Result<u8, KeyListenerError> {
