@@ -104,7 +104,6 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - `resources/prompts/` 未随安装包分发（`tauri.conf.json` 无 `bundle.resources`）。打包安装后 PromptStore 不加载，走 `system_prompt` 或内置回退。从仓库根运行开发版才会命中 `./resources/prompts`。
 - `make install` 装到 `/etc/altgo/altgo.toml` 的模板不被应用读取，应用只读 `~/.config/altgo/altgo.toml`。
 - 仓库没有 `tests/` 目录（`CONTRIBUTING.md` 的集成测试约定暂无实例）。`docs/testing.md` 模块清单漏 `updater.rs`、`display_backend.rs`。
-- Loop 三件套不在 `.claude/`：builder 与 checker 实为 `docs/agents/builder.md`、`docs/agents/checker.md`，`loop-go` 规则见下节。
 - Node 下界三处不一（CONTRIBUTING 18+、`docs-site` engines 至 20、CI 22）。Rust MSRV 未在 `Cargo.toml` 强制（CI 用 stable）。
 - 文档统一写仓库全名 `ouyangjiahong26/altgo`。原 `cislunarspace/altgo` 已改名，旧名 GitHub 自动重定向。`gh` 默认仓库已设 `ouyangjiahong26/altgo`，`git remote -v` 现查。
 - `frontend/src/styles/components/ui-primitives.css` 是跨页面复用的控件基底（`.btn`/`.field`/`.select`/`.segmented`/`.badge`/`.kbd`/`.empty-state`），各页面只做尺寸与排布，不再各自重写一套按钮皮肤。
@@ -117,7 +116,6 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - Linux 运行时外部工具：`xinput`、`xmodmap`、`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`。Wayland 会话在 GUI 初始化前自动切 XWayland（`display_backend.rs`），否则悬浮窗定位不生效。
 - 环境变量：`ALTGO_POLISHER_API_KEY` 覆盖 `[polisher] api_key`，`ALTGO_MODEL_BASE_URL` 覆盖模型下载镜像。
 - PR 标题：只写改动内容，不带决策过程痕迹（如“方案 A/B”、“备选已否决”之类）。决策与取舍写进 PR 正文、commit 正文或 ADR。
-- Loop 工程：`/loop-go <任务>` 循环 builder 与 checker 直到检查全部通过。停止规则：最多 5 轮（每轮声明 “Cycle N/5”）。同一失败连续两次即停止并报告。修复使原本通过的检查失败即停止。到上限即停止并报告现状。
 
 ## Agent skills
 
@@ -128,7 +126,6 @@ cd docs-site && npm start                      # dev server（热更新，前台
 | `docs/agents/issue-tracker.md` | issue/PR 全走 GitHub（`gh` CLI）、AI 贡献标记约定、外部 PR 是否作分诊渠道（否）、Issue/PR 正文写作约定指向、GitHub Project 的 Owner 与 Project ID 与 Status 字段与七个选项 ID | `/triage`、`/github-project`、`/open-pr`、`/merge-pr` |
 | `docs/agents/triage-labels.md` | 五个分诊角色到本仓标签字符串的映射（`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`） | `/triage` |
 | `docs/agents/domain.md` | 领域文档布局：单上下文为根 `CONTEXT.md` 加 `docs/adr/`，命名用术语表词汇，与 ADR 矛盾必须显式标注 | `/domain-modeling`、`/grill-with-docs`、`/codebase-design` |
-| `docs/agents/builder.md`、`docs/agents/checker.md` | `/loop-go` 的 builder 与 checker 职责及产出要求 | `/loop-go` |
 
 ## Testing & QA
 
