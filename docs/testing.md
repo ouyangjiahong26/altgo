@@ -65,7 +65,7 @@ Linux 平台接缝：
 
 - `key_capture`：evtest 输出解析、子进程回收（成功/超时/无输出）
 - `key_listener`：X11 监听构造、keysym ↔ evdev 映射
-- `key_listener` 的 xinput 路径端到端（`key_listener/linux_x11_e2e.rs`）：在 xvfb 里用 xdotool 注入合成键，验证后端选择、旁路语义与 keycode 过滤。它是本层唯一连真实 X 服务器的用例：缺 `DISPLAY` 或 `xinput`/`xdotool`/`xmodmap` 时直接跳过，所以不会只在 CI 里跑。CI 在 Linux amd64 作业单跑这一条（`xvfb-run` + `--test-threads=1` + 用例名过滤器），arm 与其余测试不受影响。
+- `key_listener` 的 xinput 路径（`key_listener/linux_x11_e2e.rs`）：解析、过滤与旁路发布用受控输出喂真实的 `run_xinput_stdout_loop`，不依赖 X 服务器，Linux 上的常规测试就会跑；后端选择另有 `x11_backend_is_xinput_when_xmodmap_resolves` 在 Xvfb 里验一次，缺 `DISPLAY` 或 `xinput`/`xmodmap` 时跳过。CI 在 Linux amd64 作业加 `xvfb-run` 单跑后端选择那一条（`--test-threads=1` 加用例名过滤器），arm 与其余测试不受影响。
 - `recorder`：PulseRecorder 构造冒烟、类型化错误
 - `output`：剪贴板工具探测（xclip/xsel/wl-copy）
 

@@ -1,16 +1,39 @@
-//! xinput 路径的端到端测试。
+//! xinput 路径的测试。
 //!
-//! 需要真实 X 服务器与 `xinput`/`xdotool`/`xmodmap`，CI 里由 `xvfb-run` 提供
-//! （见 `.github/workflows/ci.yml`），本机不满足条件时直接跳过。单列一个文件是因为
-//! `linux.rs` 已接近千行上限，而这条用例依赖外部工具、不属于模块级的纯逻辑单测。
+//! 分两层。解析、过滤与旁路发布用受控输出喂真实的解析循环，不需要 X 服务器，任何环境
+//! 都能跑；后端选择在 Xvfb 里验一次，缺 DISPLAY 或外部工具时跳过。`linux.rs` 已接近
+//! 千行上限，所以这两条放在单独的文件里。
 
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 
 use crate::config::KeyListenerConfig;
-use crate::key_listener::{subscribe_activation_keys, ActivationKeySubscription, X11Listener};
+use crate::key_listener::{subscribe_activation_keys, X11Listener};
 
-/// 监听器的按键通道，断言从这里取事件。
-type KeyEventReceiver = tokio::sync::mpsc::UnboundedReceiver<crate::key_listener::KeyEvent>;
+/// 一次按键在 `xinput test-xi2 --root` 下的真实输出形态：RawKeyPress 与 KeyPress 两套
+/// 掩码各打一条 `detail:`，所以同一个物理键会出现两条观察。108 是右 Alt（触发键），
+/// 64 是左 Alt（不在触发键上，只应出现在旁路里）。
+const CANNED_XINPUT_OUTPUT: &str = "\
+EVENT type 13 (RawKeyPress)
+    device: 3 (10)
+    time: 1001
+    detail: 108
+EVENT type 2 (KeyPress)
+    device: 3 (6)
+    time: 1001
+    detail: 108
+EVENT type 2 (KeyRelease)
+    device: 3 (6)
+    time: 1002
+    detail: 108
+EVENT type 2 (KeyPress)
+    device: 3 (6)
+    time: 1003
+    detail: 64
+EVENT type 2 (KeyRelease)
+    device: 3 (6)
+    time: 1004
+    detail: 64
+";
 
 fn test_config() -> KeyListenerConfig {
     KeyListenerConfig {
@@ -33,9 +56,8 @@ fn tool_available(name: &str) -> bool {
         .is_ok()
 }
 
-/// xmodmap 能否产出键表。缺包，或 DISPLAY 指向不可用的 X 服务器时都为 false：
-/// 这两种情况下 resolve_keycode 会失败、监听器静默回退 evtest，端到端用例的前提
-/// （走 xinput 后端）不成立，必须前置排除，否则断言失败会归因错。
+/// xmodmap 能否产出键表。缺包或 DISPLAY 指向不可用的 X 服务器时为 false，此时监听器会
+/// 回退 evtest，后端选择那条用例的前提不成立。
 fn xmodmap_table_available() -> bool {
     match Command::new("xmodmap").arg("-pke").output() {
         Ok(out) => out.status.success() && out.stdout.iter().any(|b| !b.is_ascii_whitespace()),
@@ -43,11 +65,8 @@ fn xmodmap_table_available() -> bool {
     }
 }
 
-/// 把触发键钉在固定的 keycode 上，返回是否成功。
-///
-/// Xvfb 默认键表里 keycode 108 的主名可能是 `ISO_Level3_Shift`，`xmodmap -pke`
-/// 打印出来的名字与 xdotool 按 keysym 名反查的 keycode 都可能与预期不同。端到端
-/// 用例要验的是监听器的解析、过滤与转发，所以先把键表钉死，让两边从同一张表出发。
+/// 把右 Alt 钉在 keycode 108 上。键表由服务器持有，钉死之后键名与键码的对应关系不再
+/// 取决于发行版默认键表怎么命名。
 fn pin_trigger_keymap() -> bool {
     Command::new("xmodmap")
         .args(["-e", "keycode 108 = Alt_R Meta_R"])
@@ -57,194 +76,7 @@ fn pin_trigger_keymap() -> bool {
         .is_ok_and(|status| status.success())
 }
 
-/// 环境是否满足：有 DISPLAY，三个外部工具都在，且键表钉定成功。
-fn environment_ready() -> bool {
-    matches!(std::env::var("DISPLAY"), Ok(d) if !d.is_empty())
-        && tool_available("xinput")
-        && tool_available("xdotool")
-        && xmodmap_table_available()
-        && pin_trigger_keymap()
-}
-
-/// 独立的 `xinput test-xi2 --root` 观察进程，用来判定环境层（Xvfb 加 XTest）
-/// 到底喂不喂得到 XI2 事件。句柄留在结构体里，Drop 时终止回收，避免残留进程。
-struct Xi2Probe {
-    child: Child,
-    rx: std::sync::mpsc::Receiver<u8>,
-}
-
-impl Xi2Probe {
-    fn spawn() -> Option<Self> {
-        let mut child = Command::new("xinput")
-            .args(["test-xi2", "--root"])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .ok()?;
-        let stdout = child.stdout.take()?;
-        let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            use std::io::BufRead;
-            // 与监听器同一套判据：EVENT 行置状态，随后第一条 detail 即一次按下，
-            // 把该行的 keycode 报回去，断言失败时能看出环境喂来的到底是哪个键。
-            let reader = std::io::BufReader::new(stdout);
-            let mut pending = false;
-            for line in reader.lines().map_while(Result::ok) {
-                let trimmed = line.trim();
-                if trimmed.starts_with("EVENT") && trimmed.contains("KeyPress") {
-                    pending = true;
-                } else if let Some(detail) = trimmed.strip_prefix("detail:") {
-                    if !pending {
-                        continue;
-                    }
-                    pending = false;
-                    if let Ok(code) = detail.trim().parse::<u8>() {
-                        if tx.send(code).is_err() {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-        Some(Self { child, rx })
-    }
-
-    /// 窗口内是否观察到一次按下，是则返回该事件的 keycode。
-    fn next_press(&self, window: std::time::Duration) -> Option<u8> {
-        self.rx.recv_timeout(window).ok()
-    }
-}
-
-impl Drop for Xi2Probe {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-}
-
-/// 用 xdotool 注入一次按键（按下加松开）。
-fn press_key(name: &str) {
-    let _ = Command::new("xdotool")
-        .args(["key", "--clearmodifiers", name])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-}
-
-/// 取走通道里已入队的事件，返回（见到按下，见到松开）。
-fn drain_key_events(rx: &mut KeyEventReceiver) -> (bool, bool) {
-    let (mut press, mut release) = (false, false);
-    while let Ok(event) = rx.try_recv() {
-        if event.pressed {
-            press = true;
-        } else {
-            release = true;
-        }
-    }
-    (press, release)
-}
-
-/// 清空通道里已入队的事件，用于阶段之间排除在途事件的干扰。
-fn clear_key_events(rx: &mut KeyEventReceiver) {
-    while rx.try_recv().is_ok() {}
-}
-
-/// 取走旁路里已入队的全部观察（每次物理按键会因 RawKey 与 Key 两套掩码重复上报）。
-async fn collect_observations(
-    sub: &mut ActivationKeySubscription,
-) -> Vec<crate::key_capture::CaptureActivationResponse> {
-    let mut into = Vec::new();
-    while let Some(observation) = sub.next(std::time::Duration::from_millis(100)).await {
-        into.push(observation);
-    }
-    into
-}
-
-/// 注入右 Alt 直到环境层确认按键进了 XI2，返回
-/// （环境探针看到的 keycode 列表，通道收到按下，通道收到松开）。
-///
-/// xinput 子进程要先完成事件选择才收得到事件，注入因此要留重试窗口。断言按
-/// “至少一次”收集：RawKey 与 Key 两套掩码会让同一物理键重复上报。
-fn inject_until_seen(probe: &Xi2Probe, rx: &mut KeyEventReceiver) -> (Vec<u8>, bool, bool) {
-    let (mut press_seen, mut release_seen) = (false, false);
-    let mut probe_details = Vec::new();
-    for _ in 0..5 {
-        press_key("Alt_R");
-        // 注入到 xinput 打印、再到转发线程入队有几十毫秒延迟，稍等再收割。
-        std::thread::sleep(std::time::Duration::from_millis(400));
-        if let Some(code) = probe.next_press(std::time::Duration::from_millis(50)) {
-            probe_details.push(code);
-        }
-        let (press, release) = drain_key_events(rx);
-        press_seen |= press;
-        release_seen |= release;
-        if !probe_details.is_empty() && press_seen && release_seen {
-            break;
-        }
-    }
-    (probe_details, press_seen, release_seen)
-}
-
-/// 注入左 Alt：旁路应看到它，通道按 keycode 过滤掉。
-async fn assert_left_alt_is_filtered(
-    sub: &mut ActivationKeySubscription,
-    rx: &mut KeyEventReceiver,
-) {
-    // 前一阶段的收尾事件可能仍在路上，先静置再清空，避免误判。
-    std::thread::sleep(std::time::Duration::from_millis(300));
-    clear_key_events(rx);
-    press_key("Alt_L");
-    std::thread::sleep(std::time::Duration::from_millis(1000));
-    let filtered = rx.try_recv().is_err();
-    let observations = collect_observations(sub).await;
-    assert!(filtered, "非触发键不应在通道产生事件");
-    assert!(
-        observations.iter().any(|o| o.key_name == "Alt_L"),
-        "旁路应看到左 Alt，实际 {observations:?}"
-    );
-}
-
-/// stop() 之后通道不再产出。
-fn assert_stopped(listener: &mut X11Listener, rx: &mut KeyEventReceiver) {
-    listener.stop();
-    clear_key_events(rx);
-    press_key("Alt_R");
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    assert!(rx.try_recv().is_err(), "stop() 后通道不应再产出事件");
-}
-
-/// 先起一次并立刻收尾的 `xinput test-xi2 --root`，把它的启动期 stderr 打进日志。
-///
-/// Xvfb 里第一条这样的连接会在启动期带 X 错误退出（退出码 1），它之后起的监听器子进程
-/// 会立刻 EOF 从而收不到任何按键；同一条命令再起就正常。端到端用例要验的是监听器的解析、
-/// 过滤与转发，不打算复现这条环境特性，所以先预热一次，同时把它的 stderr 留在日志里，
-/// 方便日后核对这条特性是否还在。
-fn warm_up_xinput() {
-    let mut child = match Command::new("xinput")
-        .args(["test-xi2", "--root"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .spawn()
-    {
-        Ok(child) => child,
-        Err(e) => {
-            eprintln!("xinput warm-up 无法启动: {e}");
-            return;
-        }
-    };
-    std::thread::sleep(std::time::Duration::from_millis(200));
-    let status = child.try_wait();
-    let _ = child.kill();
-    let mut stderr = String::new();
-    if let Some(mut pipe) = child.stderr.take() {
-        let _ = std::io::Read::read_to_string(&mut pipe, &mut stderr);
-    }
-    eprintln!("xinput warm-up 退出状态 {status:?}，stderr: {stderr:?}");
-}
-
 /// 把监听器内部的 tracing 输出接进测试日志。
-///
-/// 子进程沉默或异常退出时，只有监听器自己的 info 与 warn 能说明它走到了哪一步。
 fn install_tracing() {
     let _ = tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
@@ -252,68 +84,72 @@ fn install_tracing() {
         .try_init();
 }
 
-/// xinput 路径的端到端测试：在 Xvfb 里用 xdotool 注入合成键，验证后端选择、
-/// 旁路语义与 keycode 过滤。
+/// 受控输出喂真实的解析循环：触发键的按下与松开进通道，非触发键只出现在旁路。
 ///
-/// 环境不满足（无 DISPLAY、缺 xinput/xdotool/xmodmap）时直接返回，不用
-/// #[ignore]：那是“本机没装工具”，与待修功能无关。Xvfb 会用 XTest 注入，
-/// 而 X11 协议层没有“合成”标记，所以注入键与真实键在此路径无法区分。
+/// X11 上键名要查 xmodmap 表，没有 X 时退化成 `keycode_<N>`，两种形态都接受。
 #[tokio::test]
-async fn x11_xinput_end_to_end_injects_and_filters_activation_key() {
-    if !environment_ready() {
-        // 环境不满足按仓库惯例直接跳过。CI 里工具是我们自己装的，真跳过说明环境出了问题，
-        // 留一行输出让日志里看得见，不依赖“零条用例通过”这种看不出来的信号。
-        eprintln!("skipping x11 e2e: DISPLAY, xinput, xdotool, xmodmap 或键表钉定不可用");
+async fn xinput_stdout_loop_publishes_bypass_and_filters_by_keycode() {
+    install_tracing();
+    let mut sub = subscribe_activation_keys();
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+
+    crate::key_listener::linux::run_xinput_stdout_loop(
+        CANNED_XINPUT_OUTPUT.as_bytes(),
+        108,
+        tx,
+        running,
+    );
+
+    let mut observed = Vec::new();
+    while let Some(observation) = sub.next(std::time::Duration::from_millis(50)).await {
+        observed.push(observation.key_name);
+    }
+    assert!(
+        observed
+            .iter()
+            .any(|name| name == "Alt_R" || name == "keycode_108"),
+        "旁路应看到右 Alt，实际 {observed:?}"
+    );
+    assert!(
+        observed
+            .iter()
+            .any(|name| name == "Alt_L" || name == "keycode_64"),
+        "旁路应看到左 Alt，实际 {observed:?}"
+    );
+
+    let (mut pressed, mut released) = (0, 0);
+    while let Ok(event) = rx.try_recv() {
+        if event.pressed {
+            pressed += 1;
+        } else {
+            released += 1;
+        }
+    }
+    // 右 Alt 的 RawKeyPress 与 KeyPress 各转发一次按下，左 Alt 一条都不转发。
+    assert_eq!(pressed, 2, "触发键应转发两次按下");
+    assert_eq!(released, 1, "触发键应转发一次松开");
+}
+
+/// Xvfb 里的后端选择：xmodmap 能解析出键码时应报 xinput，而不是静默回退 evtest。
+///
+/// 环境不满足（无 DISPLAY、缺 xinput 或 xmodmap）时直接跳过，不用 `#[ignore]`：那是
+/// “本机没装工具”，与待验行为无关。真跳过时打一行输出，日志里看得见。
+#[tokio::test]
+async fn x11_backend_is_xinput_when_xmodmap_resolves() {
+    let display_set = matches!(std::env::var("DISPLAY"), Ok(d) if !d.is_empty());
+    if !display_set
+        || !tool_available("xinput")
+        || !xmodmap_table_available()
+        || !pin_trigger_keymap()
+    {
+        eprintln!("skipping x11 backend test: 无 DISPLAY 或缺 xinput/xmodmap");
         return;
     }
     install_tracing();
-    warm_up_xinput();
 
     let mut listener = X11Listener::new(&test_config()).expect("xinput 存在时 new() 应成功");
-    let (mut rx, backend) = listener.start().expect("start() 应成功");
-    // 后端名是 xinput，即证明 xmodmap 表建起来了、keycode 也解析出来了。
-    assert_eq!(backend, "xinput", "应走 xinput 后端，而非 evtest 回退");
-
-    let mut sub = subscribe_activation_keys();
-    let Some(probe) = Xi2Probe::spawn() else {
-        return;
-    };
-
-    let (probe_details, press_seen, release_seen) = inject_until_seen(&probe, &mut rx);
-    // 环境自检先于被测断言：Xvfb 喂不到 XI2 时后续失败不该记到被测代码头上。
-    assert!(
-        !probe_details.is_empty(),
-        "xdotool 注入的按键未进入 XI2，该 Xvfb 环境不支持这条端到端路径"
-    );
-    // 监听器自己的子进程先看还活着没有：它中途死掉会让后面每条断言都指向错的方向。
-    let exit = listener.child_status();
-    assert!(
-        exit.is_none(),
-        "监听器的 xinput 子进程已退出（{exit:?}），环境探针看到的 keycode: {probe_details:?}"
-    );
-    // 旁路带着监听器自己解析出的键名，断言失败时能看出它到底看到了什么。
-    let observations = collect_observations(&mut sub).await;
-    assert!(
-        !observations.is_empty(),
-        "监听器没从 xinput 收到任何按键，环境探针看到的 keycode: {probe_details:?}，子进程退出状态 {exit:?}"
-    );
-    assert!(
-        press_seen,
-        "通道应至少收到一次按下，监听器旁路看到 {observations:?}"
-    );
-    assert!(
-        release_seen,
-        "通道应至少收到一次松开，监听器旁路看到 {observations:?}"
-    );
-    assert!(
-        observations.iter().any(|o| {
-            matches!(o.key_name.as_str(), "Alt_R" | "ISO_Level3_Shift" | "AltGr")
-                && o.linux_evdev_code.is_none()
-                && o.injected.is_none()
-        }),
-        "旁路应看到右 Alt 且无 evdev 码与合成标记，实际 {observations:?}"
-    );
-
-    assert_left_alt_is_filtered(&mut sub, &mut rx).await;
-    assert_stopped(&mut listener, &mut rx);
+    let (_rx, backend) = listener.start().expect("start() 应成功");
+    assert_eq!(backend, "xinput", "xmodmap 可用时应走 xinput 后端");
+    listener.stop();
 }

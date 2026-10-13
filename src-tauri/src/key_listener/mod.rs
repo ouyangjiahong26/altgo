@@ -10,7 +10,7 @@ pub(crate) mod windows;
 
 #[cfg(target_os = "linux")]
 pub use linux::{list_keyboard_devices, X11Listener};
-/// xinput 路径的端到端测试需要真实 X 服务器与外部工具，单列一个文件。
+/// xinput 路径的解析与后端选择测试，单列一个文件以避开 `linux.rs` 的千行上限。
 #[cfg(all(test, target_os = "linux"))]
 mod linux_x11_e2e;
 #[cfg(target_os = "windows")]

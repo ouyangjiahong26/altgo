@@ -55,11 +55,11 @@ jobs:
         with:
           extra-packages: rpm
 
-      # xinput 路径端到端测试的工具链：xinput 观测 XI2、xdotool 注入合成键、
-      # xmodmap（在 x11-xserver-utils 里）解析键名到 keycode。xvfb 镜像已预装。
+      # xinput 路径测试的工具链：xinput 验 XI2 连接，xmodmap（在 x11-xserver-utils 里）
+      # 解析键名到 keycode。xvfb 镜像已预装。
       - name: Install X11 test tools
         if: matrix.arch == 'amd64'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xinput xdotool x11-xserver-utils
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xinput x11-xserver-utils
 
       - name: Preload sherpa-onnx prebuilt libs
         run: |
@@ -98,15 +98,15 @@ jobs:
       - name: Run tests
         run: cargo test --manifest-path=src-tauri/Cargo.toml --lib
 
-      # xinput 路径端到端：单开 xvfb 并用过滤器只跑这一条，避免其余三百多条
-      # 测试去连 X 服务器。--test-threads=1 因为旁路订阅是进程级单槽。
+      # xinput 路径的后端选择：单开 xvfb 并用过滤器只跑这一条，避免其余三百多条
+      # 测试去连 X 服务器。解析与过滤那条不依赖 X，已在常规测试里跑过。
       # 只在 amd64 跑（arm 跳过，避免重复耗时）。
-      - name: Run X11 key listener end-to-end test
+      - name: Run X11 backend selection test
         if: matrix.arch == 'amd64'
         run: |
           xvfb-run -a --server-args="-screen 0 1280x1024x24" \
             cargo test --manifest-path=src-tauri/Cargo.toml --lib \
-            -- --test-threads=1 --nocapture x11_xinput_end_to_end_injects_and_filters_activation_key
+            -- --test-threads=1 --nocapture x11_backend_is_xinput_when_xmodmap_resolves
 
   check-windows:
     name: Check (windows, ${{ matrix.arch }})

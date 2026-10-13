@@ -196,8 +196,10 @@ fn watch_xinput_stderr(stderr: Option<std::process::ChildStderr>) {
 }
 
 /// 读取 xinput stdout 行流并解析为按键事件发往 `tx`，直到停止标志置位或流关闭。
-fn run_xinput_stdout_loop(
-    stdout: std::process::ChildStdout,
+///
+/// 泛型读入是为了让测试能直接喂受控输出，不必依赖真实 X 服务器。
+pub(crate) fn run_xinput_stdout_loop<R: std::io::Read>(
+    stdout: R,
     keycode: u8,
     tx: tokio::sync::mpsc::UnboundedSender<KeyEvent>,
     running: Arc<AtomicBool>,
@@ -700,16 +702,6 @@ impl X11Listener {
             let _ = child.kill();
             let _ = child.wait();
         }
-    }
-
-    /// xinput 子进程的退出状态，已退出返回 `Some`。
-    ///
-    /// 供端到端测试区分“还活着”与“已经退出成了僵尸”，`/proc/<pid>` 存在与否分不出这两者。
-    #[cfg(test)]
-    pub(crate) fn child_status(&mut self) -> Option<std::process::ExitStatus> {
-        self.child
-            .as_mut()
-            .and_then(|child| child.try_wait().ok().flatten())
     }
 
     fn resolve_keycode(&self) -> Result<u8, KeyListenerError> {
