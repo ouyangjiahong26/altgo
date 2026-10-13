@@ -5,6 +5,14 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## Unreleased
+
+### Changed
+
+- **Windows 与 Linux 包元数据补上发布者名称**：`bundle.publisher` 此前没有配置，Tauri 取标识符 `com.altgo.app` 的第二段 `altgo` 顶替。现在显式设为 `altgo contributors`，与 LICENSE 的版权行一致。改后已安装应用的 `altgo.exe` 版本资源里公司名、Windows“已安装的应用”列表里的发布者、deb 包的 `Maintainer` 字段都显示这个名字。两处边界值得记下。NSIS 安装器自身的属性对话框不写公司名，那一项要等代码签名落地才会出现。rpm 包元数据不读该字段，不受影响。副作用是 NSIS 把记住的安装目录与安装器语言存在 `Software\<发布者>\<产品名>` 下，命名空间随发布者变化，从旧版本升级的第一次会丢掉这两项记忆，安装目录默认值按产品名推导，安装位置不变。
+- **文档站补充 Windows 首次安装的系统提示与哈希核对**：`quick-start.mdx` 的 Windows 小节写明双击安装时会弹出未签名程序的提示、继续安装的路径，以及用 `certutil -hashfile` 与 Release 的 `checksums.txt` 比对 SHA-256 的方法。Windows 11 开启智能应用控制时会被直接阻止，这一点也一并说明。
+- **winget 与 Scoop 清单更新到 2.7.7**：两份渠道清单此前停在 2.7.0。winget 的 `PackageVersion`、`InstallerUrl`、`InstallerSha256` 与 Scoop 的两个架构条目按本次 Release 的 `checksums.txt` 更新。
+
 ## v2.7.7 (2026-10-13)
 
 ### Added

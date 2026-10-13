@@ -58,6 +58,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "publisher": "altgo contributors",
     "targets": [
       "deb",
       "rpm",
