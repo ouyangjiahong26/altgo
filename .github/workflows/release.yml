@@ -154,7 +154,18 @@ jobs:
           workspaces: |
             src-tauri -> target
 
+      # sherpa-onnx 预编译库单独缓存，key 只含压缩包文件名（内嵌版本号，升级时自动失效）。
+      # 必须放在 rust-cache 之后：post 步骤按声明逆序执行，本步先把完整目录存进缓存，
+      # rust-cache 的清理（会删掉 target 下非 Cargo 目录里的文件）才不会把它删空。
+      - name: Cache sherpa-onnx prebuilt libs
+        id: sherpa-cache
+        uses: actions/cache@v4
+        with:
+          path: src-tauri/target/sherpa-onnx-prebuilt
+          key: sherpa-onnx-${{ matrix.sherpa-archive }}
+
       - name: Preload sherpa-onnx prebuilt libs
+        if: steps.sherpa-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           mkdir -p src-tauri/target/sherpa-onnx-prebuilt
@@ -162,6 +173,8 @@ jobs:
           URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/${ARCHIVE}"
           curl -fSL -o "src-tauri/target/sherpa-onnx-prebuilt/${ARCHIVE}" "${URL}"
           tar -xjf "src-tauri/target/sherpa-onnx-prebuilt/${ARCHIVE}" -C src-tauri/target/sherpa-onnx-prebuilt/
+          # 删掉压缩包，缓存条目只保存解压结果（下载仅约 1 秒，瓶颈是解压）
+          rm -f "src-tauri/target/sherpa-onnx-prebuilt/${ARCHIVE}"
 
       - uses: actions/setup-node@v7
         with:
