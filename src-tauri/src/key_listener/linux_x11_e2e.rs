@@ -213,6 +213,35 @@ fn assert_stopped(listener: &mut X11Listener, rx: &mut KeyEventReceiver) {
     assert!(rx.try_recv().is_err(), "stop() 后通道不应再产出事件");
 }
 
+/// 先起一次并立刻收尾的 `xinput test-xi2 --root`，把它的启动期 stderr 打进日志。
+///
+/// Xvfb 里第一条这样的连接会在启动期带 X 错误退出（退出码 1），它之后起的监听器子进程
+/// 会立刻 EOF 从而收不到任何按键；同一条命令再起就正常。端到端用例要验的是监听器的解析、
+/// 过滤与转发，不打算复现这条环境特性，所以先预热一次，同时把它的 stderr 留在日志里，
+/// 方便日后核对这条特性是否还在。
+fn warm_up_xinput() {
+    let mut child = match Command::new("xinput")
+        .args(["test-xi2", "--root"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(e) => {
+            eprintln!("xinput warm-up 无法启动: {e}");
+            return;
+        }
+    };
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    let status = child.try_wait();
+    let _ = child.kill();
+    let mut stderr = String::new();
+    if let Some(mut pipe) = child.stderr.take() {
+        let _ = std::io::Read::read_to_string(&mut pipe, &mut stderr);
+    }
+    eprintln!("xinput warm-up 退出状态 {status:?}，stderr: {stderr:?}");
+}
+
 /// 把监听器内部的 tracing 输出接进测试日志。
 ///
 /// 子进程沉默或异常退出时，只有监听器自己的 info 与 warn 能说明它走到了哪一步。
@@ -238,6 +267,7 @@ async fn x11_xinput_end_to_end_injects_and_filters_activation_key() {
         return;
     }
     install_tracing();
+    warm_up_xinput();
 
     let mut listener = X11Listener::new(&test_config()).expect("xinput 存在时 new() 应成功");
     let (mut rx, backend) = listener.start().expect("start() 应成功");

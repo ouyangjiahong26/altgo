@@ -181,13 +181,13 @@ fn watch_xinput_stderr(stderr: Option<std::process::ChildStderr>) {
     };
     std::thread::spawn(move || {
         let reader = std::io::BufReader::new(stderr);
-        // 只读固定行数会让 BufReader 带着管道读端一起析构，子进程之后再往 stderr 写就会
-        // 吃到 SIGPIPE 直接死掉，监听器从此收不到任何按键。这里一直把管道读干，只有前
-        // 十行参与告警。
+        // 读端必须活到子进程结束，提前析构会让子进程之后的 stderr 写入拿到 EPIPE。
+        // 每行都记一条 debug，子进程启动期退出时只有这里能看到原因；告警只看前十行。
         for (index, line) in reader.lines().enumerate() {
             let Ok(line) = line else {
                 break;
             };
+            tracing::debug!(line = %line, "xinput stderr");
             if index < 10 && (line.contains("Xwayland") || line.contains("BadAccess")) {
                 tracing::warn!("detected XWayland, xinput test-xi2 will not work");
             }
