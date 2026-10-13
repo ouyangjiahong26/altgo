@@ -379,7 +379,6 @@ impl PipelineSink for MockSink {
             .unwrap()
             .push((phase.to_string(), fraction));
     }
-    fn on_key_listener_backend(&self, _: &str) {}
     fn on_pending_recording(&self, pending: Option<&super::pending::PendingRecordingInfo>) {
         self.pending.lock().unwrap().push(pending.cloned());
     }

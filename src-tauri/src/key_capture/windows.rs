@@ -1,4 +1,4 @@
-//! Windows 激活键捕获（WH_KEYBOARD_LL）。
+//! Windows 触发键捕获（WH_KEYBOARD_LL）。
 //!
 //! 临时挂一个低级键盘钩子，阻塞等待下一次物理按键。
 
@@ -8,7 +8,7 @@ use std::time::Duration;
 use super::{windows_vk_code_to_name, CaptureActivationResponse, CaptureOutcome, KeyCapture};
 use crate::key_listener::windows::{spawn_ll_keyboard_hook, HookHandle};
 
-/// Windows 平台激活键捕获器。
+/// Windows 平台触发键捕获器。
 pub struct WindowsKeyCapture;
 
 impl WindowsKeyCapture {
@@ -73,6 +73,13 @@ pub fn configured_match_code(key_name: &str, captured_code: Option<u16>) -> Opti
 /// 超时未检测到按键时给用户的提示。
 pub fn capture_timeout_message() -> &'static str {
     "超时：未检测到按键"
+}
+
+/// 监听没在跑、退回临时钩子时的超时提示。
+///
+/// 临时钩子是后装的，altgo 窗口获得焦点时可能收不到按键，把焦点移开就能用。
+pub fn capture_fallback_timeout_message() -> &'static str {
+    "超时：未检测到按键。当前用的是临时钩子，请先把焦点切到其他窗口再按一次。"
 }
 
 /// 当前配置下监听器实际用于匹配的 VK 码，供自检比对。

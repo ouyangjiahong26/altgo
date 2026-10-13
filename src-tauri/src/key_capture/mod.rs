@@ -1,4 +1,4 @@
-//! 短时捕获用户按下的物理键，用于“按下以设置”激活键与激活键自检。
+//! 短时捕获用户按下的物理键，用于“按下以设置”触发键与触发键自检。
 //!
 //! 捕获结果带平台原始键码（Windows 为 VK，Linux 为 evdev），与监听器
 //! 实际用于匹配的码一致，因此可以直接判断按下的键能不能触发录音。
@@ -25,11 +25,13 @@ pub type PlatformKeyCapture = WindowsKeyCapture;
 
 #[cfg(target_os = "linux")]
 pub use linux::{
-    capture_timeout_message, configured_match_code, configured_match_code_from_config,
+    capture_fallback_timeout_message, capture_timeout_message, configured_match_code,
+    configured_match_code_from_config,
 };
 #[cfg(target_os = "windows")]
 pub use windows::{
-    capture_timeout_message, configured_match_code, configured_match_code_from_config,
+    capture_fallback_timeout_message, capture_timeout_message, configured_match_code,
+    configured_match_code_from_config,
 };
 
 use serde::Serialize;
@@ -61,20 +63,20 @@ pub const CAPTURE_TIMEOUT: Duration = Duration::from_secs(12);
 /// 一次捕获的结局。
 ///
 /// 超时是与“抓到按键”并列的独立结局：设置页把它当失败展示，
-/// 激活键自检要把它和“抓到了但键不对”讲成两件事。
+/// 触发键自检要把它和“抓到了但键不对”讲成两件事。
 #[derive(Debug)]
 pub enum CaptureOutcome {
     Captured(CaptureActivationResponse),
     TimedOut,
 }
 
-/// 激活键自检结果：按下激活键后能不能被监听器认出来。
+/// 触发键自检结果：按下触发键后能不能被监听器认出来。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivationKeyProbe {
     /// 实际抓到的按键，超时为 `None`。
     pub observed: Option<CaptureActivationResponse>,
-    /// 当前配置里的激活键名。
+    /// 当前配置里的触发键名。
     pub configured_key_name: String,
     /// 监听器实际用于匹配的键码（Windows 为 VK，Linux 为 evdev），解析不出为 `None`。
     pub configured_code: Option<u16>,
@@ -130,7 +132,7 @@ pub fn evaluate_probe(
     }
 }
 
-/// 平台激活键捕获的 trait seam。
+/// 平台触发键捕获的 trait seam。
 ///
 /// 由平台 adapter 实现。`capture()` 为同步阻塞方法，调用方负责在独立线程执行。
 pub trait KeyCapture: Send {

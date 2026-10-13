@@ -55,6 +55,12 @@ jobs:
         with:
           extra-packages: rpm
 
+      # xinput 路径端到端测试的工具链：xinput 观测 XI2、xdotool 注入合成键、
+      # xmodmap（在 x11-xserver-utils 里）解析键名到 keycode。xvfb 镜像已预装。
+      - name: Install X11 test tools
+        if: matrix.arch == 'amd64'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xinput xdotool x11-xserver-utils
+
       - name: Preload sherpa-onnx prebuilt libs
         run: |
           mkdir -p src-tauri/target/sherpa-onnx-prebuilt
@@ -91,6 +97,16 @@ jobs:
 
       - name: Run tests
         run: cargo test --manifest-path=src-tauri/Cargo.toml --lib
+
+      # xinput 路径端到端：单开 xvfb 并用过滤器只跑这一条，避免其余三百多条
+      # 测试去连 X 服务器；--test-threads=1 因为旁路订阅是进程级单槽。
+      # 只在 amd64 跑（arm 跳过，避免重复耗时）。
+      - name: Run X11 key listener end-to-end test
+        if: matrix.arch == 'amd64'
+        run: |
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" \
+            cargo test --manifest-path=src-tauri/Cargo.toml --lib \
+            -- --test-threads=1 x11_xinput_end_to_end_injects_and_filters_activation_key
 
   check-windows:
     name: Check (windows, ${{ matrix.arch }})

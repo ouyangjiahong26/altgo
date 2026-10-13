@@ -163,7 +163,6 @@ export function useConfigForm({
       await saveWith(next);
     } catch (e) {
       setMessage(String(e));
-      await invoke("start_pipeline").catch(() => {});
       await showMessageDialog(String(e), {
         title: t("settings.capture_error_title"),
         kind: "error",

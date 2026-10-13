@@ -255,7 +255,6 @@ mod tests {
             }
             fn on_transcription_result(&self, _: &TranscriptionResult) {}
             fn on_progress(&self, _: &str, _: Option<f32>) {}
-            fn on_key_listener_backend(&self, _: &str) {}
         }
 
         // 用未知的 polisher protocol 强制 build_context 失败。

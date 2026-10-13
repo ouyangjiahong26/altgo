@@ -10,6 +10,9 @@ pub(crate) mod windows;
 
 #[cfg(target_os = "linux")]
 pub use linux::{list_keyboard_devices, X11Listener};
+/// xinput 路径的端到端测试需要真实 X 服务器与外部工具，单列一个文件。
+#[cfg(all(test, target_os = "linux"))]
+mod linux_x11_e2e;
 #[cfg(target_os = "windows")]
 pub use windows::WindowsKeyListener;
 
@@ -27,6 +30,21 @@ pub struct KeyEvent {
 
 /// 自检等原始按键观察的等待窗口。
 pub const PROBE_WINDOW: std::time::Duration = std::time::Duration::from_secs(8);
+
+/// 监听器是否正在运行。
+///
+/// 只有监听器在跑时原始按键旁路才有人喂；“按下以设置”据此决定走旁路还是退回临时钩子。
+static LISTENER_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// 流水线在监听器启动成功后置位、主循环收尾时清除。
+pub(crate) fn set_listener_active(active: bool) {
+    LISTENER_ACTIVE.store(active, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// 监听器是否正在运行。
+pub fn is_listener_active() -> bool {
+    LISTENER_ACTIVE.load(std::sync::atomic::Ordering::SeqCst)
+}
 
 /// 监听器原始按键的旁路通道。
 ///
@@ -55,6 +73,30 @@ impl ActivationKeySubscription {
             .ok()
             .flatten()
     }
+
+    /// 取下一个物理按键，跳过其他程序注入的合成事件；窗口内没有可用按键则返回 `None`。
+    ///
+    /// “按下以设置”要的是能真正触发起录的键，注入事件一律不算，与旧的自装钩子路径一致。
+    /// 自检报的是“按键有没有到达”，注入的也要看得见，所以只有捕获用这个入口。
+    pub async fn next_physical(
+        &mut self,
+        window: std::time::Duration,
+    ) -> Option<crate::key_capture::CaptureActivationResponse> {
+        let deadline = tokio::time::Instant::now() + window;
+        loop {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                return None;
+            }
+            match self.next(remaining).await {
+                Some(observation) if observation.injected != Some(true) => {
+                    return Some(observation)
+                }
+                Some(_) => continue,
+                None => return None,
+            }
+        }
+    }
 }
 
 impl Drop for ActivationKeySubscription {
@@ -82,7 +124,7 @@ pub(crate) fn publish_activation_key(observation: crate::key_capture::CaptureAct
 
 use crate::error::KeyListenerError;
 
-/// 持续监听激活键的 trait seam。
+/// 持续监听触发键的 trait seam。
 ///
 /// 由平台 adapter 实现。pipeline 以 `Box<dyn KeyListener>` 消费，便于注入测试 fake。
 pub trait KeyListener: Send {
@@ -133,5 +175,37 @@ mod tests {
         let dbg = format!("{:?}", evt);
         assert!(dbg.contains("KeyEvent"));
         assert!(dbg.contains("true"));
+    }
+
+    /// 两次观察只区分注入标记，其余字段与主题无关。
+    fn observation(injected: bool) -> crate::key_capture::CaptureActivationResponse {
+        crate::key_capture::CaptureActivationResponse {
+            key_name: "Alt_R".to_string(),
+            linux_evdev_code: None,
+            windows_vk_code: Some(0xA5),
+            injected: Some(injected),
+        }
+    }
+
+    /// 捕获要的是能起录的物理键，注入的合成事件要跳过；只有注入事件时按超时收尾。
+    ///
+    /// 旁路槽是进程级单槽，两条断言合在一个用例里跑，避免并发订阅互相顶掉。
+    #[tokio::test]
+    async fn next_physical_skips_injected_and_times_out_without_one() {
+        let mut subscription = subscribe_activation_keys();
+
+        publish_activation_key(observation(true));
+        publish_activation_key(observation(false));
+        let captured = subscription
+            .next_physical(std::time::Duration::from_secs(1))
+            .await
+            .expect("应当拿到物理按键");
+        assert_eq!(captured.injected, Some(false));
+
+        publish_activation_key(observation(true));
+        assert!(subscription
+            .next_physical(std::time::Duration::from_millis(50))
+            .await
+            .is_none());
     }
 }

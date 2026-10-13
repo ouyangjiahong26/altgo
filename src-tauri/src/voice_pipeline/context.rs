@@ -67,6 +67,7 @@ impl PipelineContext {
         state.sink.on_status_change(PipelineStatus::Idle);
         state.event_loop(stop_rx).await;
         state.sink.on_status_change(PipelineStatus::Stopped);
+        crate::key_listener::set_listener_active(false);
         tracing::info!("pipeline stopped");
     }
 }
@@ -95,7 +96,8 @@ fn start_key_listener(
     match listener.start() {
         Ok((key_events, backend)) => {
             tracing::info!(backend = backend, "key listener active");
-            sink.on_key_listener_backend(backend);
+            // 原始按键旁路只在监听器活着时有人喂，“按下以设置”据此决定走旁路还是临时钩子。
+            crate::key_listener::set_listener_active(true);
             Some((listener, key_events))
         }
         Err(e) => {
@@ -399,7 +401,6 @@ mod tests {
             fn on_error(&self, _: &UserFacingError) {}
             fn on_transcription_result(&self, _: &super::super::sink::TranscriptionResult) {}
             fn on_progress(&self, _: &str, _: Option<f32>) {}
-            fn on_key_listener_backend(&self, _: &str) {}
         }
 
         let ctx = make_context(None);
