@@ -181,8 +181,14 @@ fn watch_xinput_stderr(stderr: Option<std::process::ChildStderr>) {
     };
     std::thread::spawn(move || {
         let reader = std::io::BufReader::new(stderr);
-        for line in reader.lines().take(10).flatten() {
-            if line.contains("Xwayland") || line.contains("BadAccess") {
+        // 只读固定行数会让 BufReader 带着管道读端一起析构，子进程之后再往 stderr 写就会
+        // 吃到 SIGPIPE 直接死掉，监听器从此收不到任何按键。这里一直把管道读干，只有前
+        // 十行参与告警。
+        for (index, line) in reader.lines().enumerate() {
+            let Ok(line) = line else {
+                break;
+            };
+            if index < 10 && (line.contains("Xwayland") || line.contains("BadAccess")) {
                 tracing::warn!("detected XWayland, xinput test-xi2 will not work");
             }
         }
@@ -694,6 +700,12 @@ impl X11Listener {
             let _ = child.kill();
             let _ = child.wait();
         }
+    }
+
+    /// xinput 子进程 pid，供端到端测试判断监听器是否还活着。
+    #[cfg(test)]
+    pub(crate) fn child_pid(&self) -> Option<u32> {
+        self.child.as_ref().map(std::process::Child::id)
     }
 
     fn resolve_keycode(&self) -> Result<u8, KeyListenerError> {

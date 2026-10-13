@@ -25,8 +25,7 @@ pub type PlatformKeyCapture = WindowsKeyCapture;
 
 #[cfg(target_os = "linux")]
 pub use linux::{
-    capture_fallback_timeout_message, capture_timeout_message, configured_match_code,
-    configured_match_code_from_config,
+    capture_fallback_timeout_message, configured_match_code, configured_match_code_from_config,
 };
 #[cfg(target_os = "windows")]
 pub use windows::{

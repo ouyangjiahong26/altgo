@@ -98,7 +98,7 @@
 _Avoid_: key listener（指概念时小写）、platform listener。
 
 **按键捕获（KeyCapture）**
-设置配置期间一次性捕获任意物理键的接口，返回 `KeyListenerConfig` 所需的键标识符（`key_name`、`linux_evdev_code`）。设置页的“按下以设置”用它。监听器在跑时走原始按键旁路，不停流水线也不另装钩子；监听没在跑时退回临时钩子（Windows 挂 WH_KEYBOARD_LL，Linux 起 `evtest` 子进程），那条路径上后装的钩子在 altgo 窗口获得焦点时可能收不到按键。注入按键不算捕获结果。暴露同步阻塞式 API。
+设置配置期间一次性捕获任意物理键的接口，返回 `KeyListenerConfig` 所需的键标识符（`key_name`、`linux_evdev_code`）。设置页的“按下以设置”用它。监听器在跑时走原始按键旁路，不停流水线也不另装钩子。监听没在跑时退回临时钩子（Windows 挂 WH_KEYBOARD_LL，Linux 起 `evtest` 子进程），那条路径上后装的钩子在 altgo 窗口获得焦点时可能收不到按键。注入按键不算捕获结果。暴露同步阻塞式 API。
 _Avoid_: capture mode、key capture mode。
 
 **触发键自检（Trigger Key Self-check）**
@@ -108,7 +108,7 @@ _Avoid_: capture mode、key capture mode。
 监听器把过滤前的每一个按键（含被当作注入事件忽略的那些）发出来的一条进程级单槽通道，供触发键自检与按键捕获使用。后端标识与过滤细节不进这条通道。
 
 **注入按键（Injected Key）**
-由其他程序合成并注入队列的按键事件，来源有改键工具、键盘厂商驱动与部分输入法。Windows 低级键盘钩子会带上这个标记，altgo 一律忽略，不用它起录；Linux 的 X11 与 evdev 路径拿不到这个标记。
+由其他程序合成并注入队列的按键事件，来源有改键工具、键盘厂商驱动与部分输入法。Windows 低级键盘钩子会带上这个标记，altgo 一律忽略，不用它起录。Linux 的 X11 与 evdev 路径拿不到这个标记。
 
 **触发键（Trigger Key）**
 按住即开始录音的物理键。按设备配置为 X11 keysym 名（`key_name`）或 evdev 扫描码（`linux_evdev_code`）。Wayland 上优先 evdev 路径。_Avoid_: 激活键、快捷键。

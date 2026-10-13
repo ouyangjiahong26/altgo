@@ -36,9 +36,22 @@ pub const PROBE_WINDOW: std::time::Duration = std::time::Duration::from_secs(8);
 /// 只有监听器在跑时原始按键旁路才有人喂，“按下以设置”据此决定走旁路还是退回临时钩子。
 static LISTENER_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// 流水线在监听器启动成功后置位、主循环收尾时清除。
-pub(crate) fn set_listener_active(active: bool) {
-    LISTENER_ACTIVE.store(active, std::sync::atomic::Ordering::SeqCst);
+/// 置位监听器存活标志，返回的守卫 Drop 时清位。
+///
+/// 用守卫而不是在收尾处手动清位：主循环一旦 panic，手动清位会被跳过，此后每次捕获都走
+/// 旁路并超时，提示还会把用户引向错误的排查方向。
+pub(crate) fn mark_listener_active() -> ListenerActiveGuard {
+    LISTENER_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
+    ListenerActiveGuard
+}
+
+/// 监听器存活标志的守卫，见 [`mark_listener_active`]。
+pub(crate) struct ListenerActiveGuard;
+
+impl Drop for ListenerActiveGuard {
+    fn drop(&mut self) {
+        LISTENER_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 /// 监听器是否正在运行。
