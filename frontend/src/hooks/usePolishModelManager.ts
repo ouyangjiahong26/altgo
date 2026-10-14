@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { message as showMessageDialog } from "@tauri-apps/plugin-dialog";
-import { useTauriEvent } from "./useTauri";
+import { usePolishModelDownloadProgress } from "./useTauri";
 
 /** 本地润色模型条目（与后端 list_polish_models 的 camelCase 序列化对齐）。 */
 export interface PolishModelEntry {
@@ -36,19 +36,6 @@ function reportError(t: (k: string) => string, err: unknown): Promise<void> {
   }).then(() => undefined);
 }
 
-/** 订阅润色模型下载进度事件，形状与转写模型的进度事件一致。 */
-function usePolishDownloadProgress(): {
-  name: string | null;
-  downloaded: number;
-  total: number;
-} {
-  return useTauriEvent("polish-model-download-progress", {
-    name: null,
-    downloaded: 0,
-    total: 0,
-  });
-}
-
 /**
  * 持有本地润色模型列表与下载生命周期，并追踪下载进度。
  * 同一时刻只允许一个下载在飞：调用方据 downloading 是否非空禁用其他下载按钮。
@@ -58,7 +45,7 @@ export function usePolishModelManager({
 }: UsePolishModelManagerOptions): UsePolishModelManagerResult {
   const [models, setModels] = useState<PolishModelEntry[]>([]);
   const [downloading, setDownloading] = useState<string | null>(null);
-  const progress = usePolishDownloadProgress();
+  const progress = usePolishModelDownloadProgress();
 
   const refreshModels = useCallback(() => {
     invoke<PolishModelEntry[]>("list_polish_models")

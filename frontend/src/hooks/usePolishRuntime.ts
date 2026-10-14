@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { message as showMessageDialog } from "@tauri-apps/plugin-dialog";
-import { useTauriEvent } from "./useTauri";
+import { usePolishRuntimeDownloadProgress } from "./useTauri";
 
 /** 本地润色运行时状态（与后端 polish_runtime_status 的 camelCase 序列化对齐）。 */
 export interface PolishRuntimeStatus {
@@ -45,10 +45,7 @@ export function usePolishRuntime({
 }: UsePolishRuntimeOptions): UsePolishRuntimeResult {
   const [status, setStatus] = useState<PolishRuntimeStatus | null>(null);
   const [downloading, setDownloading] = useState(false);
-  const progress = useTauriEvent("polish-runtime-download-progress", {
-    downloaded: 0,
-    total: 0,
-  });
+  const progress = usePolishRuntimeDownloadProgress();
 
   const refreshStatus = useCallback(() => {
     invoke<PolishRuntimeStatus>("polish_runtime_status")
