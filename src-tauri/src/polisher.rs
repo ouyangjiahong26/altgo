@@ -37,7 +37,7 @@ pub use connectivity::{describe_test_error, test_connection};
 pub use endpoint::build_endpoint;
 pub use formatter::LLMFormatter;
 pub use level::{PolishLevel, ThinkingLevel};
-pub use local::LocalPolisher;
+pub(crate) use local::LocalPolisher;
 pub use prompt::{CustomSource, PromptStoreSource, SystemPromptSource};
 
 /// 润色引擎：远端 API 与本地运行时两种实现。

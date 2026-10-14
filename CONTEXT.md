@@ -71,7 +71,7 @@
 可选的 LLM 后处理步骤。由 `PolishLevel`（`none`/`light`/`medium`/`heavy`）控制，实际执行交给润色引擎。
 
 **润色引擎（Polish Engine）**
-执行润色的后端，由 `[polisher] backend` 选择。两个实现：远端 `RemotePolisher`（与任意 OpenAI 兼容聊天 API 或 Anthropic Messages API 通信）与本地 `LocalPolisher`（与润色运行时的回环接口通信）。_Avoid_: 润色器（指后端时）、润色服务。
+执行润色的后端，由 `[polisher] backend` 选择。两个实现：远端 `LLMFormatter`（与任意 OpenAI 兼容聊天 API 或 Anthropic Messages API 通信）与本地 `LocalPolisher`（与润色运行时的回环接口通信）。_Avoid_: 润色器（指后端时）、润色服务。
 
 **本地润色模型（Local Polish Model）**
 本地润色引擎使用的模型权重，按需下载，不随安装包分发。当前提供 Qwen3-0.6B 与 Qwen3-1.7B 两档。_Avoid_: 本地模型（与转写模型混用）。
