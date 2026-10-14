@@ -19,6 +19,10 @@ const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(200);
 /// 保留的运行时日志行数，用于失败时给出可诊断的尾部输出。
 const LOG_TAIL_LINES: usize = 40;
 
+/// 结束子进程后等待回收的上限与轮询间隔。
+const REAP_TIMEOUT: Duration = Duration::from_secs(5);
+const REAP_POLL_INTERVAL: Duration = Duration::from_millis(20);
+
 /// 本地润色的固定启动参数。
 ///
 /// 取值来自离线润色的实测：线程数取物理核数（同一台机器 16 物理核生成 100.8 tok/s，
@@ -143,10 +147,27 @@ impl RuntimeChild for TokioChild {
         &'a mut self,
     ) -> Pin<Box<dyn Future<Output = Result<(), PolishRuntimeError>> + Send + 'a>> {
         Box::pin(async move {
-            self.child
-                .kill()
-                .await
-                .map_err(|e| PolishRuntimeError::ProcessFailed(e.to_string()))
+            // 不走 tokio 的 `kill()`：它内部会把退出状态 wait 掉，之后 `try_wait` 在 Linux 上
+            // 一直返回 `None`，调用方就再也确认不了进程是否真的没了。这里自己发信号再回收。
+            if let Err(error) = self.child.start_kill() {
+                // 已经退出过的子进程会在这里报错，按已结束处理。
+                tracing::debug!(error = %error, "child exited before kill");
+            }
+            let deadline = Instant::now() + REAP_TIMEOUT;
+            loop {
+                match self.child.try_wait() {
+                    Ok(Some(_)) => return Ok(()),
+                    Ok(None) => {
+                        if Instant::now() >= deadline {
+                            return Err(PolishRuntimeError::ProcessFailed(
+                                "结束润色运行时超时".to_string(),
+                            ));
+                        }
+                        tokio::time::sleep(REAP_POLL_INTERVAL).await;
+                    }
+                    Err(error) => return Err(PolishRuntimeError::ProcessFailed(error.to_string())),
+                }
+            }
         })
     }
 }

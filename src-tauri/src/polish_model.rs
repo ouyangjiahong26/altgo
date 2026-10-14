@@ -129,12 +129,17 @@ pub fn is_downloaded(name: &str) -> bool {
 
 /// 解析 `[polisher] local_model`：已知名字走模型目录，否则当作自定义 GGUF 文件路径。
 pub fn resolve_model_path(name: &str) -> Option<PathBuf> {
+    resolve_model_path_in(&models_dir(), name)
+}
+
+/// 注入根目录的版本：解析只与目录内容有关，与调用方是谁、这台机器下没下过模型无关。
+fn resolve_model_path_in(root: &Path, name: &str) -> Option<PathBuf> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
         return None;
     }
     if let Some(info) = find(trimmed) {
-        let path = model_path(info);
+        let path = root.join(info.name).join(info.filename);
         return download::structurally_ready(&path, MIN_MODEL_BYTES).then_some(path);
     }
     let path = PathBuf::from(trimmed);
@@ -266,18 +271,33 @@ mod tests {
 
     #[test]
     fn test_resolve_model_path_handles_known_missing_custom_and_empty() {
-        let dir = tempfile::tempdir().unwrap();
-        let custom = dir.path().join("my-polish.gguf");
-        std::fs::write(&custom, vec![0u8; 8]).unwrap();
+        let root = tempfile::tempdir().unwrap();
+        // 解析只与传入的根目录有关，不依赖这台机器真实下载过什么。
+        assert!(
+            resolve_model_path_in(root.path(), "qwen3-0.6b").is_none(),
+            "根目录为空时解析不到"
+        );
 
+        let dir = root.path().join("qwen3-0.6b");
+        std::fs::create_dir_all(&dir).unwrap();
+        let weights = dir.join("Qwen3-0.6B-Q4_K_M.gguf");
+        std::fs::write(&weights, vec![0u8; MIN_MODEL_BYTES as usize + 1]).unwrap();
+        assert_eq!(
+            resolve_model_path_in(root.path(), "qwen3-0.6b"),
+            Some(weights),
+            "权重就位后应当解析到"
+        );
+
+        // 小于下限的文件视为未完成下载。
+        std::fs::write(dir.join("Qwen3-0.6B-Q4_K_M.gguf"), b"tiny").unwrap();
+        assert!(resolve_model_path_in(root.path(), "qwen3-0.6b").is_none());
+
+        let custom = root.path().join("my-polish.gguf");
+        std::fs::write(&custom, b"custom").unwrap();
         assert_eq!(
             resolve_model_path(custom.to_str().unwrap()),
             Some(custom.clone()),
             "自定义路径只要文件在就接受"
-        );
-        assert!(
-            resolve_model_path("qwen3-0.6b").is_none(),
-            "未下载时解析不到"
         );
         assert!(resolve_model_path("").is_none());
         assert!(resolve_model_path("不存在.gguf").is_none());

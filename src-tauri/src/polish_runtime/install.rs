@@ -223,6 +223,8 @@ fn to_runtime_error(error: DownloadError) -> PolishRuntimeError {
 mod tests {
     use super::*;
     use std::borrow::Cow;
+    // 只有 Windows 的 zip 构造器要写字节，Unix 的 tar 构造器不用。
+    #[cfg(windows)]
     use std::io::Write;
 
     #[cfg(windows)]
@@ -425,25 +427,91 @@ mod tests {
         assert!(is_installed(&spec, dir.path()));
     }
 
+    /// 两种平台的归档命名各造一个 spec，在任一平台上都跑同一套断言。
+    /// 先前这里把 Windows 的文件名写死在断言里，Linux 上直接挂掉。
+    fn named_spec(
+        exe: &'static str,
+        suffix: &'static str,
+        cpu_prefix: &'static str,
+        required: &'static [&'static str],
+        root: &'static str,
+    ) -> RuntimeSpec {
+        RuntimeSpec {
+            target: "test",
+            archive_name: ARCHIVE_NAME,
+            archive_size: 1,
+            archive_sha256: Cow::Owned("00".to_string()),
+            archive_root: root,
+            executable: exe,
+            shared_lib_suffix: suffix,
+            required_libraries: required,
+            cpu_lib_prefix: cpu_prefix,
+        }
+    }
+
+    fn assert_common_path_rules(spec: &RuntimeSpec, exe: &str, cpu: &str, tool: &str) {
+        assert_eq!(
+            kept_relative_path(spec, exe).map(|p| p.to_string_lossy().into_owned()),
+            Some(exe.to_string())
+        );
+        assert_eq!(kept_relative_path(spec, "../evil.dll"), None);
+        assert_eq!(kept_relative_path(spec, "/etc/passwd"), None);
+        assert_eq!(kept_relative_path(spec, tool), None);
+        assert_eq!(kept_relative_path(spec, ""), None);
+        let nested = format!("nested/{cpu}");
+        assert_eq!(
+            kept_relative_path(spec, &nested).map(|p| p.to_string_lossy().into_owned()),
+            Some(nested)
+        );
+    }
+
     #[test]
     fn test_kept_relative_path_rejects_traversal_and_foreign_roots() {
-        let flat = spec_with("00", 1, "");
-        assert_eq!(
-            kept_relative_path(&flat, "llama-server.exe").map(|p| p.to_string_lossy().into_owned()),
-            Some(EXE.to_string())
+        let windows_like = named_spec(
+            "llama-server.exe",
+            ".dll",
+            "ggml-cpu",
+            &["llama-server-impl.dll"],
+            "",
         );
-        assert_eq!(kept_relative_path(&flat, "../evil.dll"), None);
-        assert_eq!(kept_relative_path(&flat, "/etc/passwd"), None);
-        assert_eq!(
-            kept_relative_path(&flat, "nested/ggml-cpu-x64.dll"),
-            Some(PathBuf::from(format!("nested/{CPU}")))
+        assert_common_path_rules(
+            &windows_like,
+            "llama-server.exe",
+            "ggml-cpu-x64.dll",
+            "llama-cli.exe",
         );
-        assert_eq!(kept_relative_path(&flat, UNKEPT_TOOL), None);
-        assert_eq!(kept_relative_path(&flat, ""), None);
+        assert!(windows_like.keeps("llama-server-impl.dll"));
+        assert!(!windows_like.keeps("ggml.dll.bak"));
 
-        let rooted = spec_with("00", 1, "llama-b11612");
-        assert!(kept_relative_path(&rooted, &format!("llama-b11612/{EXE}")).is_some());
-        assert_eq!(kept_relative_path(&rooted, &format!("other/{EXE}")), None);
+        let linux_like = named_spec(
+            "llama-server",
+            ".so",
+            "libggml-cpu",
+            &["libllama-server-impl.so"],
+            "",
+        );
+        assert_common_path_rules(
+            &linux_like,
+            "llama-server",
+            "libggml-cpu-zen4.so",
+            "llama-cli",
+        );
+        assert!(linux_like.keeps("libllama.so.0.6.0"));
+        assert!(linux_like.keeps("libllama-common.so.0"));
+        assert!(!linux_like.keeps("libfoo.socket"));
+    }
+
+    #[test]
+    fn test_kept_relative_path_strips_archive_root() {
+        let rooted = named_spec(
+            "llama-server",
+            ".so",
+            "libggml-cpu",
+            &["libllama-server-impl.so"],
+            "llama-b11612",
+        );
+        assert!(kept_relative_path(&rooted, "llama-b11612/llama-server").is_some());
+        assert_eq!(kept_relative_path(&rooted, "other/llama-server"), None);
         assert_eq!(kept_relative_path(&rooted, "llama-b11612X/lib.so"), None);
         assert_eq!(kept_relative_path(&rooted, "llama-b11612"), None);
     }
