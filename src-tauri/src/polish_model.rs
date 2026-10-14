@@ -84,6 +84,7 @@ pub fn models_info() -> Vec<PolishModelSummary> {
 /// 只接受内置清单里的名字。这个函数会递归删除目录，而名字可能来自 IPC 参数，
 /// 未经校验的绝对路径或 `..` 会删到模型目录之外。
 pub fn delete(name: &str) -> Result<(), ModelError> {
+    let name = name.trim();
     if !is_known(name) {
         return Err(ModelError::UnknownModel(name.to_string()));
     }
