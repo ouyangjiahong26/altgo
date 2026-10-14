@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { ProviderPresetSelector } from "../../components/ProviderPresetSelector";
 import type { ModelCatalogEntry, ProviderPreset } from "../../config/modelPresets";
 import type { AppConfig } from "../../hooks/useConfigForm";
+import { LocalPolishPanel, type LocalPolishPanelProps } from "./LocalPolishPanel";
 
 interface PolishingSectionProps {
   "data-settings-order"?: number;
@@ -10,6 +11,10 @@ interface PolishingSectionProps {
   lang: string;
   config: AppConfig;
   update: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => void;
+  /** 切换润色引擎并立即持久化（窄补丁，只写润色后端字段）。 */
+  setPolishBackend: (backend: string) => void;
+  /** 本地引擎面板的状态与回调，与 t/config/update 合并后传给 LocalPolishPanel。 */
+  localPolish: Omit<LocalPolishPanelProps, "t" | "config" | "update">;
   catalogPresets: ProviderPreset[];
   catalogLoading: boolean;
   catalogError: string | null;
@@ -29,10 +34,13 @@ interface PolishingSectionProps {
 export function PolishingSection({
   "data-settings-order": order,
   t, lang, config, update,
+  setPolishBackend, localPolish,
   catalogPresets, catalogLoading, catalogError, onRetryCatalog,
   testing, testResult, onTestConnection, clearingKey, onClearApiKey,
   polishOpen, setPolishOpen, polishAdvancedOpen, setPolishAdvancedOpen,
 }: PolishingSectionProps) {
+  const localActive = config.polishBackend === "local";
+
   return (
     <section
       data-settings-order={order}
@@ -49,25 +57,57 @@ export function PolishingSection({
       </button>
       {polishOpen && (
         <div className="settings-section-body">
-          <PresetCatalogArea
-            t={t} lang={lang} config={config} update={update}
-            catalogPresets={catalogPresets} catalogLoading={catalogLoading}
-            catalogError={catalogError} onRetryCatalog={onRetryCatalog}
+          <PolishEngineField
+            t={t} config={config} setPolishBackend={setPolishBackend}
           />
-          <PolishLevelArea t={t} config={config} update={update} />
-          <PolishKeyAndTestArea
-            t={t} config={config} update={update}
-            testing={testing} testResult={testResult}
-            onTestConnection={onTestConnection} clearingKey={clearingKey}
-            onClearApiKey={onClearApiKey}
-          />
-          <PolishAdvancedBlock
-            t={t} config={config} update={update}
-            polishAdvancedOpen={polishAdvancedOpen} setPolishAdvancedOpen={setPolishAdvancedOpen}
-          />
+          {localActive ? (
+            <LocalPolishPanel t={t} config={config} update={update} {...localPolish} />
+          ) : (
+            <>
+              <PresetCatalogArea
+                t={t} lang={lang} config={config} update={update}
+                catalogPresets={catalogPresets} catalogLoading={catalogLoading}
+                catalogError={catalogError} onRetryCatalog={onRetryCatalog}
+              />
+              <PolishLevelArea t={t} config={config} update={update} />
+              <PolishKeyAndTestArea
+                t={t} config={config} update={update}
+                testing={testing} testResult={testResult}
+                onTestConnection={onTestConnection} clearingKey={clearingKey}
+                onClearApiKey={onClearApiKey}
+              />
+              <PolishAdvancedBlock
+                t={t} config={config} update={update}
+                polishAdvancedOpen={polishAdvancedOpen} setPolishAdvancedOpen={setPolishAdvancedOpen}
+              />
+            </>
+          )}
         </div>
       )}
     </section>
+  );
+}
+
+/** 润色引擎二选一：云端保留供应商预设与密钥，本地走模型与运行时。 */
+function PolishEngineField({
+  t,
+  config,
+  setPolishBackend,
+}: Pick<PolishingSectionProps, "t" | "config" | "setPolishBackend">) {
+  return (
+    <div className="settings-field">
+      <span className="settings-field-label-text">{t("settings.polish_backend")}</span>
+      <div className="settings-field-control">
+        <select
+          className="select"
+          value={config.polishBackend === "local" ? "local" : "remote"}
+          onChange={(e) => setPolishBackend(e.target.value)}
+        >
+          <option value="remote">{t("settings.polish_backend_remote")}</option>
+          <option value="local">{t("settings.polish_backend_local")}</option>
+        </select>
+      </div>
+    </div>
   );
 }
 

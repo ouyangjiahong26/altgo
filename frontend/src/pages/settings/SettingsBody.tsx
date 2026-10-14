@@ -67,6 +67,21 @@ function OrderedSections({ s }: { s: SettingsForm }) {
       <PolishingSection
         data-settings-order={3}
         t={t} lang={s.lang} config={config} update={update}
+        setPolishBackend={s.setPolishBackend}
+        localPolish={{
+          saving: s.saving, models: s.polishModels, downloading: s.polishDownloading,
+          getDownloadProgress: s.getPolishDownloadProgress,
+          onUseLocalModel: s.applyLocalPolishModel,
+          onDownloadAndUse: s.downloadAndUsePolishModel,
+          onDeleteModel: s.handleDeletePolishModel,
+          runtime: {
+            status: s.polishRuntimeStatus,
+            downloading: s.polishRuntimeDownloading,
+            progress: s.polishRuntimeProgress,
+            onDownload: s.downloadPolishRuntime,
+            onRedownload: s.redownloadPolishRuntime,
+          },
+        }}
         catalogPresets={s.catalogPresets} catalogLoading={s.catalogLoading}
         catalogError={s.catalogError} onRetryCatalog={s.loadOnlineCatalog}
         testing={s.testing} testResult={s.testResult} onTestConnection={s.runTestConnection}

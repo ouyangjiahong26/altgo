@@ -18,6 +18,10 @@ export interface AppConfig {
   polishApiBaseUrl: string;
   polishProtocol: string;
   polishThinkingLevel: string;
+  /** 润色引擎：remote（云端 API）或 local（本地润色模型）。 */
+  polishBackend: string;
+  /** 本地润色模型名，也接受自定义 GGUF 路径。 */
+  polishLocalModel: string;
   guiLanguage: string;
   overlayPosition: string;
   autoCheckUpdate: boolean;
@@ -43,6 +47,8 @@ export function saveRequestBody(c: AppConfig) {
     polishApiBaseUrl: c.polishApiBaseUrl,
     polishProtocol: c.polishProtocol,
     polishThinkingLevel: c.polishThinkingLevel,
+    polishBackend: c.polishBackend,
+    polishLocalModel: c.polishLocalModel,
     guiLanguage: c.guiLanguage,
     overlayPosition: c.overlayPosition,
     autoCheckUpdate: c.autoCheckUpdate,
@@ -61,6 +67,9 @@ export function normalizeConfig(c: AppConfig): AppConfig {
     // 后端取值大小写与前后空白都不敏感（后端 trim + eq_ignore_ascii_case）：这里同样归一，
     // 避免手写 TOML 的 "Online" 或带空格取值让 UI 按 local 呈现、与后端实际引擎不一致。
     transcriberBackend: (c.transcriberBackend ?? "local").trim().toLowerCase(),
+    polishBackend:
+      (c.polishBackend ?? "remote").trim().toLowerCase() === "local" ? "local" : "remote",
+    polishLocalModel: c.polishLocalModel || "qwen3-0.6b",
     asrModel: c.asrModel ?? "",
     asrApiBaseUrl: c.asrApiBaseUrl ?? "",
     asrApiKey: "",

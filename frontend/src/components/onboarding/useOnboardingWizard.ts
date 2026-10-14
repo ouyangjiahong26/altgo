@@ -12,6 +12,10 @@ import {
   useModelManager,
   type UseModelManagerResult,
 } from "../../hooks/useModelManager";
+import {
+  usePolishModelManager,
+  type UsePolishModelManagerResult,
+} from "../../hooks/usePolishModelManager";
 import { loadCatalog } from "../../config/catalog";
 import { type ProviderPreset } from "../../config/modelPresets";
 import { completeOnboarding } from "../../onboarding";
@@ -25,11 +29,13 @@ export function useOnboardingWizard(onDone: () => void) {
   const { t, lang, setLang } = useTranslation();
 
   const modelMgr = useModelManager({ t });
+  const polishMgr = usePolishModelManager({ t });
   const form = useConfigForm({
     t,
     setLang,
     onAfterSave: () => {
       modelMgr.refreshModels();
+      polishMgr.refreshModels();
     },
   });
   const {
@@ -41,6 +47,7 @@ export function useOnboardingWizard(onDone: () => void) {
   const catalog = useOnboardingCatalog();
   const { finish } = useOnboardingFinish(saving, message, onDone, save);
   const modelActions = useOnboardingModelActions(update, setMessage, modelMgr);
+  const polishActions = useOnboardingPolishActions(update, setMessage, polishMgr);
   const nav = useStepNavigation(() => void finish());
 
   const onlineActive = config?.transcriberBackend === "online";
@@ -51,11 +58,14 @@ export function useOnboardingWizard(onDone: () => void) {
     t, lang, config, setConfig, saving, message, update,
     keyCapturing, captureActivationKey,
     models, downloading, getDownloadProgress,
+    polishModels: polishMgr.models, polishDownloading: polishMgr.downloading,
+    getPolishDownloadProgress: polishMgr.getDownloadProgress,
     catalogPresets: catalog.catalogPresets, catalogError: catalog.catalogError,
     step: nav.step, stepIndex: nav.stepIndex, onlineActive,
     stepLabel, nextLabel, goto: nav.goto, handleNext: nav.handleNext,
     applyLocalModel: modelActions.applyLocalModel,
     downloadAndUse: modelActions.downloadAndUse,
+    downloadLocalPolish: polishActions.downloadLocalPolish,
     startDragging,
   };
 }
@@ -144,6 +154,28 @@ function useOnboardingModelActions(
   };
 
   return { applyLocalModel, downloadAndUse };
+}
+
+/** 本地润色模型下载：向导里只按需下载，用窄补丁写入对话模型字段。 */
+function useOnboardingPolishActions(
+  update: UseConfigFormResult["update"],
+  setMessage: UseConfigFormResult["setMessage"],
+  polishMgr: UsePolishModelManagerResult,
+) {
+  const applyLocalPolishModel = async (name: string) => {
+    update("polishLocalModel", name);
+    try {
+      await invoke("save_config", { patch: { polishLocalModel: name } });
+    } catch (e) {
+      setMessage(String(e));
+    }
+  };
+
+  const downloadLocalPolish = async (name: string) => {
+    await polishMgr.downloadModel(name, applyLocalPolishModel);
+  };
+
+  return { downloadLocalPolish };
 }
 
 /** 步号只数配置步（触发键 / 转写引擎 / 润色，共 3 步）。欢迎页与完成页不编号。 */
