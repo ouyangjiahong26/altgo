@@ -80,7 +80,13 @@ pub fn models_info() -> Vec<PolishModelSummary> {
 }
 
 /// 删除已下载的模型文件。
+///
+/// 只接受内置清单里的名字。这个函数会递归删除目录，而名字可能来自 IPC 参数，
+/// 未经校验的绝对路径或 `..` 会删到模型目录之外。
 pub fn delete(name: &str) -> Result<(), ModelError> {
+    if !is_known(name) {
+        return Err(ModelError::UnknownModel(name.to_string()));
+    }
     remove_dir_if_exists(&model_dir(name))
 }
 
@@ -304,6 +310,30 @@ mod tests {
         remove_dir_if_exists(&target).unwrap();
         assert!(!target.exists());
         remove_dir_if_exists(&target).unwrap();
+    }
+
+    /// 递归删除只认清单里的名字，路径越界与未知名字都要被拒且不动文件系统。
+    #[test]
+    fn test_delete_rejects_names_outside_the_catalog() {
+        let dir = tempfile::tempdir().unwrap();
+        let victim = dir.path().join("victim");
+        std::fs::create_dir_all(&victim).unwrap();
+        std::fs::write(victim.join("keep.txt"), b"x").unwrap();
+
+        for name in [
+            "..",
+            "../..",
+            "qwen3-0.6b/../../victim",
+            victim.to_str().unwrap(),
+            "ernie-0.3b",
+        ] {
+            let error = delete(name).unwrap_err();
+            assert!(
+                matches!(error, ModelError::UnknownModel(_)),
+                "「{name}」应被拒，实际：{error:?}"
+            );
+            assert!(victim.exists(), "被拒的名字不该动文件系统");
+        }
     }
 
     /// 清单里的哈希与大小要与真实产物一致。本机存在该文件时当场复算，没有就跳过

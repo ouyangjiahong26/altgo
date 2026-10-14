@@ -107,8 +107,14 @@ pub fn check(input: &str, output: &str) -> Result<(), FidelityViolation> {
     }
 
     for entity in required_entities(input) {
-        if !contains_entity(output, entity.as_str()) {
-            return Err(FidelityViolation::MissingEntity(entity));
+        let kept = if entity.standalone {
+            contains_entity(output, &entity.text)
+        } else {
+            // 嵌在大 token 里的片段（`v1.2.3` 里的 `1.2.3`）只要求原样出现，不要求自成边界。
+            output.contains(&entity.text)
+        };
+        if !kept {
+            return Err(FidelityViolation::MissingEntity(entity.text));
         }
     }
 
@@ -193,26 +199,40 @@ fn ascii_token_changes(input: &str, output: &str) -> Vec<String> {
     changed
 }
 
+/// 必须逐字保留的实体。`standalone` 表示它在原文里两端不与 ASCII 字母数字粘连。
+struct Entity {
+    text: String,
+    standalone: bool,
+}
+
 /// 输入里必须逐字保留的实体：数字、URL、含路径分隔符的串，按在原文里的出现顺序返回。
 ///
-/// 只收自成边界的匹配。标识符或网址内部的片段（`ouyangjiahong26` 里的 `26`）已经被外层
-/// 词覆盖，单独再要求一次只会在输出里找不到而误判。
-fn required_entities(input: &str) -> Vec<String> {
-    let mut found: Vec<(usize, String)> = Vec::new();
+/// 自成边界的实体要求在输出里也自成边界，这样输入里的 `3000` 不会因为输出变成 `30000`
+/// 就算保留。嵌在大 token 里的片段（`v1.2.3` 里的 `1.2.3`）只要求原样出现，因为对它谈
+/// 词边界没有意义。同一个文本既有独立出现又有嵌入出现时按严格的来。
+fn required_entities(input: &str) -> Vec<Entity> {
+    let mut found: Vec<(usize, Entity)> = Vec::new();
     for pattern in [&*URLS, &*PATHS, &*NUMBERS] {
         for hit in pattern.find_iter(input) {
-            if !boundary_free(input, hit.start(), hit.end()) {
-                continue;
-            }
-            found.push((hit.start(), hit.as_str().to_string()));
+            found.push((
+                hit.start(),
+                Entity {
+                    text: hit.as_str().to_string(),
+                    standalone: boundary_free(input, hit.start(), hit.end()),
+                },
+            ));
         }
     }
     found.sort_by_key(|(start, _)| *start);
 
-    let mut entities: Vec<String> = Vec::new();
+    let mut entities: Vec<Entity> = Vec::new();
     for (_, entity) in found {
-        if !entities.contains(&entity) {
-            entities.push(entity);
+        match entities
+            .iter_mut()
+            .find(|existing| existing.text == entity.text)
+        {
+            Some(existing) => existing.standalone |= entity.standalone,
+            None => entities.push(entity),
         }
     }
     entities
@@ -364,10 +384,15 @@ mod tests {
 
     #[test]
     fn test_embedded_fragments_are_covered_by_the_outer_token() {
-        // 网址里的 26 不是独立实体，不该单独要求出现一次。
+        // 网址里的 26 不是独立实体，两种写法都应当通过。
         let url = "https://github.com/ouyangjiahong26/altgo";
         assert!(check(url, url).is_ok());
         assert!(check(&format!("仓库在 {url}。"), &format!("见 {url}。")).is_ok());
+
+        // 嵌在 ASCII 词里的数字仍要求原样出现，算错一位要拦住。
+        assert!(check("版本 v1.2.3 发布了。", "版本 v1.2.3 发布了。").is_ok());
+        let error = check("版本 v1.2.3 发布了。", "版本 v1.2.4 发布了。").unwrap_err();
+        assert_eq!(error, FidelityViolation::MissingEntity("1.2.3".to_string()));
     }
 
     #[test]

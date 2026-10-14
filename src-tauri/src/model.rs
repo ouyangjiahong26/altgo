@@ -229,7 +229,7 @@ fn custom_model_files_ready(dir: &Path) -> bool {
 ///
 /// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
 /// 一次 SHA256 要数秒，而设置页的模型列表会对每个模型问一次“文件在不在”。
-/// 完整性在下载时确认，见 `model_file_ready_blocking` 与 `finalize_model_download_blocking`。
+/// 完整性在下载时确认，见 `model_file_ready_blocking` 与 `download::fetch_file` 的落盘校验。
 pub fn is_downloaded(name: &str) -> bool {
     MODELS.iter().find(|m| m.name == name).is_some_and(|m| {
         model_files_ready_with(&model_dir(name), &m.files, model_file_structurally_ready)
@@ -294,7 +294,7 @@ pub fn delete(name: &str) -> Result<(), ModelError> {
 /// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
 /// 一次 SHA256 要近 5 秒，而这条路径在管道启动时跑，那几秒里监听与录音都还没起来，
 /// 用户按触发键会毫无反应。校验和用于确认下载完整，见下载路径里的
-/// `model_file_ready_blocking` 与 `finalize_model_download_blocking`。
+/// `model_file_ready_blocking` 与 `download::fetch_file` 的落盘校验。
 pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
     if config_model.is_empty() {
         return None;
