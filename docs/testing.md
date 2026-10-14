@@ -23,11 +23,13 @@
 
 - `state_machine`：5 态 FSM 的转换、防抖与连发边界
 - `audio`：PCM 环形缓冲、WAV 编解码（含截断、非法头等异常分支）
-- `config`：TOML 加载、校验（含 SenseVoice 只接受 16 kHz）、环境变量覆盖、文件权限位
+- `config`：TOML 加载、校验（含 SenseVoice 只接受 16 kHz、润色后端分支：本地档不要求密钥与地址、未知后端拒绝、润色关闭时本地字段不参与校验）、环境变量覆盖、文件权限位
 - `config_store`：`apply_patch` 的校验、持久化、失败回滚、`linux_evdev_code` 三态语义
 - `history`：历史条目的增删改查与计数
 - `model`：模型目录结构校验、SHA-256 校验、下载（成功、HTTP 失败、损坏检测、重试、跳过已存在）
-- `polisher`：OpenAI 兼容与 Anthropic 两种协议的请求/响应、429 与瞬时失败重试、重试耗尽
+- `download`：模型与运行时共用的下载内核。多基址回退、按次数重试退避、流式进度、SHA-256 与大小下限校验后原子落盘、损坏缓存清理、临时文件路径
+- `polish_model`：本地润色模型注册表（名字、仓库、体积、SHA-256）、结构与哈希校验、下载与跳过已下载、自定义 GGUF 路径解析、删除。清单哈希与真实产物的一致性有一条环境容忍用例：本机存在权重时当场复算，CI 没有文件就跳过
+- `polisher`：OpenAI 兼容与 Anthropic 两种协议的请求/响应、429 与瞬时失败重试、重试耗尽。另有本地档相关的三块：`polisher::fidelity` 的四条保真校验硬规则（期望纠错放行、压缩成摘要拦、扩写拦、凭空造字拦、八种格式泄漏拦）、`polisher::prompt` 的本地短提示词（必须显著短于内置长提示词）、`polisher::local` 的缺模型与缺运行时的可操作报错
 - `sherpa`：模型/词表缺失时的报错、语言归一化（不做真实推理）
 - `prompt_store`：prompt 模板加载、base + 各档后缀组合、缺文件降级
 - `error`：错误的致命/可恢复分类与文案
@@ -68,8 +70,9 @@ Linux 平台接缝：
 - `key_listener` 的 xinput 路径（`key_listener/linux_x11_e2e.rs`）：解析、过滤与旁路发布用受控输出喂真实的 `run_xinput_stdout_loop`，不依赖 X 服务器，Linux 上的常规测试就会跑；后端选择另有 `x11_backend_is_xinput_when_xmodmap_resolves` 在 Xvfb 里验一次，缺 `DISPLAY` 或 `xinput`/`xmodmap` 时跳过。CI 在 Linux amd64 作业加 `xvfb-run` 单跑后端选择那一条（`--test-threads=1` 加用例名过滤器），arm 与其余测试不受影响。
 - `recorder`：PulseRecorder 构造冒烟、类型化错误
 - `output`：剪贴板工具探测（xclip/xsel/wl-copy）
+- `polish_runtime`：清单一致性（四个平台产物名、体积、哈希长度、保留规则）、结构检查（缺核心库或缺 CPU 后端库都算不完整、空文件不算就位）、压缩包解包（保留选项与顶层目录剥离、路径越界被拒）、端口选择、就绪判定（加载中的 503 与就绪的 200、子进程提前退出带上日志尾部）、日志环形留存、状态快照，以及平台接缝：真实子进程的启动与回收、可执行文件缺失的报错、物理核数不超过逻辑核数。Linux 侧另有 `/proc/cpuinfo` 解析与执行位补齐，Windows 侧由同一个用例覆盖 spawn 与 Job 对象路径
 
-**可用替身**：MockDispatch、MockOverlay、RecordingOverlayWindow（记录悬浮窗调用的假窗口）、注入的 spawn 闭包（key_capture 的 evtest）、mockito 本地 HTTP 假服务器（cmd 的 download_model）。不开真实窗口，不连真实显示/音频服务。依赖系统工具的测试写成环境容忍：有 xinput 断言 Ok、无则断言 Err。探测不到剪贴板工具也算通过。这样无显示服务器的 CI 容器与开发者机器跑出同样结果。环境过不去的测试不允许用 `#[ignore]` 藏起来。
+**可用替身**：MockDispatch、MockOverlay、RecordingOverlayWindow（记录悬浮窗调用的假窗口）、注入的 spawn 闭包（key_capture 的 evtest）、mockito 本地 HTTP 假服务器（cmd 的 download_model、polish_model 的下载、polish_runtime 的解包与就绪探测）、临时目录（清单结构检查与解包）。不开真实窗口，不连真实显示/音频服务。依赖系统工具的测试写成环境容忍：有 xinput 断言 Ok、无则断言 Err。探测不到剪贴板工具也算通过。这样无显示服务器的 CI 容器与开发者机器跑出同样结果。环境过不去的测试不允许用 `#[ignore]` 藏起来。
 
 **执行命令**：按模块过滤同上，如 `cargo test --manifest-path=src-tauri/Cargo.toml --lib tauri_sink::`。CI 双架构跑全量。
 
@@ -80,7 +83,8 @@ Linux 平台接缝：
 **模块与行为**：
 
 - `overlay`：悬浮窗相位转换（show/replace/hide）与渲染（前端组件，与同名的 Rust `overlay` 模块不同物）
-- `useConfigForm`：设置表单的配置归一化与保存请求体构造
+- `useConfigForm`：设置表单的配置归一化与保存请求体构造，含润色后端与本地模型两个字段的读写与缺省回退
+- `PolishingSection`：润色引擎二选一。本地分支渲染模型卡与运行时行且不渲染云端密钥区，云端分支反之；已安装运行时点「重新下载」时按先移除再下载的顺序调用后端
 - `StatusIndicator`：状态指示组件渲染
 
 **可用替身**：vitest + jsdom + Testing Library。Tauri IPC 一律 `vi.mock("@tauri-apps/api/core")` / `vi.mock("@tauri-apps/api/event")` 替换，不触真实后端。
@@ -97,12 +101,13 @@ Linux 平台接缝：
 4. 主页历史列表浏览、删除、对旧条目重新润色（真实 LLM API）
 5. deb / rpm 在 x86_64 与 aarch64 真机安装后启动并完成一次转写
 6. NSIS 安装包在 Windows 10+ 真机安装后启动并完成一次转写（按键钩子、WASAPI 录音、SendInput 注入均需真实会话）
+7. 本地润色端到端：设置页下载运行时与权重，切到本地档，录音出稿（需真实运行时进程与 CPU 推理）。开发期用一次性的集成测试验过：真下载并校验运行时产物、惰性启动、`/health` 探活、真推理、空闲回收与显式关闭，另用十二条真实转写确认保真校验不误杀。这类验证依赖 400 MB 级权重与真实 CPU，不适合进 CI，进 PR 时按手动验证方式写清
 
 补这一层之前先评估代价：真实模型体积大、LLM 调用要花钱、需要显示服务器与音频设备。再决定自动化（如真实模型 + 合成 WAV 的冒烟）还是列为发版前手动回归项。决定记录在本节。
 
 ## 回归基线
 
-**产品支持范围**：Linux x86_64 与 aarch64。Windows x86_64 与 arm64（原生 API 实现：WH_KEYBOARD_LL、cpal/WASAPI、arboard/SendInput）。SenseVoice 本地转写（仅接受 16 kHz 单声道 16 位 PCM WAV）或小米 MiMo 在线转写（`[transcriber] backend = "online"`），可选 LLM 润色（OpenAI 兼容或 Anthropic 协议）。在线转写以 MiMo 后端回归，测试见 `src-tauri/src/mimo_asr.rs` 模块（mockito）。更早的云端转写实现及其测试已随 #121 删除，不要回填。
+**产品支持范围**：Linux x86_64 与 aarch64。Windows x86_64 与 arm64（原生 API 实现：WH_KEYBOARD_LL、cpal/WASAPI、arboard/SendInput）。SenseVoice 本地转写（仅接受 16 kHz 单声道 16 位 PCM WAV）或小米 MiMo 在线转写（`[transcriber] backend = "online"`），可选 LLM 润色（远端 OpenAI 兼容或 Anthropic 协议，或本机润色运行时）。在线转写以 MiMo 后端回归，测试见 `src-tauri/src/mimo_asr.rs` 模块（mockito）。更早的云端转写实现及其测试已随 #121 删除，不要回填。
 
 **CI 保护范围**：
 
