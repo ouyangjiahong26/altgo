@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::UserFacingError;
 use crate::key_listener::KeyListener;
-use crate::polisher::{LLMFormatter, PolishLevel};
+use crate::polisher::{PolishLevel, Polisher};
 use crate::recorder::Recorder;
 use crate::state_machine::{Command, Machine};
 use crate::transcriber::Transcriber;
@@ -19,7 +19,7 @@ use crate::pipeline_controller::PipelineStatus;
 pub struct PipelineContext {
     pub(crate) recorder: Box<dyn Recorder>,
     pub(crate) transcriber: Box<dyn Transcriber>,
-    pub(crate) formatter: LLMFormatter,
+    pub(crate) formatter: Box<dyn Polisher>,
     pub(crate) polish_level: PolishLevel,
     pub(crate) listener: Mutex<Option<Box<dyn KeyListener>>>,
     /// 待重试录音槽位：转写失败时保留录音本体，重试请求到达时取出再识别。
@@ -33,10 +33,15 @@ pub struct PipelineContext {
     pub(crate) min_press_duration: std::time::Duration,
 }
 
-/// 主循环本轮要处理的事：状态机命令或一次待重试录音的重新识别。
+/// 空闲回收节拍：本地润色运行时一空闲就要收，节拍决定最坏回收延迟。
+const IDLE_RECLAIM_TICK: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// 主循环本轮要处理的事：状态机命令、一次待重试录音的重新识别，或空闲回收。
 enum Step {
     Command(Option<Command>),
     Retry,
+    /// 空闲回收节拍：本地润色引擎据此关掉常驻的运行时进程。
+    ReclaimRuntime,
 }
 
 /// 主循环跨迭代持有的状态：处理组件、按键事件通道、状态机与超时期限。
@@ -47,7 +52,7 @@ struct LoopState {
     _listener: Box<dyn KeyListener>,
     recorder: Box<dyn Recorder>,
     transcriber: Box<dyn Transcriber>,
-    formatter: LLMFormatter,
+    formatter: Box<dyn Polisher>,
     polish_level: PolishLevel,
     pending_store: PendingRecordingStore,
     retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
@@ -150,22 +155,29 @@ impl LoopState {
     /// select! 主循环：每轮等待一个事件并执行相应处理，
     /// 按键通道关闭或收到停止信号时退出。
     async fn event_loop(&mut self, mut stop_rx: tokio::sync::oneshot::Receiver<()>) {
+        // 空闲回收节拍：本地润色引擎据此判断运行时进程是否该关掉，远端实现是空操作。
+        let mut idle_tick = tokio::time::interval(IDLE_RECLAIM_TICK);
+        // interval 的首个 tick 立即就绪，先消费掉，避免刚起管道就判一次空闲。
+        idle_tick.tick().await;
         loop {
-            let step = match self.next_step(&mut stop_rx).await {
+            let step = match self.next_step(&mut stop_rx, &mut idle_tick).await {
                 Some(step) => step,
                 None => break,
             };
             self.run_step(step).await;
             self.deadline = self.machine.next_deadline().map(|d| d.into());
         }
+        // 管道停止：本地引擎在这里关掉运行时进程，避免留下占用端口与内存的孤儿。
+        self.formatter.shutdown().await;
     }
 
     /// 主循环的单轮等待：`tokio::select!` 在按键事件、状态机超时、重试请求、
-    /// 停止信号四路中取先就绪者。返回 `None` 表示按键通道关闭或收到停止
-    /// 信号，应退出主循环。
+    /// 空闲回收节拍、停止信号五路中取先就绪者。返回 `None` 表示按键通道关闭或收到
+    /// 停止信号，应退出主循环。
     async fn next_step(
         &mut self,
         stop_rx: &mut tokio::sync::oneshot::Receiver<()>,
+        idle_tick: &mut tokio::time::Interval,
     ) -> Option<Step> {
         let deadline = self.deadline;
         tokio::select! {
@@ -183,6 +195,8 @@ impl LoopState {
             }
             // 重试待重试录音：与按键触发的转写在同一循环内串行执行。
             Some(()) = self.retry_rx.recv() => Some(Step::Retry),
+            // 空闲回收节拍
+            _ = idle_tick.tick() => Some(Step::ReclaimRuntime),
             // 停止信号
             _ = &mut *stop_rx => {
                 tracing::info!("pipeline stop requested");
@@ -192,7 +206,7 @@ impl LoopState {
     }
 
     /// 执行主循环单轮产物：状态机命令驱动录音与转写收尾，
-    /// 重试请求消费待重试槽位里的录音。
+    /// 重试请求消费待重试槽位里的录音，回收节拍释放空闲的润色运行时。
     async fn run_step(&mut self, step: Step) {
         match step {
             Step::Command(cmd) => {
@@ -201,6 +215,11 @@ impl LoopState {
                 }
             }
             Step::Retry => self.execute_retry().await,
+            Step::ReclaimRuntime => match self.formatter.release_idle().await {
+                Ok(true) => tracing::info!("reclaimed idle polish runtime"),
+                Ok(false) => {}
+                Err(error) => tracing::warn!(error = %error, "failed to reclaim polish runtime"),
+            },
         }
     }
 
@@ -214,7 +233,7 @@ impl LoopState {
                 handle_stop_record(
                     &mut *self.recorder,
                     &*self.transcriber,
-                    &self.formatter,
+                    &*self.formatter,
                     self.polish_level,
                     &self.pending_store,
                     Arc::clone(&self.sink),
@@ -238,7 +257,7 @@ impl LoopState {
                     let ok = transcribe_and_dispatch(
                         &wav,
                         &*self.transcriber,
-                        &self.formatter,
+                        &*self.formatter,
                         self.polish_level,
                         &self.pending_store,
                         Arc::clone(&self.sink),
@@ -275,6 +294,8 @@ mod tests {
 
     fn test_polisher_config() -> crate::config::PolisherConfig {
         crate::config::PolisherConfig {
+            backend: "remote".to_string(),
+            local_model: "qwen3-0.6b".to_string(),
             api_key: "test-key".to_string(),
             api_base_url: "http://localhost".to_string(),
             model: "test-model".to_string(),
@@ -297,7 +318,7 @@ mod tests {
                 "hello", "en",
             )),
             PolishLevel::None,
-            LLMFormatter::from_config(&test_polisher_config(), "en").unwrap(),
+            Box::new(LLMFormatter::from_config(&test_polisher_config(), "en").unwrap()),
             std::time::Duration::from_millis(400),
             std::time::Duration::from_millis(200),
             std::time::Duration::from_millis(80),
@@ -342,13 +363,15 @@ mod tests {
             recorder,
             transcriber,
             polish_level,
-            LLMFormatter::new(
-                "test-key".to_string(),
-                "http://127.0.0.1:1".to_string(),
-                "test-model".to_string(),
-                std::time::Duration::from_millis(1),
-            )
-            .unwrap(),
+            Box::new(
+                LLMFormatter::new(
+                    "test-key".to_string(),
+                    "http://127.0.0.1:1".to_string(),
+                    "test-model".to_string(),
+                    std::time::Duration::from_millis(1),
+                )
+                .unwrap(),
+            ),
             std::time::Duration::from_millis(60),
             std::time::Duration::from_millis(60),
             std::time::Duration::from_millis(10),
@@ -363,7 +386,7 @@ mod tests {
         recorder: Box<dyn Recorder>,
         transcriber: Box<dyn Transcriber>,
         polish_level: PolishLevel,
-        formatter: LLMFormatter,
+        formatter: Box<dyn Polisher>,
         long_press_threshold: std::time::Duration,
         double_click_interval: std::time::Duration,
         min_press_duration: std::time::Duration,

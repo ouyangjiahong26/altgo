@@ -120,6 +120,46 @@ impl LLMFormatter {
         )
     }
 
+    /// 用已有的 HTTP 客户端与地址构造。
+    ///
+    /// 本地引擎每次调用都要换端点（端口与密钥在运行期才确定），客户端必须复用，
+    /// 因此单独开一个构造口，`with_config` 与它保持同一套字段语义。
+    pub(super) fn from_endpoint(
+        client: Client,
+        api_key: String,
+        api_base_url: String,
+        model: String,
+        max_tokens: u32,
+        temperature: f32,
+        language: String,
+    ) -> Self {
+        Self {
+            api_key,
+            api_base_url,
+            model,
+            client,
+            max_retries: 3,
+            max_tokens,
+            protocol: protocol::ApiProtocol::OpenAi,
+            temperature,
+            language,
+            thinking: ThinkingLevel::Off,
+            prompt_source: None,
+        }
+    }
+
+    /// 用调用方给定的 system prompt 直接发一次润色请求。
+    ///
+    /// 本地引擎自己决定 system prompt（本地档的提示词与档位映射和远端不同），
+    /// 因此需要绕过 `polish()` 内部的 prompt 解析。
+    pub(super) async fn polish_with_system_prompt(
+        &self,
+        system_prompt: String,
+        text: &str,
+    ) -> Result<String, PolisherError> {
+        self.request_polish(system_prompt, text).await
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn with_config(
         api_key: String,

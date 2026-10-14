@@ -435,6 +435,151 @@ pub async fn resolve_model(model: String) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
+pub async fn list_polish_models() -> Result<Vec<crate::polish_model::PolishModelSummary>, String> {
+    Ok(crate::polish_model::models_info())
+}
+
+/// 润色模型下载的核心逻辑，可注入 `emit` 与 `download` 以便测试。
+///
+/// 事件名与转写模型分开，避免两类模型的进度互相渲染到对方的卡片上。
+pub(crate) async fn download_polish_model_with_emitter<D, F>(
+    name: &str,
+    emit: EventEmitter,
+    download: D,
+) -> Result<(), String>
+where
+    D: FnOnce(String, Box<dyn FnMut(u64, u64) + Send>) -> F,
+    F: std::future::Future<Output = Result<std::path::PathBuf, crate::error::ModelError>> + Send,
+{
+    let info = crate::polish_model::find(name).ok_or_else(|| format!("未知的润色模型：{name}"))?;
+    emit(
+        "polish-model-download-progress",
+        serde_json::json!({
+            "name": info.name,
+            "downloaded": 0_u64,
+            "total": info.size_bytes,
+        }),
+    );
+
+    let name_for_callback = name.to_string();
+    let emit_for_progress = Arc::clone(&emit);
+    let result = download(
+        name.to_string(),
+        Box::new(move |downloaded, total| {
+            emit_for_progress(
+                "polish-model-download-progress",
+                serde_json::json!({
+                    "name": name_for_callback,
+                    "downloaded": downloaded,
+                    "total": total,
+                }),
+            );
+        }),
+    )
+    .await;
+
+    let payload = match &result {
+        Ok(path) => serde_json::json!({
+            "name": name,
+            "success": true,
+            "path": path.to_string_lossy(),
+        }),
+        Err(e) => serde_json::json!({
+            "name": name,
+            "success": false,
+            "error": e.to_string(),
+        }),
+    };
+    emit("polish-model-download-finished", payload);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn download_polish_model(app: AppHandle, name: String) -> Result<(), String> {
+    let app_task = app.clone();
+    let name_task = name.clone();
+    tauri::async_runtime::spawn(async move {
+        let emit: EventEmitter = Arc::new(move |event: &str, payload: serde_json::Value| {
+            let _ = app_task.emit(event, payload);
+        });
+        let _ =
+            download_polish_model_with_emitter(&name_task, emit, |name, on_progress| async move {
+                crate::polish_model::download_with_progress(&name, on_progress).await
+            })
+            .await;
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_polish_model(name: String) -> Result<(), String> {
+    crate::polish_model::delete(&name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn polish_runtime_status() -> Result<crate::polish_runtime::PolishRuntimeStatus, String> {
+    Ok(crate::polish_runtime::active().status())
+}
+
+/// 运行时安装的核心逻辑，可注入 `emit` 与 `install` 以便测试。
+pub(crate) async fn download_polish_runtime_with_emitter<D, F>(
+    total_bytes: u64,
+    emit: EventEmitter,
+    install: D,
+) -> Result<(), String>
+where
+    D: FnOnce(Box<dyn FnMut(u64, u64) + Send>) -> F,
+    F: std::future::Future<Output = Result<(), crate::error::PolishRuntimeError>> + Send,
+{
+    emit(
+        "polish-runtime-download-progress",
+        serde_json::json!({ "downloaded": 0_u64, "total": total_bytes }),
+    );
+
+    let emit_for_progress = Arc::clone(&emit);
+    let result = install(Box::new(move |downloaded, total| {
+        emit_for_progress(
+            "polish-runtime-download-progress",
+            serde_json::json!({ "downloaded": downloaded, "total": total }),
+        );
+    }))
+    .await;
+
+    let payload = match &result {
+        Ok(()) => serde_json::json!({ "success": true }),
+        Err(e) => serde_json::json!({ "success": false, "error": e.message() }),
+    };
+    emit("polish-runtime-download-finished", payload);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn download_polish_runtime(app: AppHandle) -> Result<(), String> {
+    let app_task = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let emit: EventEmitter = Arc::new(move |event: &str, payload: serde_json::Value| {
+            let _ = app_task.emit(event, payload);
+        });
+        let total_bytes = crate::polish_runtime::current_spec().map_or(0, |spec| spec.archive_size);
+        let _ = download_polish_runtime_with_emitter(total_bytes, emit, |on_progress| async move {
+            crate::polish_runtime::active().install(on_progress).await
+        })
+        .await;
+    });
+
+    Ok(())
+}
+
+/// 删除运行时文件。先停掉进程再删，Windows 上占用中的文件删不掉。
+#[tauri::command]
+pub async fn remove_polish_runtime() -> Result<(), String> {
+    let runtime = crate::polish_runtime::active();
+    runtime.shutdown().await.map_err(|e| e.message())?;
+    runtime.remove().map_err(|e| e.message())
+}
+
+#[tauri::command]
 pub async fn list_history(
     history_store: State<'_, HistoryStore>,
 ) -> Result<Vec<history::HistoryEntry>, String> {
@@ -479,13 +624,12 @@ pub(crate) async fn polish_history_entry_core(
     emit: impl Fn(&str),
 ) -> Result<history::HistoryEntry, String> {
     let cfg = config_store.snapshot().await;
-    let formatter =
-        polisher::LLMFormatter::from_config_with_sources(&cfg).map_err(|e| e.to_string())?;
+    let formatter = polisher::build_polisher(&cfg).map_err(|e| e.to_string())?;
 
     let updated = voice_pipeline::dispatch_history_polish(
         history_store,
         id,
-        &formatter,
+        &*formatter,
         polisher::PolishLevel::Medium,
         extra_instruction,
     )

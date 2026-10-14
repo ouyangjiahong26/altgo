@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::error::{TranscriberError, UserFacingError};
 use crate::history::HistoryStore;
 use crate::output::Output;
-use crate::polisher::{LLMFormatter, PolishLevel};
+use crate::polisher::{PolishLevel, Polisher};
 use crate::recorder::Recorder;
 use crate::transcriber::Transcriber;
 
@@ -42,7 +42,7 @@ pub fn handle_start_record(
 pub async fn handle_stop_record(
     recorder: &mut dyn Recorder,
     transcriber: &dyn Transcriber,
-    formatter: &LLMFormatter,
+    formatter: &dyn Polisher,
     polish_level: PolishLevel,
     pending: &PendingRecordingStore,
     sink: Arc<dyn PipelineSink>,
@@ -89,7 +89,7 @@ fn audio_too_short(wav_data: &[u8]) -> bool {
 pub(crate) async fn transcribe_and_dispatch(
     wav_data: &[u8],
     transcriber: &dyn Transcriber,
-    formatter: &LLMFormatter,
+    formatter: &dyn Polisher,
     polish_level: PolishLevel,
     pending: &PendingRecordingStore,
     sink: Arc<dyn PipelineSink>,
@@ -151,7 +151,7 @@ fn initial_metrics(transcriber: &dyn Transcriber, wav_data: &[u8]) -> Transcript
 /// 随后按序发出 done 进度与转写结果事件。返回 `true` 表示产出结果。
 async fn polish_and_dispatch(
     raw_text: &str,
-    formatter: &LLMFormatter,
+    formatter: &dyn Polisher,
     polish_level: PolishLevel,
     mut metrics: TranscriptionMetrics,
     sink: &Arc<dyn PipelineSink>,
@@ -221,7 +221,7 @@ pub fn select_text(prefer_polished: bool, output: &TranscriptionResult) -> Strin
 pub async fn dispatch_history_polish(
     history: &HistoryStore,
     id: &str,
-    formatter: &LLMFormatter,
+    formatter: &dyn Polisher,
     polish_level: PolishLevel,
     extra_instruction: Option<&str>,
 ) -> Result<crate::history::HistoryEntry, String> {

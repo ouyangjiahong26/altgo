@@ -41,13 +41,20 @@ sherpa-onnx = "=1.13.8"
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [
     "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_JobObjects",
     "Win32_System_SystemInformation",
     "Win32_System_Threading",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_WindowsAndMessaging",
 ] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 cpal = "0.18"
 arboard = "3"
+
+[target.'cfg(unix)'.dependencies]
+tar = "0.4"
+flate2 = "1"
 
 [dev-dependencies]
 mockito = "1"

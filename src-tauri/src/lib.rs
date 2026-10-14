@@ -8,6 +8,7 @@ pub mod cmd;
 pub mod config;
 pub mod config_store;
 pub mod display_backend;
+pub mod download;
 pub mod error;
 pub mod history;
 pub mod key_capture;
@@ -17,6 +18,8 @@ pub mod model;
 pub mod output;
 pub mod overlay;
 pub mod pipeline_controller;
+pub mod polish_model;
+pub mod polish_runtime;
 pub mod polisher;
 pub mod prompt_store;
 pub mod recorder;
@@ -215,6 +218,12 @@ fn assemble_builder(
         cmd::download_model,
         cmd::delete_model,
         cmd::resolve_model,
+        cmd::list_polish_models,
+        cmd::download_polish_model,
+        cmd::delete_polish_model,
+        cmd::polish_runtime_status,
+        cmd::download_polish_runtime,
+        cmd::remove_polish_runtime,
         cmd::capture_activation_key,
         cmd::probe_activation_key,
         cmd::test_polisher_connection,

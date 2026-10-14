@@ -318,6 +318,12 @@ pub enum PolisherError {
     #[error("HTTP client error: {0}")]
     HttpError(String),
 
+    #[error("local polish runtime error: {0}")]
+    LocalRuntime(String),
+
+    #[error("local polish output failed the fidelity guard: {0}")]
+    FidelityGuard(String),
+
     #[error("JSON parse error: {0}")]
     JsonError(String),
 
@@ -339,6 +345,10 @@ impl PolisherError {
                     "润色 API 地址无效：'{url}'。请填写完整的 URL（如 https://api.deepseek.com）。"
                 )
             }
+            Self::LocalRuntime(detail) => format!("本地润色运行时不可用：{detail}"),
+            Self::FidelityGuard(reason) => {
+                format!("本地润色结果未通过保真校验（{reason}），已回退转写原文。")
+            }
             Self::MissingApiKey => "润色 API 密钥未配置。请在设置中添加 API 密钥。".to_string(),
             Self::RateLimited => "API 请求频率受限，请稍后重试。".to_string(),
             Self::ApiError { status, body } => {
@@ -359,6 +369,12 @@ impl PolisherError {
             }
             Self::InvalidBaseUrl(url) => {
                 UserFacingError::with("polisher.invalid_base_url", "url", url.clone())
+            }
+            Self::LocalRuntime(detail) => {
+                UserFacingError::with("polisher.local_runtime", "detail", detail.clone())
+            }
+            Self::FidelityGuard(reason) => {
+                UserFacingError::with("polisher.fidelity_guard", "reason", reason.clone())
             }
             Self::MissingApiKey => UserFacingError::bare("polisher.missing_api_key"),
             Self::RateLimited => UserFacingError::bare("polisher.rate_limited"),
@@ -495,6 +511,80 @@ pub enum ModelError {
 
     #[error("HTTP error: {0}")]
     HttpError(String),
+}
+
+/// 文件下载错误。
+///
+/// 下载内核（`crate::download`）的内部错误，各调用方自行映射成用户可见的错误文案，
+/// 因此这里的文案只面向日志。
+#[derive(Debug, thiserror::Error)]
+pub enum DownloadError {
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("download request failed: {url}: {detail}")]
+    Request { url: String, detail: String },
+
+    #[error("download responded with status {status}: {url}")]
+    Status { status: u16, url: String },
+
+    #[error("reading download stream failed: {0}")]
+    Stream(String),
+
+    #[error("downloaded file failed verification: {0}")]
+    Corrupt(String),
+
+    #[error("download path is not a file: {0}")]
+    NotAFile(String),
+
+    #[error("blocking task failed: {0}")]
+    TaskFailed(String),
+}
+
+/// 润色运行时错误。
+///
+/// 覆盖文件获取（下载、校验、解包）与进程管理（启动、就绪、回收）两类失败。
+#[derive(Debug, thiserror::Error)]
+pub enum PolishRuntimeError {
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("runtime download failed: {0}")]
+    Download(String),
+
+    #[error("runtime files are incomplete: {0}")]
+    Incomplete(String),
+
+    #[error("extracting runtime archive failed: {0}")]
+    ExtractFailed(String),
+
+    #[error("starting runtime failed: {0}")]
+    StartupFailed(String),
+
+    #[error("runtime process failed: {0}")]
+    ProcessFailed(String),
+
+    #[error("unsupported platform: {0}")]
+    UnsupportedPlatform(String),
+}
+
+impl PolishRuntimeError {
+    /// 面向用户的中文文案。
+    pub fn message(&self) -> String {
+        match self {
+            Self::Io(e) => format!("读写润色运行时文件失败：{e}"),
+            Self::Download(detail) => format!("下载润色运行时失败：{detail}"),
+            Self::Incomplete(path) => {
+                format!("润色运行时文件不完整：{path}。可在设置页重新下载，或手动放置到该目录。")
+            }
+            Self::ExtractFailed(detail) => format!("解开润色运行时压缩包失败：{detail}"),
+            Self::StartupFailed(detail) => format!("启动润色运行时失败：{detail}"),
+            Self::ProcessFailed(detail) => format!("润色运行时进程异常：{detail}"),
+            Self::UnsupportedPlatform(target) => {
+                format!("当前平台（{target}）不支持本地润色。")
+            }
+        }
+    }
 }
 
 /// 配置错误。
