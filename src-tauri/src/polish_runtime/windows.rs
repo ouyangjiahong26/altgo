@@ -148,7 +148,7 @@ impl RuntimeChild for WindowsChild {
     }
 }
 
-/// 数物理核。缓冲区里每个条目以「关系类型（4 字节）加条目长度（4 字节）」开头，按长度步进。
+/// 数物理核。缓冲区里每个条目以“关系类型（4 字节）加条目长度（4 字节）”开头，按长度步进。
 fn processor_core_count() -> usize {
     unsafe {
         let mut length = 0u32;

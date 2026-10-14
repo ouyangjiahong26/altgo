@@ -526,7 +526,10 @@ pub enum DownloadError {
     Request { url: String, detail: String },
 
     #[error("download responded with status {status}: {url}")]
-    Status { status: u16, url: String },
+    Status {
+        status: reqwest::StatusCode,
+        url: String,
+    },
 
     #[error("reading download stream failed: {0}")]
     Stream(String),

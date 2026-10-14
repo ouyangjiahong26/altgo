@@ -40,7 +40,7 @@ pub struct PolishRuntimeStatus {
 /// 进程内共享的运行时句柄。
 ///
 /// 流水线与设置页命令必须是同一个实例：否则两边各自拉起一个进程，既翻倍内存，
-/// 又让界面上的「正在运行」与「下载运行时」判断失真。
+/// 又让界面上的“正在运行”与“下载运行时”判断失真。
 pub fn active() -> Arc<LocalRuntime> {
     static ACTIVE: LazyLock<Mutex<Option<Arc<LocalRuntime>>>> = LazyLock::new(|| Mutex::new(None));
     let mut slot = ACTIVE
@@ -163,7 +163,7 @@ impl LocalRuntime {
 
     /// 确保运行时已启动并返回端点，已启动时只刷新使用时刻。
     pub async fn endpoint(&self, model: &Path) -> Result<RuntimeEndpoint, PolishRuntimeError> {
-        if let Some(endpoint) = self.touch_and_endpoint() {
+        if let Some(endpoint) = self.live_endpoint()? {
             return Ok(endpoint);
         }
 
@@ -254,11 +254,29 @@ impl LocalRuntime {
         Ok(())
     }
 
-    fn touch_and_endpoint(&self) -> Option<RuntimeEndpoint> {
-        let mut state = self.state.lock().ok()?;
-        let running = state.as_mut()?;
-        running.clock.touch();
-        Some(running.endpoint.clone())
+    /// 返回仍在运行的端点并刷新空闲时钟。进程已被外部结束（崩溃、被杀、手动关掉）时
+    /// 清掉状态并返回 `None`，让调用方重新拉起，而不是把失效端点给出去。
+    fn live_endpoint(&self) -> Result<Option<RuntimeEndpoint>, PolishRuntimeError> {
+        let mut state = self.lock_state()?;
+        if state.is_none() {
+            return Ok(None);
+        }
+        let alive = match state.as_mut() {
+            Some(running) => running.child.try_wait()?.is_none(),
+            None => false,
+        };
+        if !alive {
+            state.take();
+            tracing::warn!("polish runtime exited unexpectedly, will restart on next use");
+            return Ok(None);
+        }
+
+        let mut endpoint = None;
+        if let Some(running) = state.as_mut() {
+            running.clock.touch();
+            endpoint = Some(running.endpoint.clone());
+        }
+        Ok(endpoint)
     }
 
     fn lock_state(&self) -> Result<std::sync::MutexGuard<'_, Option<Running>>, PolishRuntimeError> {
@@ -284,6 +302,81 @@ mod tests {
 
     fn runtime_in(dir: PathBuf) -> LocalRuntime {
         LocalRuntime::with_dir(dir, LaunchConfig::default(), PlatformRuntimeProcess::new())
+    }
+
+    /// 测试用：塞入运行中状态，用来验证存活检查与回收，不必真起进程。
+    impl LocalRuntime {
+        fn seed_running(&self, child: Box<dyn RuntimeChild>, endpoint: RuntimeEndpoint) {
+            let mut state = self
+                .state
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            *state = Some(Running {
+                child,
+                endpoint,
+                clock: IdleClock::default(),
+            });
+        }
+    }
+
+    /// 存活与否由标志位控制的假进程。
+    struct FakeChild {
+        exited: bool,
+    }
+
+    impl RuntimeChild for FakeChild {
+        fn id(&self) -> u32 {
+            42
+        }
+
+        fn try_wait(&mut self) -> Result<Option<i32>, PolishRuntimeError> {
+            Ok(if self.exited { Some(0) } else { None })
+        }
+
+        fn kill<'a>(
+            &'a mut self,
+        ) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<(), PolishRuntimeError>> + Send + 'a>,
+        > {
+            self.exited = true;
+            Box::pin(async { Ok(()) })
+        }
+    }
+
+    fn cached_endpoint() -> RuntimeEndpoint {
+        RuntimeEndpoint {
+            base_url: "http://127.0.0.1:1/v1".to_string(),
+            api_key: "cached".to_string(),
+        }
+    }
+
+    /// 进程还在时应直接复用缓存端点：运行时目录里没有文件，走启动路径会报不完整。
+    #[tokio::test]
+    async fn test_endpoint_reuses_live_process_without_spawning() {
+        let dir = tempfile::tempdir().unwrap();
+        let runtime = runtime_in(dir.path().to_path_buf());
+        let endpoint = cached_endpoint();
+        runtime.seed_running(Box::new(FakeChild { exited: false }), endpoint.clone());
+
+        let model = dir.path().join("model.gguf");
+        assert_eq!(runtime.endpoint(&model).await.unwrap(), endpoint);
+        assert!(runtime.is_running());
+    }
+
+    /// 进程被外部结束后，状态要清掉并走重新启动的路径，不能把失效端点给出去。
+    #[tokio::test]
+    async fn test_endpoint_restarts_after_process_exit() {
+        let dir = tempfile::tempdir().unwrap();
+        let runtime = runtime_in(dir.path().to_path_buf());
+        runtime.seed_running(Box::new(FakeChild { exited: true }), cached_endpoint());
+
+        let model = dir.path().join("model.gguf");
+        let error = runtime.endpoint(&model).await.unwrap_err();
+        assert!(
+            matches!(error, PolishRuntimeError::Incomplete(_)),
+            "应当走重新启动的路径，实际：{error:?}"
+        );
+        assert!(!runtime.is_running(), "失效状态应被清掉");
     }
 
     #[test]

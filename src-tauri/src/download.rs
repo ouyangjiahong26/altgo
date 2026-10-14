@@ -194,7 +194,7 @@ where
 
     if !response.status().is_success() {
         return Err(DownloadError::Status {
-            status: response.status().as_u16(),
+            status: response.status(),
             url: url.to_string(),
         });
     }

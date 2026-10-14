@@ -230,6 +230,8 @@ fn build_config_response_maps_fields() {
     cfg.transcriber.language = "en".to_string();
     cfg.transcriber.model = "sense-voice".to_string();
     cfg.polisher.level = "light".to_string();
+    cfg.polisher.backend = "local".to_string();
+    cfg.polisher.local_model = "qwen3-1.7b".to_string();
     cfg.polisher.thinking_level = "high".to_string();
     cfg.polisher.api_key = "polish-key".to_string();
     cfg.output.inject_text = true;
@@ -241,6 +243,11 @@ fn build_config_response_maps_fields() {
     assert_eq!(resp.model, "sense-voice");
     assert!(resp.has_polisher_api_key);
     assert_eq!(resp.polish_level, "light");
+    assert_eq!(
+        resp.polish_backend, "local",
+        "本地档选择必须回传前端，否则保存时会写回云端"
+    );
+    assert_eq!(resp.polish_local_model, "qwen3-1.7b");
     assert_eq!(resp.polish_thinking_level, "high");
     assert_eq!(resp.overlay_position, "bottom_center");
     assert!(resp.auto_check_update);

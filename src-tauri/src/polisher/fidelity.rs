@@ -6,6 +6,7 @@
 
 use crate::error::PolisherError;
 use regex::Regex;
+use std::collections::HashSet;
 use std::sync::LazyLock;
 
 /// 内容长度比的允许区间（下界挡压缩成摘要，上界挡自行扩写）。
@@ -45,6 +46,10 @@ static URLS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"https?://[^\s，。；、）)】]+").unwrap());
 static PATHS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[A-Za-z0-9_.\-]*[\\/][A-Za-z0-9_.\-/\\]*[A-Za-z0-9_]").unwrap());
+
+/// ASCII 单词，用于判定“期望的纠错”并记日志。
+static ASCII_TOKEN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[A-Za-z][A-Za-z0-9_.\-]*").unwrap());
 
 /// 校验失败的具体原因。
 #[derive(Debug, Clone, PartialEq)]
@@ -102,7 +107,7 @@ pub fn check(input: &str, output: &str) -> Result<(), FidelityViolation> {
     }
 
     for entity in required_entities(input) {
-        if !output.contains(entity.as_str()) {
+        if !contains_entity(output, entity.as_str()) {
             return Err(FidelityViolation::MissingEntity(entity));
         }
     }
@@ -117,7 +122,7 @@ pub fn check(input: &str, output: &str) -> Result<(), FidelityViolation> {
 
     let input_cjk = cjk_chars(input);
     if input_cjk.len() >= NOVEL_CHECK_MIN_CJK {
-        let known: std::collections::HashSet<char> = input_cjk.iter().copied().collect();
+        let known: HashSet<char> = input_cjk.iter().copied().collect();
         let output_cjk = cjk_chars(output);
         if !output_cjk.is_empty() {
             let novel = output_cjk.iter().filter(|c| !known.contains(c)).count();
@@ -134,7 +139,14 @@ pub fn check(input: &str, output: &str) -> Result<(), FidelityViolation> {
 /// 校验并把失败映射成润色错误，成功时原样返回输出。
 pub fn apply_guard(input: &str, output: &str) -> Result<String, PolisherError> {
     match check(input, output) {
-        Ok(()) => Ok(output.to_string()),
+        Ok(()) => {
+            let changed = ascii_token_changes(input, output);
+            if !changed.is_empty() {
+                // 期望的纠错（把 lininux 改成 Linux）不判失败，只留一行痕迹便于排查。
+                tracing::debug!(tokens = ?changed, "local polish changed ascii tokens");
+            }
+            Ok(output.to_string())
+        }
         Err(violation) => {
             tracing::warn!(%violation, "local polish output rejected by fidelity guard");
             Err(PolisherError::FidelityGuard(violation.to_string()))
@@ -142,11 +154,56 @@ pub fn apply_guard(input: &str, output: &str) -> Result<String, PolisherError> {
     }
 }
 
+/// 实体是否在输出里逐字出现，且两端不与 ASCII 字母数字粘连。
+///
+/// 判定带词边界：输入里的 `3000` 不该因为输出是 `30000` 而被认为保留了。
+fn contains_entity(output: &str, entity: &str) -> bool {
+    let mut search_from = 0usize;
+    while let Some(offset) = output[search_from..].find(entity) {
+        let at = search_from + offset;
+        if boundary_free(output, at, at + entity.len()) {
+            return true;
+        }
+        search_from = at + entity.len();
+    }
+    false
+}
+
+/// 区间两端是否都不与 ASCII 字母数字粘连。中文与标点相邻不算粘连。
+fn boundary_free(text: &str, start: usize, end: usize) -> bool {
+    let glued = |c: char| c.is_ascii_alphanumeric();
+    let before_free = !text[..start].chars().next_back().is_some_and(glued);
+    let after_free = !text[end..].chars().next().is_some_and(glued);
+    before_free && after_free
+}
+
+/// 输出里新出现的 ASCII 单词，供 `apply_guard` 记日志。
+fn ascii_token_changes(input: &str, output: &str) -> Vec<String> {
+    let known: HashSet<&str> = ASCII_TOKEN
+        .find_iter(input)
+        .map(|hit| hit.as_str())
+        .collect();
+    let mut changed: Vec<String> = Vec::new();
+    for hit in ASCII_TOKEN.find_iter(output) {
+        let token = hit.as_str();
+        if !known.contains(token) && !changed.iter().any(|existing| existing == token) {
+            changed.push(token.to_string());
+        }
+    }
+    changed
+}
+
 /// 输入里必须逐字保留的实体：数字、URL、含路径分隔符的串，按在原文里的出现顺序返回。
+///
+/// 只收自成边界的匹配。标识符或网址内部的片段（`ouyangjiahong26` 里的 `26`）已经被外层
+/// 词覆盖，单独再要求一次只会在输出里找不到而误判。
 fn required_entities(input: &str) -> Vec<String> {
     let mut found: Vec<(usize, String)> = Vec::new();
     for pattern in [&*URLS, &*PATHS, &*NUMBERS] {
         for hit in pattern.find_iter(input) {
+            if !boundary_free(input, hit.start(), hit.end()) {
+                continue;
+            }
             found.push((hit.start(), hit.as_str().to_string()));
         }
     }
@@ -264,7 +321,7 @@ mod tests {
                         | FidelityViolation::Cliche
                         | FidelityViolation::TemplateLeak
                 ),
-                "「{output}」应当被判格式越界，实际：{error:?}"
+                "“{output}”应当被判格式越界，实际：{error:?}"
             );
         }
     }
@@ -292,5 +349,36 @@ mod tests {
         let output = "We shipped the new build yesterday and it looks fine.";
         assert!(check(input, output).is_ok());
         assert!(check(input, "Shipped.").is_err(), "大幅压缩应当被拦");
+    }
+
+    /// 实体判定要带词边界：`3000` 出现在 `30000` 里不算保留。
+    #[test]
+    fn test_entity_match_requires_token_boundary() {
+        assert!(check("端口是 3000，别记错。", "端口是 3000，别记错。").is_ok());
+        let error = check("端口是 3000，别记错。", "端口是 30000，别记错。").unwrap_err();
+        assert_eq!(error, FidelityViolation::MissingEntity("3000".to_string()));
+
+        // 中文字符与标点不算粘连，贴在一起也应当命中。
+        assert!(check("跑在 8080 上。", "跑在8080上。").is_ok());
+    }
+
+    #[test]
+    fn test_embedded_fragments_are_covered_by_the_outer_token() {
+        // 网址里的 26 不是独立实体，不该单独要求出现一次。
+        let url = "https://github.com/ouyangjiahong26/altgo";
+        assert!(check(url, url).is_ok());
+        assert!(check(&format!("仓库在 {url}。"), &format!("见 {url}。")).is_ok());
+    }
+
+    #[test]
+    fn test_ascii_token_changes_lists_only_new_tokens() {
+        let changed = ascii_token_changes(
+            "这个 lininux 版本和 Postgres 都要改。",
+            "这个 Linux 版本和 PostgreSQL 都要改。",
+        );
+        assert!(changed.contains(&"Linux".to_string()), "{changed:?}");
+        assert!(changed.contains(&"PostgreSQL".to_string()), "{changed:?}");
+        assert_eq!(changed.len(), 2, "已存在的单词不应被报出来：{changed:?}");
+        assert!(ascii_token_changes("原样。", "原样。").is_empty());
     }
 }

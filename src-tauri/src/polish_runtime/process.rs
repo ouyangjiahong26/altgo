@@ -8,7 +8,7 @@ use crate::error::PolishRuntimeError;
 use std::collections::VecDeque;
 use std::future::Future;
 use std::net::TcpListener;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -281,12 +281,8 @@ impl IdleClock {
     }
 }
 
-/// 运行时目录下可执行文件的完整路径。
-pub fn executable_path(dir: &Path, name: &str) -> PathBuf {
-    dir.join(name)
-}
-
-/// 把令牌化的参数渲染成日志用的一行文本。
+/// 把参数渲染成日志用的一行文本，供测试断言启动参数。
+#[cfg(test)]
 pub fn describe_args(args: &[String]) -> String {
     args.join(" ")
 }
@@ -363,7 +359,7 @@ mod tests {
         assert!(a.len() >= 32);
     }
 
-    /// 就绪探测要区分「加载中的 503」与「就绪的 200」。
+    /// 就绪探测要区分“加载中的 503”与“就绪的 200”。
     #[tokio::test]
     async fn test_health_ok_requires_success_status_and_ok_body() {
         let mut server = mockito::Server::new_async().await;

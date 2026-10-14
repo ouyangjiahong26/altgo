@@ -1,7 +1,7 @@
 //! 润色运行时的获取：下载官方产物、校验、按保留规则解包。
 //!
 //! 下载内核与模型共用（`crate::download`）。压缩包留在运行时目录里直到解包成功，因此
-//! 解包失败重试时不必重新下载；校验和固定，手动放置的文件也能被同一套结构检查接受。
+//! 解包失败重试时不必重新下载。校验和固定，手动放置的文件也能被同一套结构检查接受。
 
 use super::manifest::RuntimeSpec;
 use crate::download::{self, RemoteFile};
@@ -75,6 +75,14 @@ where
     }
 
     extract(spec, &archive, dir)?;
+    // 解包后复核：保留规则若与产物布局不符，这里直接报错，而不是删掉压缩包留下一个用不了的目录。
+    if !is_installed(spec, dir) {
+        tracing::warn!(
+            dir = %dir.display(),
+            "runtime archive extracted but the files are still incomplete"
+        );
+        return Err(PolishRuntimeError::Incomplete(dir.display().to_string()));
+    }
     let _ = std::fs::remove_file(&archive);
     tracing::info!(dir = %dir.display(), "polish runtime installed");
     Ok(())
@@ -278,16 +286,29 @@ mod tests {
 
     #[cfg(unix)]
     fn build_archive(entries: &[(&str, &[u8])]) -> Vec<u8> {
+        build_archive_with_links(entries, &[])
+    }
+
+    /// 支持符号链接的归档构造器，用来复现 Linux 产物的布局。
+    #[cfg(unix)]
+    fn build_archive_with_links(files: &[(&str, &[u8])], links: &[(&str, &str)]) -> Vec<u8> {
         let mut out = Vec::new();
         {
             let encoder = flate2::write::GzEncoder::new(&mut out, flate2::Compression::default());
             let mut builder = tar::Builder::new(encoder);
-            for (name, data) in entries {
+            for (name, data) in files {
                 let mut header = tar::Header::new_gnu();
                 header.set_size(data.len() as u64);
                 header.set_mode(0o755);
                 header.set_cksum();
                 builder.append_data(&mut header, *name, *data).unwrap();
+            }
+            for (name, target) in links {
+                let mut header = tar::Header::new_gnu();
+                header.set_entry_type(tar::EntryType::Symlink);
+                header.set_size(0);
+                header.set_mode(0o777);
+                builder.append_link(&mut header, *name, *target).unwrap();
             }
             builder.into_inner().unwrap().finish().unwrap();
         }
@@ -453,6 +474,58 @@ mod tests {
             .unwrap();
 
         assert!(dir.path().join(EXE).exists(), "顶层目录要剥掉");
+        assert!(is_installed(&spec, dir.path()));
+    }
+
+    /// 复现 Linux 产物的布局：真身带版本后缀，清单要求的名字是指向它的符号链接。
+    /// 保留规则漏掉带版本的真身时，这条会失败。
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_install_keeps_versioned_libraries_reachable_through_symlinks() {
+        const LINUX_REQUIRED: &[&str] = &["libllama-server-impl.so", "libllama-common.so"];
+
+        let files: Vec<(&str, &[u8])> = vec![
+            ("llama-server", b"server".as_slice()),
+            ("libllama-server-impl.so", b"impl".as_slice()),
+            ("libllama-common.so.0.6.0", b"common".as_slice()),
+            ("libggml-cpu-zen4.so", b"cpu".as_slice()),
+            ("llama-cli", b"tool".as_slice()),
+        ];
+        let links: Vec<(&str, &str)> = vec![("libllama-common.so", "libllama-common.so.0.6.0")];
+        let payload = build_archive_with_links(&files, &links);
+        let sha = sha256_of(&payload);
+        let mut server = mockito::Server::new_async().await;
+        server
+            .mock("GET", format!("/{ARCHIVE_NAME}").as_str())
+            .with_body(payload.clone())
+            .create_async()
+            .await;
+
+        let dir = tempfile::tempdir().unwrap();
+        let spec = RuntimeSpec {
+            target: "test-linux",
+            archive_name: ARCHIVE_NAME,
+            archive_size: payload.len() as u64,
+            archive_sha256: Cow::Owned(sha),
+            archive_root: "",
+            executable: EXE,
+            shared_lib_suffix: SUFFIX,
+            required_libraries: LINUX_REQUIRED,
+            cpu_lib_prefix: CPU_PREFIX,
+        };
+        install(&spec, &[server.url()], dir.path(), |_, _| {})
+            .await
+            .unwrap();
+
+        assert!(
+            dir.path().join("libllama-common.so.0.6.0").exists(),
+            "带版本后缀的真身要保留"
+        );
+        assert!(
+            dir.path().join("libllama-common.so").exists(),
+            "符号链接要保留且能解析到真身"
+        );
+        assert!(!dir.path().join("llama-cli").exists());
         assert!(is_installed(&spec, dir.path()));
     }
 

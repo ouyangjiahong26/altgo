@@ -63,7 +63,7 @@ impl LocalPolisher {
     fn model_path(&self) -> Result<PathBuf, PolisherError> {
         crate::polish_model::resolve_model_path(&self.model_setting).ok_or_else(|| {
             PolisherError::LocalRuntime(format!(
-                "找不到本地润色模型「{}」。请在设置页下载，或把 [polisher] local_model 指向一个存在的 GGUF 文件。",
+                "找不到本地润色模型“{}”。请在设置页下载，或把 [polisher] local_model 指向一个存在的 GGUF 文件。",
                 self.model_setting
             ))
         })

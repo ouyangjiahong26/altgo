@@ -38,9 +38,21 @@ impl RuntimeSpec {
     /// 该文件是否要保留到运行时目录。
     pub fn keeps(&self, name: &str) -> bool {
         name == self.executable
-            || name.ends_with(self.shared_lib_suffix)
+            || is_shared_library(name, self.shared_lib_suffix)
             || name.starts_with("LICENSE")
     }
+}
+
+/// 共享库判定：`libllama.so` 与 `libllama.so.0.6.0` 都算，`libfoo.so.bak` 不算。
+///
+/// Linux 归档里真实文件带版本后缀，不带版本的名字只是指向它的符号链接，两者都要保留，
+/// 否则解包后只剩悬空的链接。
+fn is_shared_library(name: &str, suffix: &str) -> bool {
+    let Some((_, rest)) = name.rsplit_once(suffix) else {
+        return false;
+    };
+    rest.is_empty()
+        || (rest.starts_with('.') && rest.chars().all(|c| c == '.' || c.is_ascii_digit()))
 }
 
 const WINDOWS_LIBRARIES: &[&str] = &[
@@ -208,6 +220,12 @@ mod tests {
         assert!(linux.keeps("libggml-cpu-zen4.so"));
         assert!(!linux.keeps("llama-cli"));
         assert!(!linux.keeps("ggml-rpc-server"));
+        // 真实归档里带版本后缀的是真身，不带版本的名字只是指向它的符号链接，两者都要保留。
+        assert!(linux.keeps("libllama.so.0.6.0"));
+        assert!(linux.keeps("libllama-common.so.0"));
+        assert!(linux.keeps("libggml-base.so.0.26.0"));
+        assert!(!linux.keeps("libfoo.so.bak"));
+        assert!(!linux.keeps("libfoo.socket"));
     }
 
     #[test]
