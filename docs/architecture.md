@@ -66,7 +66,7 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 | 录音 | `recorder`（`Recorder` trait） | Linux 实现为 `parecord` 子进程 |
 | 转写 | `transcriber`（`Transcriber` trait） | 本地实现 `sherpa.rs`（SenseVoice / FireRedASR2 CTC，按模型注册的引擎选择），在线实现 `mimo_asr.rs`（小米 MiMo） |
 | 润色 | `polisher`（`Polisher` trait） | 可选，失败降级为原文。远端实现 `LLMFormatter`，本地实现 `LocalPolisher`，由 `[polisher] backend` 选择 |
-| 本地润色运行时 | `polish_runtime`（`RuntimeProcess` trait） | 按需下载的 llama-server 子进程，惰性启动、空闲回收；本地润色模型清单在 `polish_model` |
+| 本地润色运行时 | `polish_runtime`（`RuntimeProcess` trait） | 按需下载的 llama-server 子进程，惰性启动、空闲回收。本地润色模型清单在 `polish_model` |
 | 保真校验 | `polisher::fidelity` | 本地档输出下发前的四条硬规则，越界回退原文，不暴露给用户 |
 | 悬浮窗 | `overlay`（`OverlaySink` seam） | 生产实现是 Tauri 窗口 |
 | 剪贴板 + 历史 | `dispatcher`（`TranscriptionDispatch` seam）→ `output` + `history` | 失败只 warn，不中断结果返回 |
@@ -197,7 +197,7 @@ lib.rs
 
 生命周期：惰性启动（第一次真正要润色时拉起）、动态端口（先试 11711，占用则取空闲）、空闲 10 分钟后回收、流水线停止时显式关闭。进程通过 `polish_runtime::active()` 全应用共享一份，避免流水线与设置页各拉一个进程。Windows 上加 Job 对象保证应用异常退出时整组结束，Linux 上补执行位并依赖 `kill_on_drop`。
 
-就绪判定用 `/health`：返回 200 且 body 是 `{"status":"ok"}` 才算就绪，加载中的 503 继续等；子进程在就绪前退出会立刻报错并带上日志尾部。
+就绪判定用 `/health`：返回 200 且 body 是 `{"status":"ok"}` 才算就绪，加载中的 503 继续等。子进程在就绪前退出会立刻报错并带上日志尾部。
 
 ### 主循环阻塞是有意设计
 
@@ -212,7 +212,7 @@ lib.rs
 | `FatalError` | 构建期，管道不启动 | `ModelNotFound` / `ApiAuthFailed` / `KeyListenerFailed` / `TranscriberInitFailed` / `PolisherInitFailed` / `RecorderInitFailed` |
 | `RecoverableError` | 运行时，降级继续 | `TranscriptionFailed` / `PolishingFailed` / `RecordingFailed` / `EmptyTranscription` |
 
-模块边界一律返回自定义 thiserror 枚举：`TranscriberError` / `PolisherError` / `RecorderError` / `OutputError` / `KeyListenerError` / `ModelError` / `ConfigError` / `HistoryError`。`recorder` 模块有专门测试防止 trait 边界回退到 `anyhow`。
+模块边界一律返回自定义 thiserror 枚举：`TranscriberError` / `PolisherError` / `RecorderError` / `OutputError` / `KeyListenerError` / `ModelError` / `PolishRuntimeError` / `DownloadError` / `ConfigError` / `HistoryError`。其中 `DownloadError` 是模型与运行时共用的下载内核（`download.rs`）的内部错误，各调用方映射成自己域的用户文案，`PolishRuntimeError` 覆盖运行时的文件获取与进程管理两类失败。`recorder` 模块有专门测试防止 trait 边界回退到 `anyhow`。
 
 一个小不一致：运行时 handler 里的错误不经结构化 `PipelineError`，而是取该错误的用户文案（如 `TranscriberError::message()`）交 `sink.on_error`。`PipelineError` 主要用于构建期，两套机制并行存在。
 

@@ -84,7 +84,7 @@ Linux 平台接缝：
 
 - `overlay`：悬浮窗相位转换（show/replace/hide）与渲染（前端组件，与同名的 Rust `overlay` 模块不同物）
 - `useConfigForm`：设置表单的配置归一化与保存请求体构造，含润色后端与本地模型两个字段的读写与缺省回退
-- `PolishingSection`：润色引擎二选一。本地分支渲染模型卡与运行时行且不渲染云端密钥区，云端分支反之；已安装运行时点「重新下载」时按先移除再下载的顺序调用后端
+- `PolishingSection`：润色引擎二选一。本地分支渲染模型卡与运行时行且不渲染云端密钥区，云端分支反之。已安装运行时点“重新下载”时按先移除再下载的顺序调用后端
 - `StatusIndicator`：状态指示组件渲染
 
 **可用替身**：vitest + jsdom + Testing Library。Tauri IPC 一律 `vi.mock("@tauri-apps/api/core")` / `vi.mock("@tauri-apps/api/event")` 替换，不触真实后端。

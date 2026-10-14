@@ -15,7 +15,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 ```
 
 - 按键事件经 `mpsc` 进 `src-tauri/src/voice_pipeline/context.rs` 的 `tokio::select!` 五路主循环（按键、状态机超时 `sleep_until(deadline)`、重试请求、空闲回收节拍、oneshot 停止信号）。`state_machine.rs` 的 5 态状态机（Idle/PotentialPress/Recording/WaitSecondClick/ContinuousRecording）同步返回 `StartRecord`/`StopRecord`。转写与润色在主循环内串行完成，保证单次转写互斥（ADR-0003）。主循环退出前会显式关掉本地润色运行时。
-- 停止录音后由 `handlers::handle_stop_record` 收尾：先把 PCM 封装为 WAV，交 `SherpaTranscriber`（`spawn_blocking` 推理），再过 `Polisher::polish`（远端 `LLMFormatter` 或本机 `LocalPolisher`，本地档的输出还要过保真校验；失败置 `polish_failed` 并回退原文），得到的 `TranscriptionResult` 交给 `PipelineSink`。`tauri_sink.rs` 由此发前端事件并切悬浮窗相位。`TranscriptionDispatch` 落到 `select_text`（按偏好选文本）后写剪贴板（`Output::write_clipboard`，Windows 可选 `inject_text`，默认关，见 ADR-0005），最后 `HistoryStore::append` 追加历史。
+- 停止录音后由 `handlers::handle_stop_record` 收尾：先把 PCM 封装为 WAV，交 `SherpaTranscriber`（`spawn_blocking` 推理），再过 `Polisher::polish`（远端 `LLMFormatter` 或本机 `LocalPolisher`，本地档的输出还要过保真校验，失败置 `polish_failed` 并回退原文），得到的 `TranscriptionResult` 交给 `PipelineSink`。`tauri_sink.rs` 由此发前端事件并切悬浮窗相位。`TranscriptionDispatch` 落到 `select_text`（按偏好选文本）后写剪贴板（`Output::write_clipboard`，Windows 可选 `inject_text`，默认关，见 ADR-0005），最后 `HistoryStore::append` 追加历史。
 - 关键 trait 接缝：`KeyListener`、`Recorder`、`Output`、`Transcriber`、`Polisher`（`polisher.rs`，远端与本地两个实现）、`RuntimeProcess`/`RuntimeChild`（`polish_runtime/`，子进程生命周期）、`KeyCapture`（`key_capture/mod.rs`）、`PipelineSink`/`TranscriptionDispatch`（`voice_pipeline/`）、`OverlayWindow`/`OverlaySink`（`overlay/seam.rs`）、`UpdateProvider`（`updater.rs`）、`UserActivityClock`（`overlay/activity.rs`）。
 - 平台模块三文件布局：`mod.rs` 定 trait 与 `#[cfg(target_os)] Platform*` 别名，`linux.rs`/`windows.rs` 各自实现。Linux 走子进程（`xinput`/`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`），Windows 走原生 API（WH_KEYBOARD_LL、cpal/WASAPI、arboard 加 SendInput）。
 - 整条管道跑在独立 OS 线程的 current_thread tokio runtime 上（`lib.rs::spawn_pipeline_thread`）。一切阻塞工作（推理、剪贴板、历史 I/O、join 线程）走 `spawn_blocking`。
@@ -129,7 +129,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 ## Testing & QA
 
-- 五层模型（`docs/testing.md`）：纯逻辑、语音流水线、Tauri 适配（含 Linux 平台接缝）、前端交互、端到端（当前 0 个，缺口清单 6 条）。一个模块的测试属于且仅属于一层。
+- 五层模型（`docs/testing.md`）：纯逻辑、语音流水线、Tauri 适配（含 Linux 平台接缝）、前端交互、端到端（当前 0 个，缺口清单 7 条）。一个模块的测试属于且仅属于一层。
 - 组织：每个源文件末尾 `#[cfg(test)] mod tests`（`use super::*`）。无集成测试目录。前端测试与源码同目录（vitest 加 jsdom 加 Testing Library，`*.test.ts(x)`）。
 - 替身四类：tempfile（文件 I/O）、mockito（HTTP 假服务器）、共享 `src-tauri/src/voice_pipeline/test_doubles.rs`（流水线层唯一替身来源，不自造第二套）、闭包注入（emit/download/spawn）。`tauri_sink.rs`、`overlay/manager.rs`、`updater.rs` 各有模块私有 mock。
 - 环境容忍：依赖系统工具的测试对两种环境都断言（有 `xinput` 断 Ok，无则断 Err），保证无显示服务器的 CI 与开发机一致。禁止用 `#[ignore]` 藏测试。
