@@ -114,19 +114,65 @@ pub trait RuntimeChild: Send {
     ) -> Pin<Box<dyn Future<Output = Result<(), PolishRuntimeError>> + Send + 'a>>;
 }
 
+/// 子进程退出信息。
+///
+/// 信号结束时没有退出码，按 shell 惯例折算成 128 加信号号，取不到信号号时记 -1。
+#[derive(Clone, Copy)]
+struct ExitRecord {
+    code: i32,
+}
+
+impl ExitRecord {
+    fn from_status(status: std::process::ExitStatus) -> Self {
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt;
+            if status.code().is_none() {
+                if let Some(signal) = status.signal() {
+                    return Self { code: 128 + signal };
+                }
+            }
+        }
+        Self {
+            code: status.code().unwrap_or(-1),
+        }
+    }
+}
+
 /// 通用的 tokio 子进程包装：创建参数与额外清理由平台模块决定。
 pub struct TokioChild {
     child: tokio::process::Child,
+    /// 已观测到的退出信息。
+    ///
+    /// tokio 的 `try_wait` 在 Linux 上只把退出状态交出来一次，之后再问就是 `None`，
+    /// 空闲回收与关闭路径都要能随时确认进程状态，所以在这里记下来。
+    exit: Option<ExitRecord>,
 }
 
 impl TokioChild {
     pub fn new(child: tokio::process::Child) -> Self {
-        Self { child }
+        Self { child, exit: None }
     }
 
     /// 取出标准错误，交给日志读取任务。
     pub fn take_stderr(&mut self) -> Option<tokio::process::ChildStderr> {
         self.child.stderr.take()
+    }
+
+    /// 观测一次退出状态，已经观测过就直接用记下来的值。
+    fn observe_exit(&mut self) -> Result<Option<i32>, PolishRuntimeError> {
+        if let Some(record) = self.exit {
+            return Ok(Some(record.code));
+        }
+        match self.child.try_wait() {
+            Ok(Some(status)) => {
+                let record = ExitRecord::from_status(status);
+                self.exit = Some(record);
+                Ok(Some(record.code))
+            }
+            Ok(None) => Ok(None),
+            Err(error) => Err(PolishRuntimeError::ProcessFailed(error.to_string())),
+        }
     }
 }
 
@@ -136,37 +182,30 @@ impl RuntimeChild for TokioChild {
     }
 
     fn try_wait(&mut self) -> Result<Option<i32>, PolishRuntimeError> {
-        match self.child.try_wait() {
-            Ok(Some(status)) => Ok(status.code()),
-            Ok(None) => Ok(None),
-            Err(e) => Err(PolishRuntimeError::ProcessFailed(e.to_string())),
-        }
+        self.observe_exit()
     }
 
     fn kill<'a>(
         &'a mut self,
     ) -> Pin<Box<dyn Future<Output = Result<(), PolishRuntimeError>> + Send + 'a>> {
         Box::pin(async move {
-            // 不走 tokio 的 `kill()`：它内部会把退出状态 wait 掉，之后 `try_wait` 在 Linux 上
-            // 一直返回 `None`，调用方就再也确认不了进程是否真的没了。这里自己发信号再回收。
+            // 不走 tokio 的 `Child::kill()`：它把发信号与回收并成一步，退出状态从返回值读走，
+            // 之后 `try_wait` 未必还给出状态。这里自己发信号再回收，状态随时可查。
             if let Err(error) = self.child.start_kill() {
                 // 已经退出过的子进程会在这里报错，按已结束处理。
                 tracing::debug!(error = %error, "child exited before kill");
             }
             let deadline = Instant::now() + REAP_TIMEOUT;
             loop {
-                match self.child.try_wait() {
-                    Ok(Some(_)) => return Ok(()),
-                    Ok(None) => {
-                        if Instant::now() >= deadline {
-                            return Err(PolishRuntimeError::ProcessFailed(
-                                "结束润色运行时超时".to_string(),
-                            ));
-                        }
-                        tokio::time::sleep(REAP_POLL_INTERVAL).await;
-                    }
-                    Err(error) => return Err(PolishRuntimeError::ProcessFailed(error.to_string())),
+                if self.observe_exit()?.is_some() {
+                    return Ok(());
                 }
+                if Instant::now() >= deadline {
+                    return Err(PolishRuntimeError::ProcessFailed(
+                        "结束润色运行时超时".to_string(),
+                    ));
+                }
+                tokio::time::sleep(REAP_POLL_INTERVAL).await;
             }
         })
     }
@@ -488,6 +527,11 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         assert!(exited.is_some(), "被 kill 的子进程应当很快退出");
+        assert_eq!(
+            child.try_wait().unwrap(),
+            exited,
+            "退出状态要能重复读到，tokio 的 try_wait 在 Linux 上只会交出来一次"
+        );
     }
 
     /// 不存在的可执行文件要给出明确错误，而不是静默成功。
