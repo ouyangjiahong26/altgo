@@ -174,6 +174,10 @@ impl Default for OnlineTranscriberConfig {
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct PolisherConfig {
+    /// 润色引擎：`"remote"`（远端 API，默认）或 `"local"`（本机运行时）。
+    pub backend: String,
+    /// 本地润色模型：已知名字（如 `"qwen3-0.6b"`）或自定义 GGUF 文件路径。
+    pub local_model: String,
     /// API 协议：`"openai"`（OpenAI/DeepSeek 等）或 `"anthropic"`
     pub protocol: String,
     /// API 密钥（可通过 `ALTGO_POLISHER_API_KEY` 环境变量覆盖）
@@ -200,6 +204,8 @@ pub struct PolisherConfig {
 impl Default for PolisherConfig {
     fn default() -> Self {
         Self {
+            backend: "remote".to_string(),
+            local_model: "qwen3-0.6b".to_string(),
             protocol: "openai".to_string(),
             api_key: String::new(),
             api_base_url: String::new(),
@@ -338,35 +344,56 @@ impl Config {
         Ok(())
     }
 
-    /// 润色开启时校验协议取值并逐项校验 [polisher] 必填字段，错误信息指明缺失项。
+    /// 润色开启时按后端校验：远端要求协议与三项连接字段，本地只要求本地模型非空。
     fn validate_polisher(&self) -> Result<(), ConfigError> {
-        if self.polisher.level != "none" {
-            let protocol = self.polisher.protocol.trim().to_lowercase();
-            if protocol != "openai" && protocol != "anthropic" {
-                return Err(ConfigError::ValidationFailed(format!(
-                    "润色协议（protocol）无效：'{}'，应为 \"openai\" 或 \"anthropic\"。",
-                    self.polisher.protocol
-                )));
+        if self.polisher.level == "none" {
+            return Ok(());
+        }
+        let backend = self.polisher.backend.trim().to_lowercase();
+        match backend.as_str() {
+            "local" => {
+                if self.polisher.local_model.trim().is_empty() {
+                    return Err(ConfigError::ValidationFailed(
+                        "本地润色已开启（backend = \"local\"），但缺少：本地模型（[polisher] local_model）。请在设置的“润色”分区选择模型。"
+                            .to_string(),
+                    ));
+                }
+                Ok(())
             }
+            "remote" => self.validate_remote_polisher(),
+            other => Err(ConfigError::ValidationFailed(format!(
+                "[polisher] backend 无效：'{}'，应为 \"remote\" 或 \"local\"。",
+                other
+            ))),
+        }
+    }
 
-            let mut missing: Vec<&str> = Vec::new();
-            if self.polisher.api_key.trim().is_empty() {
-                missing.push("API 密钥（api_key）");
-            }
-            if self.polisher.api_base_url.trim().is_empty() {
-                missing.push("API 地址（api_base_url）");
-            }
-            if self.polisher.model.trim().is_empty() {
-                missing.push("模型名称（model）");
-            }
-            if !missing.is_empty() {
-                return Err(ConfigError::ValidationFailed(format!(
-                    "润色功能已开启（level = \"{}\"），但缺少：{}。请在设置的“润色”分区补全，或编辑配置文件 {} 的 [polisher] 段。不需要润色时把级别设为“关闭”。密钥也可通过环境变量 ALTGO_POLISHER_API_KEY 设置。",
-                    self.polisher.level,
-                    missing.join("、"),
-                    Self::default_config_path().display()
-                )));
-            }
+    /// 远端润色开启时校验协议取值并逐项校验必填字段，错误信息指明缺失项。
+    fn validate_remote_polisher(&self) -> Result<(), ConfigError> {
+        let protocol = self.polisher.protocol.trim().to_lowercase();
+        if protocol != "openai" && protocol != "anthropic" {
+            return Err(ConfigError::ValidationFailed(format!(
+                "润色协议（protocol）无效：'{}'，应为 \"openai\" 或 \"anthropic\"。",
+                self.polisher.protocol
+            )));
+        }
+
+        let mut missing: Vec<&str> = Vec::new();
+        if self.polisher.api_key.trim().is_empty() {
+            missing.push("API 密钥（api_key）");
+        }
+        if self.polisher.api_base_url.trim().is_empty() {
+            missing.push("API 地址（api_base_url）");
+        }
+        if self.polisher.model.trim().is_empty() {
+            missing.push("模型名称（model）");
+        }
+        if !missing.is_empty() {
+            return Err(ConfigError::ValidationFailed(format!(
+                "润色功能已开启（backend = \"remote\"），但缺少：{}。请在设置的“润色”分区补全，或编辑配置文件 {} 的 [polisher] 段。不需要润色时把级别设为“关闭”。密钥也可通过环境变量 ALTGO_POLISHER_API_KEY 设置。",
+                missing.join("、"),
+                Self::default_config_path().display()
+            )));
         }
         Ok(())
     }
@@ -481,6 +508,8 @@ pub struct ConfigPatch {
     pub asr_api_base_url: Option<String>,
     pub asr_model: Option<String>,
     pub polish_level: Option<String>,
+    pub polish_backend: Option<String>,
+    pub polish_local_model: Option<String>,
     pub polish_model: Option<String>,
     pub polish_protocol: Option<String>,
     pub polish_thinking_level: Option<String>,
@@ -538,22 +567,28 @@ impl ConfigPatch {
 
     /// 应用润色域的字段。
     fn apply_polisher_patch(&self, cfg: &mut Config) {
-        if let Some(ref v) = self.polish_level {
+        if let Some(v) = &self.polish_level {
             cfg.polisher.level = v.clone();
         }
-        if let Some(ref v) = self.polish_model {
+        if let Some(v) = &self.polish_backend {
+            cfg.polisher.backend = v.clone();
+        }
+        if let Some(v) = &self.polish_local_model {
+            cfg.polisher.local_model = v.clone();
+        }
+        if let Some(v) = &self.polish_model {
             cfg.polisher.model = v.clone();
         }
-        if let Some(ref v) = self.polish_protocol {
+        if let Some(v) = &self.polish_protocol {
             cfg.polisher.protocol = v.clone();
         }
         if let Some(v) = &self.polish_thinking_level {
             cfg.polisher.thinking_level = v.clone();
         }
-        if let Some(ref v) = self.polish_api_key {
+        if let Some(v) = &self.polish_api_key {
             cfg.polisher.api_key = v.clone();
         }
-        if let Some(ref v) = self.polish_api_base_url {
+        if let Some(v) = &self.polish_api_base_url {
             cfg.polisher.api_base_url = v.clone();
         }
     }
@@ -877,6 +912,82 @@ timeout = 30
         assert!(err.contains("protocol"));
         cfg.polisher.protocol = "Anthropic".to_string();
         assert!(cfg.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_local_polisher_needs_no_remote_fields() {
+        let mut cfg = Config::default();
+        cfg.polisher.backend = "local".to_string();
+        cfg.polisher.level = "medium".to_string();
+        cfg.polisher.api_key = String::new();
+        cfg.polisher.api_base_url = String::new();
+        cfg.polisher.model = String::new();
+        assert!(cfg.validate().is_ok(), "本地档不应要求密钥与地址");
+    }
+
+    #[test]
+    fn test_validate_local_polisher_requires_local_model() {
+        let mut cfg = Config::default();
+        cfg.polisher.backend = "local".to_string();
+        cfg.polisher.level = "medium".to_string();
+        cfg.polisher.local_model = "   ".to_string();
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("local_model"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_polisher_rejects_unknown_backend() {
+        let mut cfg = Config::default();
+        cfg.polisher.backend = "edge".to_string();
+        cfg.polisher.level = "medium".to_string();
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("backend"), "{err}");
+
+        cfg.polisher.backend = " LOCAL ".to_string();
+        cfg.polisher.api_key = "k".to_string();
+        cfg.polisher.api_base_url = "https://x.example".to_string();
+        cfg.polisher.model = "m".to_string();
+        assert!(cfg.validate().is_ok(), "大小写与空格应当容错");
+    }
+
+    #[test]
+    fn test_validate_local_polisher_ignored_when_level_none() {
+        let mut cfg = Config::default();
+        cfg.polisher.backend = "local".to_string();
+        cfg.polisher.level = "none".to_string();
+        cfg.polisher.local_model = String::new();
+        assert!(cfg.validate().is_ok(), "润色关闭时本地档字段不参与校验");
+    }
+
+    #[test]
+    fn test_validate_remote_backend_still_requires_connection_fields() {
+        let mut cfg = Config::default();
+        cfg.polisher.backend = "remote".to_string();
+        cfg.polisher.level = "medium".to_string();
+        cfg.polisher.api_key = "k".to_string();
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("remote"), "{err}");
+        assert!(err.contains("API 地址"), "{err}");
+    }
+
+    #[test]
+    fn polisher_patch_sets_backend_and_local_model() {
+        let j = r#"{"polishBackend":"local","polishLocalModel":"qwen3-1.7b"}"#;
+        let patch: ConfigPatch = serde_json::from_str(j).unwrap();
+        let mut cfg = Config::default();
+        patch.apply_to_config(&mut cfg);
+        assert_eq!(cfg.polisher.backend, "local");
+        assert_eq!(cfg.polisher.local_model, "qwen3-1.7b");
+    }
+
+    #[test]
+    fn polisher_patch_leaves_backend_alone_when_absent() {
+        let patch: ConfigPatch = serde_json::from_str(r#"{"polishLevel":"light"}"#).unwrap();
+        let mut cfg = Config::default();
+        cfg.polisher.backend = "local".to_string();
+        patch.apply_to_config(&mut cfg);
+        assert_eq!(cfg.polisher.backend, "local");
+        assert_eq!(cfg.polisher.level, "light");
     }
 
     // -- ConfigPatch 测试 -----------------------------------------------------

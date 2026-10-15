@@ -4,17 +4,17 @@
 //! 模型存储在 altgo 配置目录的 `models/<name>/` 子目录下，每个模型
 //! 一个目录，内含 `model.int8.onnx` 与 `tokens.txt` 两个文件。
 
-use crate::error::ModelError;
-use futures_util::StreamExt;
-use reqwest::Client;
+use crate::download::{self, RemoteFile};
+use crate::error::{DownloadError, ModelError};
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use std::borrow::Cow;
-use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
-use std::time::Duration;
-use tokio::io::AsyncWriteExt;
+
+// 测试直接算校验和造数据，非测试构建不需要这两个名字。
+#[cfg(test)]
+use crate::download::bytes_to_hex;
+#[cfg(test)]
+use sha2::{Digest, Sha256};
 
 /// HF 官方域名与国内镜像域名。各模型的仓库路径记录在 `ModelInfo::repo_path`，
 /// 下载 URL = `<域名>/<repo_path>/resolve/main/<文件名>`。
@@ -23,8 +23,6 @@ const HF_DOMAINS: &[&str] = &["https://huggingface.co", "https://hf-mirror.com"]
 /// 可通过环境变量覆盖下载基址（勿以 `/` 结尾），便于国内等网络环境使用镜像，例如：
 /// `ALTGO_MODEL_BASE_URL=https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/resolve/main`
 const ENV_MODEL_BASE_URL: &str = "ALTGO_MODEL_BASE_URL";
-
-const DOWNLOAD_ATTEMPTS: u32 = 3;
 
 /// 主模型文件最小可接受大小（字节）。小于此值视为下载损坏。
 const MIN_MODEL_FILE_BYTES: u64 = 10 * 1024 * 1024;
@@ -63,26 +61,6 @@ fn model_download_bases(repo_path: &str) -> Vec<String> {
         .iter()
         .map(|d| format!("{d}/{repo_path}/resolve/main"))
         .collect()
-}
-
-fn model_download_client() -> &'static Client {
-    static CLIENT: OnceLock<Client> = OnceLock::new();
-    CLIENT.get_or_init(|| {
-        Client::builder()
-            .user_agent(concat!(
-                "altgo/",
-                env!("CARGO_PKG_VERSION"),
-                " (sherpa-onnx sense-voice model download)"
-            ))
-            .connect_timeout(Duration::from_secs(120))
-            .pool_idle_timeout(Duration::from_secs(600))
-            .build()
-            .unwrap_or_else(|e| {
-                tracing::error!(error = %e, "failed to build model download client");
-                // 回退到默认 client，下载仍可能成功，只是设置不够优。
-                Client::new()
-            })
-    })
 }
 
 /// 模型内单个文件。
@@ -202,54 +180,35 @@ pub fn model_dir(name: &str) -> PathBuf {
     models_dir().join(name)
 }
 
-// sha2 0.11 的 digest 输出不再实现 LowerHex，改用显式小写 hex 编码。
-fn bytes_to_hex(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for &b in bytes {
-        out.push(HEX[(b >> 4) as usize] as char);
-        out.push(HEX[(b & 0x0f) as usize] as char);
-    }
-    out
-}
-
-fn file_sha256(path: &Path) -> std::io::Result<String> {
-    let mut file = std::fs::File::open(path)?;
-    let mut hasher = Sha256::new();
-    let mut buffer = [0; 64 * 1024];
-
-    loop {
-        let read = file.read(&mut buffer)?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..read]);
-    }
-
-    Ok(bytes_to_hex(&hasher.finalize()))
-}
-
 fn model_file_structurally_ready(file: &ModelFile, path: &Path) -> bool {
-    let Ok(metadata) = std::fs::metadata(path) else {
-        return false;
-    };
-    metadata.is_file()
-        && ((file.filename == MAIN_MODEL_FILENAME && metadata.len() >= MIN_MODEL_FILE_BYTES)
-            || (file.filename != MAIN_MODEL_FILENAME && metadata.len() > 0))
+    download::structurally_ready(path, model_file_min_bytes(file))
 }
 
+/// 主模型文件有大小下限，配套资源只要非空。
+fn model_file_min_bytes(file: &ModelFile) -> u64 {
+    if file.filename == MAIN_MODEL_FILENAME {
+        MIN_MODEL_FILE_BYTES
+    } else {
+        1
+    }
+}
+
+/// 只在测试里用来验证校验和判定，生产路径走 `model_file_ready_blocking`。
+#[cfg(test)]
 fn model_file_ready(file: &ModelFile, path: &Path) -> bool {
     model_file_structurally_ready(file, path)
-        && file_sha256(path).is_ok_and(|sha256| sha256 == file.sha256)
+        && download::file_sha256(path).is_ok_and(|sha256| sha256 == file.sha256)
 }
 
 /// 校验放到阻塞线程池：主模型文件可达 237 MB，同步哈希会占住 current_thread 运行时。
 async fn model_file_ready_blocking(file: &ModelFile, path: &Path) -> Result<bool, ModelError> {
-    let file = file.clone();
-    let path = path.to_path_buf();
-    tokio::task::spawn_blocking(move || model_file_ready(&file, &path))
+    if !model_file_structurally_ready(file, path) {
+        return Ok(false);
+    }
+    let sha256 = download::file_sha256_blocking(path.to_path_buf())
         .await
-        .map_err(|e| ModelError::DownloadFailed(e.to_string()))
+        .map_err(to_model_error)?;
+    Ok(sha256 == file.sha256)
 }
 
 fn model_files_ready_with<F>(dir: &Path, files: &[ModelFile], is_ready: F) -> bool
@@ -270,7 +229,7 @@ fn custom_model_files_ready(dir: &Path) -> bool {
 ///
 /// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
 /// 一次 SHA256 要数秒，而设置页的模型列表会对每个模型问一次“文件在不在”。
-/// 完整性在下载时确认，见 `model_file_ready_blocking` 与 `finalize_model_download_blocking`。
+/// 完整性在下载时确认，见 `model_file_ready_blocking` 与 `download::fetch_file` 的落盘校验。
 pub fn is_downloaded(name: &str) -> bool {
     MODELS.iter().find(|m| m.name == name).is_some_and(|m| {
         model_files_ready_with(&model_dir(name), &m.files, model_file_structurally_ready)
@@ -335,7 +294,7 @@ pub fn delete(name: &str) -> Result<(), ModelError> {
 /// 只按文件齐全与大小下限判断，不算校验和：主模型可达 237 MB，debug 构建下
 /// 一次 SHA256 要近 5 秒，而这条路径在管道启动时跑，那几秒里监听与录音都还没起来，
 /// 用户按触发键会毫无反应。校验和用于确认下载完整，见下载路径里的
-/// `model_file_ready_blocking` 与 `finalize_model_download_blocking`。
+/// `model_file_ready_blocking` 与 `download::fetch_file` 的落盘校验。
 pub fn resolve_model_dir(config_model: &str) -> Option<PathBuf> {
     if config_model.is_empty() {
         return None;
@@ -455,142 +414,52 @@ where
     if model_file_ready_blocking(file, &dest).await? {
         return Ok(file.size_bytes);
     }
-    remove_invalid_model_file(&dest)?;
+    download::remove_invalid(&dest).map_err(to_model_error)?;
 
-    let tmp_path = dir.join(format!("{}.tmp", file.filename));
-    download_model_file_with_retries(
-        file,
+    download::fetch_file(
         bases,
-        &dest,
-        &tmp_path,
-        done_bytes,
-        total_bytes,
+        &download::FetchRequest {
+            file: RemoteFile {
+                filename: file.filename,
+                size_bytes: file.size_bytes,
+                sha256: &file.sha256,
+            },
+            dest: dest.clone(),
+            min_bytes: model_file_min_bytes(file),
+            progress_base: done_bytes,
+            progress_total: total_bytes,
+            attempts: download::DOWNLOAD_ATTEMPTS,
+        },
         on_progress,
     )
-    .await?;
+    .await
+    .map_err(to_model_error)?;
     Ok(file.size_bytes)
 }
 
-fn remove_invalid_model_file(path: &Path) -> Result<(), ModelError> {
-    if !path.exists() {
-        return Ok(());
-    }
-    if !path.is_file() {
-        return Err(ModelError::DownloadFailed(format!(
-            "模型资源路径不是文件: {}",
-            path.display()
-        )));
-    }
-    std::fs::remove_file(path)?;
-    Ok(())
-}
-
-async fn download_model_file_with_retries<F>(
-    file: &ModelFile,
-    bases: &[String],
-    dest: &Path,
-    tmp_path: &Path,
-    done_bytes: u64,
-    total_bytes: u64,
-    on_progress: &mut F,
-) -> Result<(), ModelError>
-where
-    F: FnMut(u64, u64),
-{
-    let mut last_err = None;
-    for attempt in 0..DOWNLOAD_ATTEMPTS {
-        if attempt > 0 {
-            let _ = std::fs::remove_file(tmp_path);
-            tokio::time::sleep(Duration::from_secs(2 * u64::from(attempt))).await;
-        }
-        for base in bases {
-            let url = format!("{}/{}", base, file.filename);
-            let result =
-                match download_once_to_tmp(&url, done_bytes, total_bytes, tmp_path, on_progress)
-                    .await
-                {
-                    Ok(()) => finalize_model_download_blocking(file, tmp_path, dest).await,
-                    Err(error) => Err(error),
-                };
-            match result {
-                Ok(()) => return Ok(()),
-                Err(error) => {
-                    last_err = Some(error);
-                    let _ = std::fs::remove_file(tmp_path);
-                }
-            }
-        }
-    }
-    Err(last_err.expect("download attempts must produce an error"))
-}
-
-fn finalize_model_download(
-    file: &ModelFile,
-    tmp_path: &Path,
-    dest: &Path,
-) -> Result<(), ModelError> {
-    if !model_file_ready(file, tmp_path) {
-        return Err(ModelError::DownloadFailed(format!(
-            "下载的模型文件校验失败：{}",
-            file.filename
-        )));
-    }
-    std::fs::rename(tmp_path, dest)?;
-    Ok(())
-}
-
-/// 校验与落盘放阻塞线程池，理由同 `model_file_ready_blocking`。
-async fn finalize_model_download_blocking(
-    file: &ModelFile,
-    tmp_path: &Path,
-    dest: &Path,
-) -> Result<(), ModelError> {
-    let file = file.clone();
-    let tmp_path = tmp_path.to_path_buf();
-    let dest = dest.to_path_buf();
-    tokio::task::spawn_blocking(move || finalize_model_download(&file, &tmp_path, &dest))
-        .await
-        .map_err(|e| ModelError::DownloadFailed(e.to_string()))?
-}
-
-async fn download_once_to_tmp<F>(
-    url: &str,
-    base_done: u64,
-    total: u64,
-    tmp_path: &Path,
-    on_progress: &mut F,
-) -> Result<(), ModelError>
-where
-    F: FnMut(u64, u64),
-{
-    let response = model_download_client().get(url).send().await.map_err(|e| {
-        ModelError::HttpError(format!("无法从 {} 下载（网络或 TLS 错误）: {}", url, e))
-    })?;
-
-    if !response.status().is_success() {
-        return Err(ModelError::DownloadFailed(format!(
+/// 下载内核的错误映射成模型域的用户可见文案。
+fn to_model_error(error: DownloadError) -> ModelError {
+    match error {
+        DownloadError::Io(e) => ModelError::Io(e),
+        DownloadError::Request { url, detail } => ModelError::HttpError(format!(
+            "无法从 {} 下载（网络或 TLS 错误）: {}",
+            url, detail
+        )),
+        DownloadError::Status { status, url } => ModelError::DownloadFailed(format!(
             "下载失败（HTTP {}）：{}\n可尝试设置环境变量 {} 使用镜像基址。",
-            response.status(),
-            url,
-            ENV_MODEL_BASE_URL
-        )));
+            status, url, ENV_MODEL_BASE_URL
+        )),
+        DownloadError::Stream(detail) => {
+            ModelError::HttpError(format!("读取下载数据失败: {}", detail))
+        }
+        DownloadError::Corrupt(filename) => {
+            ModelError::DownloadFailed(format!("下载的模型文件校验失败：{}", filename))
+        }
+        DownloadError::NotAFile(path) => {
+            ModelError::DownloadFailed(format!("模型资源路径不是文件: {}", path))
+        }
+        DownloadError::TaskFailed(detail) => ModelError::DownloadFailed(detail),
     }
-
-    on_progress(base_done, total);
-    let mut file = tokio::fs::File::create(tmp_path).await?;
-
-    let mut downloaded: u64 = 0;
-    let mut stream = response.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| ModelError::HttpError(format!("读取下载数据失败: {e}")))?;
-        file.write_all(&chunk).await?;
-        downloaded += chunk.len() as u64;
-        on_progress(base_done + downloaded, total);
-    }
-    // tokio 的 File 无用户态缓冲，flush 不引入新的错误路径，忽略返回值。
-    let _ = file.flush().await;
-
-    Ok(())
 }
 
 #[cfg(test)]

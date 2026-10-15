@@ -12,6 +12,11 @@ import {
   type UseConfigFormResult,
 } from "../../hooks/useConfigForm";
 import { useModelManager, type UseModelManagerResult } from "../../hooks/useModelManager";
+import {
+  usePolishModelManager,
+  type UsePolishModelManagerResult,
+} from "../../hooks/usePolishModelManager";
+import { usePolishRuntime } from "../../hooks/usePolishRuntime";
 import { useTheme } from "../../ThemeContext";
 import {
   getFontSizePref,
@@ -30,11 +35,14 @@ export function useSettingsForm() {
   const { t, lang, setLang } = useTranslation();
   const { themePref, setTheme } = useTheme();
   const modelMgr = useModelManager({ t });
+  const polishMgr = usePolishModelManager({ t });
+  const polishRuntime = usePolishRuntime({ t });
   const form = useConfigForm({
     t,
     setLang,
     onAfterSave: () => {
       modelMgr.refreshModels();
+      polishMgr.refreshModels();
     },
   });
   const { config, setConfig, saving, message, update, save, keyCapturing, captureActivationKey } =
@@ -48,6 +56,14 @@ export function useSettingsForm() {
   const asrKey = useAsrKeyClearing(setConfig);
   const updateCheck = useUpdateChecker();
   const modelActions = useModelActions(form, modelMgr);
+  const polishActions = usePolishActions(form, polishMgr);
+  const {
+    status: polishRuntimeStatus,
+    downloading: polishRuntimeDownloading,
+    progress: polishRuntimeProgress,
+    downloadRuntime: downloadPolishRuntime,
+    redownload: redownloadPolishRuntime,
+  } = polishRuntime;
 
   // 预设键不带 evdev 码，换键名时同步清空，避免旧的自定义码继续参与匹配。
   const setKeyName = (keyName: string) => {
@@ -68,6 +84,11 @@ export function useSettingsForm() {
     models, downloading, getDownloadProgress, setKeyName,
     ...toggles, ...version, ...appearance, ...catalog,
     ...connection, ...asrKey, ...updateCheck, ...modelActions,
+    polishModels: polishMgr.models, polishDownloading: polishMgr.downloading,
+    getPolishDownloadProgress: polishMgr.getDownloadProgress,
+    polishRuntimeStatus, polishRuntimeDownloading, polishRuntimeProgress,
+    downloadPolishRuntime, redownloadPolishRuntime,
+    ...polishActions,
   };
 }
 
@@ -255,4 +276,45 @@ function useModelActions(form: UseConfigFormResult, modelMgr: UseModelManagerRes
   };
 
   return { applyLocalModel, downloadAndUse, handleDelete };
+}
+
+function usePolishActions(form: UseConfigFormResult, polishMgr: UsePolishModelManagerResult) {
+  const { config, update, setMessage } = form;
+
+  // 切换润色引擎立即落盘：只写润色后端字段，避免整份回写覆盖别处的改动。
+  const setPolishBackend = (backend: string) => {
+    update("polishBackend", backend);
+    invoke("save_config", { patch: { polishBackend: backend } }).catch((e) =>
+      setMessage(String(e)),
+    );
+  };
+
+  // 本地润色模型与转写模型同样只写模型字段：下载结束可能晚于用户离开本页，整份回写会覆盖旧值。
+  const applyLocalPolishModel = async (name: string) => {
+    update("polishLocalModel", name);
+    try {
+      await invoke("save_config", { patch: { polishLocalModel: name } });
+    } catch (e) {
+      setMessage(String(e));
+    }
+  };
+
+  const downloadAndUsePolishModel = async (name: string) => {
+    await polishMgr.downloadModel(name, applyLocalPolishModel);
+  };
+
+  const handleDeletePolishModel = async (name: string) => {
+    await polishMgr.deleteModel(name, (deleted) => {
+      if (config?.polishLocalModel === deleted) {
+        update("polishLocalModel", "");
+      }
+    });
+  };
+
+  return {
+    setPolishBackend,
+    applyLocalPolishModel,
+    downloadAndUsePolishModel,
+    handleDeletePolishModel,
+  };
 }

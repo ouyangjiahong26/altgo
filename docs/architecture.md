@@ -7,6 +7,7 @@
 altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条语音流水线，React 前端负责主页、设置页与悬浮窗。两个收敛后的设计前提：
 
 - **转写双后端**：由 `[transcriber] backend` 选择。默认 `"local"` 走本地识别（内嵌 sherpa-onnx，模型常驻内存，按 `[transcriber] model` 在注册表命中的引擎里选：SenseVoice 多语种自动检测，FireRedASR2 CTC 中英混说更强，见 `model.rs` 的 `EngineKind`），`"online"` 走小米 MiMo 在线识别（chat/completions + `input_audio`，失败直接报错不回退），分发接缝在 `voice_pipeline/builder.rs` 的 `build_transcriber`。whisper.cpp 与 Whisper API 已随 #121 删除。
+- **润色双引擎**：由 `[polisher] backend` 选择。默认 `"remote"` 走远端 API（OpenAI 兼容或 Anthropic 协议），`"local"` 走本机的润色运行时（llama.cpp 的 llama-server 子进程，模型与运行时都按需下载，见 ADR-0010）。本地引擎的输出还要过保真校验，越界即回退转写原文（见 ADR-0011）。
 - 平台为 Linux（Ubuntu 22.04+，x86_64/aarch64）与 Windows 10+（x86_64/arm64）。旧的 PowerShell 式 Windows 适配曾随 #121 删除，现行实现（`windows.rs`）为原生 API 重写：WH_KEYBOARD_LL 钩子监听按键、cpal/WASAPI 录音、arboard 剪贴板 + SendInput 文本注入（由 `[output] inject_text` 配置控制，默认关闭，ADR 0005）。
 
 核心设计只有一句话：业务核心与框架彻底解耦，平台能力一律收进 trait seam。`voice_pipeline` 模块完全不 import Tauri，只通过 `PipelineSink`、`TranscriptionDispatch`、`OverlaySink` 等 trait seam 与外界交互。按键监听、录音、剪贴板等系统能力也都被收进各自 trait 后面，各平台实现命名为 `linux.rs` / `windows.rs`。
@@ -17,7 +18,7 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 +-----------------+
 |   React 前端     |  设置 / 历史 / 悬浮窗
 +-----------------+
-         | IPC (21 命令 + 12 事件)
+         | IPC (29 命令 + 16 事件)
          v
 +-----------------+
 |  装配层 lib.rs   |  spawn_pipeline_thread：管理状态、组合 seam
@@ -44,7 +45,8 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 | sherpa            |  | recorder                  |
 | polisher          |  | key_capture               |
 | prompt_store      |  | output                    |
-| model             |  +---------------------------+
+| model             |  | polish_runtime            |
+| polish_model      |  +---------------------------+
 +-------------------+
          |
          v
@@ -63,7 +65,9 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 | 按键状态机 | `state_machine.rs` | 纯同步叶子，只返回命令，不执行副作用 |
 | 录音 | `recorder`（`Recorder` trait） | Linux 实现为 `parecord` 子进程 |
 | 转写 | `transcriber`（`Transcriber` trait） | 本地实现 `sherpa.rs`（SenseVoice / FireRedASR2 CTC，按模型注册的引擎选择），在线实现 `mimo_asr.rs`（小米 MiMo） |
-| 润色 | `polisher`（`LLMFormatter`） | 可选，失败降级为原文 |
+| 润色 | `polisher`（`Polisher` trait） | 可选，失败降级为原文。远端实现 `LLMFormatter`，本地实现 `LocalPolisher`，由 `[polisher] backend` 选择 |
+| 本地润色运行时 | `polish_runtime`（`RuntimeProcess` trait） | 按需下载的 llama-server 子进程，惰性启动、空闲回收。本地润色模型清单在 `polish_model` |
+| 保真校验 | `polisher::fidelity` | 本地档输出下发前的四条硬规则，越界回退原文，不暴露给用户 |
 | 悬浮窗 | `overlay`（`OverlaySink` seam） | 生产实现是 Tauri 窗口 |
 | 剪贴板 + 历史 | `dispatcher`（`TranscriptionDispatch` seam）→ `output` + `history` | 失败只 warn，不中断结果返回 |
 | 事件发射 | `tauri_sink`（`PipelineEventEmitter` seam） | 流水线事件到前端的通道 |
@@ -185,6 +189,16 @@ lib.rs
 
 启动时加载一次，改文件需重启生效。
 
+本地引擎共用同一条来源链，但第三级不同：`LocalPolisher` 兜底用 `get_local_system_prompt`，即本地档专用的短提示词（中文约 180 字，英文一份）。原因是实测内置那句长提示词冷启动多 1.1 秒，且 0.6B 对长英文指令的遵循度更差。本地档只提供一档（medium 语义），档位选择在本地档下只当开关用。
+
+### 本地润色运行时：按需下载的子进程
+
+`polish_runtime` 负责把 llama.cpp 的 llama-server 拉起来并确认它能服务，`polish_model` 负责 GGUF 权重。两者都不进安装包：运行时压缩包约 19.5 MB（Windows x64），解包后保留服务器本体与全部动态库共 30 个文件约 46.7 MiB，权重 0.6B 约 397 MB 或 1.7B 约 1.1 GB。清单固定到构建号 b11612 并带 SHA-256，模型走 huggingface.co 与 hf-mirror.com 双源，两者都支持镜像基址环境变量与手动放置文件。
+
+生命周期：惰性启动（第一次真正要润色时拉起）、动态端口（先试 11711，占用则取空闲）、空闲 10 分钟后回收、流水线停止时显式关闭。进程通过 `polish_runtime::active()` 全应用共享一份，避免流水线与设置页各拉一个进程。Windows 上加 Job 对象保证应用异常退出时整组结束，Linux 上补执行位并依赖 `kill_on_drop`。
+
+就绪判定用 `/health`：返回 200 且 body 是 `{"status":"ok"}` 才算就绪，加载中的 503 继续等。子进程在就绪前退出会立刻报错并带上日志尾部。
+
 ### 主循环阻塞是有意设计
 
 `handle_stop_record` 在 select 分支内被 `await`，一次转写/润色会阻塞整个按键循环直到完成。这是有意设计：altgo 的转写是“按一次键录一句”的单发操作，阻塞保证一次只完成一次转写。详见 ADR-0003。
@@ -198,7 +212,7 @@ lib.rs
 | `FatalError` | 构建期，管道不启动 | `ModelNotFound` / `ApiAuthFailed` / `KeyListenerFailed` / `TranscriberInitFailed` / `PolisherInitFailed` / `RecorderInitFailed` |
 | `RecoverableError` | 运行时，降级继续 | `TranscriptionFailed` / `PolishingFailed` / `RecordingFailed` / `EmptyTranscription` |
 
-模块边界一律返回自定义 thiserror 枚举：`TranscriberError` / `PolisherError` / `RecorderError` / `OutputError` / `KeyListenerError` / `ModelError` / `ConfigError` / `HistoryError`。`recorder` 模块有专门测试防止 trait 边界回退到 `anyhow`。
+模块边界一律返回自定义 thiserror 枚举：`TranscriberError` / `PolisherError` / `RecorderError` / `OutputError` / `KeyListenerError` / `ModelError` / `PolishRuntimeError` / `DownloadError` / `ConfigError` / `HistoryError`。其中 `DownloadError` 是模型与运行时共用的下载内核（`download.rs`）的内部错误，各调用方映射成自己域的用户文案，`PolishRuntimeError` 覆盖运行时的文件获取与进程管理两类失败。`recorder` 模块有专门测试防止 trait 边界回退到 `anyhow`。
 
 一个小不一致：运行时 handler 里的错误不经结构化 `PipelineError`，而是取该错误的用户文案（如 `TranscriberError::message()`）交 `sink.on_error`。`PipelineError` 主要用于构建期，两套机制并行存在。
 
@@ -212,6 +226,7 @@ lib.rs
 | `recorder` | `Recorder::start_recording/stop_recording/is_recording` | `parecord` 子进程 | cpal/WASAPI |
 | `output` | `Output::write_clipboard` + `clone_box` | `xclip`/`xsel`/`wl-copy` 探测一次 | arboard 剪贴板 + SendInput 文本注入 |
 | `key_capture` | 无（自由函数） | 监听器在跑时走原始按键旁路，监听没在跑时起 `evtest` 子进程 | 监听器在跑时走原始按键旁路，监听没在跑时挂临时 WH_KEYBOARD_LL 钩子 |
+| `polish_runtime` | `RuntimeProcess::spawn/ensure_executable/physical_core_count` | 解包后补执行位，物理核数从 `/proc/cpuinfo` 的 physical id 与 core id 组合里数 | 子进程不弹控制台窗口并挂进 Job 对象（应用异常退出时整组结束），物理核数用 `GetLogicalProcessorInformationEx` |
 
 另有两处平台相关但不走 trait 的分支：`display_backend.rs` 在 GUI 初始化前探测 Wayland 会话并切 GDK 后端。悬浮窗的主显示器几何在 `overlay/tauri.rs` 内按平台取值：Linux 解析 `xrandr` 输出，Windows 用 Tauri `primary_monitor()`。
 
@@ -223,21 +238,24 @@ lib.rs
 
 ### 命令
 
-`cmd.rs` 暴露 23 个命令：
+`cmd.rs` 暴露 29 个命令：
 
 - 配置 6：`get_config`、`save_config`、`capture_activation_key`、`probe_activation_key`、`test_polisher_connection`、`fetch_provider_catalog`
 - 更新 2：`check_update`、`install_update`
 - 流水线 2：`start_pipeline`、`restart_listener`
 - 悬浮窗 2：`copy_text`、`hide_overlay`
 - 模型 4：`list_models`、`download_model`、`delete_model`、`resolve_model`
+- 本地润色 6：`list_polish_models`、`download_polish_model`、`delete_polish_model`、`polish_runtime_status`、`download_polish_runtime`、`remove_polish_runtime`
 - 历史 4：`list_history`、`delete_history_entries`、`clear_history`、`polish_history_entry`
 - 待重试录音 3：`get_pending_recording`、`retry_pending_transcription`、`discard_pending_recording`
 
 ### 事件
 
-共 12 个 Tauri 事件：
+共 16 个 Tauri 事件：
 
-`pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`、`pending-recording-changed`、`key-probe-armed`。
+`pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`、`polish-model-download-progress`、`polish-model-download-finished`、`polish-runtime-download-progress`、`polish-runtime-download-finished`、`pending-recording-changed`、`key-probe-armed`。
+
+本地润色的四个事件与转写模型的 `model-*` 事件分开命名：两类模型的下载进度互不干扰，前端各自渲染到自己的卡片上。模型事件载荷带 `name` 字段，运行时事件不带（同一时刻只有一个运行时）。
 
 `pending-recording-changed` 载荷为待重试录音元信息（`durationMs` + 错误码结构）或 null。保留与清空（重试成功、用户放弃）都会发出，主窗横幅据此显隐。
 
@@ -264,5 +282,6 @@ lib.rs
 
 - `voice_pipeline` 完全不 import Tauri，全靠 trait seam。
 - 状态机、`overlay/manager` 都是干净的叶子/纯逻辑，测试覆盖好。
-- 回退链设计成熟：`prompt` 三级，模型下载由官方回退到镜像。
+- 回退链设计成熟：`prompt` 三级，模型下载由官方回退到镜像，运行时与模型都支持手动放置。
 - 错误分类致命/可恢复边界清晰。
+- 下载内核（`download.rs`）被转写模型、润色模型与运行时三处共用，多基址回退与校验只有一份实现。

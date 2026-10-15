@@ -68,7 +68,19 @@
 转写完成后把最终文本一次性输入到当前焦点窗口光标处的输出动作，仅 Windows 提供。由 `inject_text` 配置控制，默认关闭。_Avoid_: 自动粘贴、流式插入。
 
 **润色器（Polisher）**
-可选的 LLM 后处理步骤。由 `PolishLevel`（`none`/`light`/`medium`/`heavy`）控制。与任意 OpenAI 兼容聊天 API 或 Anthropic Messages API 通信。
+可选的 LLM 后处理步骤。由 `PolishLevel`（`none`/`light`/`medium`/`heavy`）控制，实际执行交给润色引擎。
+
+**润色引擎（Polish Engine）**
+执行润色的后端，由 `[polisher] backend` 选择。两个实现：远端 `LLMFormatter`（与任意 OpenAI 兼容聊天 API 或 Anthropic Messages API 通信）与本地 `LocalPolisher`（与润色运行时的回环接口通信）。_Avoid_: 润色器（指后端时）、润色服务。
+
+**本地润色模型（Local Polish Model）**
+本地润色引擎使用的模型权重，按需下载，不随安装包分发。当前提供 Qwen3-0.6B 与 Qwen3-1.7B 两档。_Avoid_: 本地模型（与转写模型混用）。
+
+**润色运行时（Polish Runtime）**
+本机执行本地润色模型的独立进程，通过回环 HTTP 暴露 OpenAI 兼容接口。由 altgo 按需下载，并在本地润色引擎需要时启动与回收。_Avoid_: 本地服务、推理进程。
+
+**保真校验（Fidelity Guard）**
+润色输出下发前的检查：只允许修正标点、错别字、口头语与断句，数字、URL、路径等实体必须逐字保留，越界即判定润色失败并回退转写原文。只在本地润色引擎上启用。_Avoid_: 输出校验、结果过滤。
 
 **PromptStore**
 管理润色器的 prompt 模板文件：从 `resources/prompts/` 加载，把 base + 各档后缀组合成完整系统 prompt，首次使用时校验。启动时加载一次，改文件需重启。校验失败时降级（退回自定义或内置 prompt，润色继续用原文）。

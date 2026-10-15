@@ -26,7 +26,7 @@ altgo 是桌面语音转文字工具。按住触发键说话，松开即自动�
 
   ![转写中的悬浮窗：旋转环与进度线](assets/overlay-phase-transcribing.svg)
 
-- **LLM 润色**（可选）：四档强度，支持 OpenAI 兼容协议与 Anthropic Messages API，内置多家提供商预设
+- **LLM 润色**（可选）：四档强度，支持 OpenAI 兼容协议与 Anthropic Messages API，内置多家提供商预设，也可完全离线用本机模型（本地档单档，运行时与权重按需下载）
 - **结果写入剪贴板**，并在屏幕底部悬浮窗以单行悬浮条扫一眼确认
 
   ![完成后的悬浮窗：对勾与单行结果，悬停显示关闭按钮](assets/overlay-phase-result.svg)

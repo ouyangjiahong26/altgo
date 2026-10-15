@@ -21,14 +21,84 @@ pub mod protocol;
 mod cleanup;
 mod connectivity;
 mod endpoint;
+mod fidelity;
 mod formatter;
 mod level;
+mod local;
 mod prompt;
 mod thinking;
 mod transport;
+
+use crate::error::PolisherError;
+use std::future::Future;
+use std::pin::Pin;
 
 pub use connectivity::{describe_test_error, test_connection};
 pub use endpoint::build_endpoint;
 pub use formatter::LLMFormatter;
 pub use level::{PolishLevel, ThinkingLevel};
+pub(crate) use local::LocalPolisher;
 pub use prompt::{CustomSource, PromptStoreSource, SystemPromptSource};
+
+/// 润色引擎：远端 API 与本地运行时两种实现。
+///
+/// 流水线与 IPC handler 只依赖这个接口，`[polisher] backend` 决定构造哪一种。
+pub trait Polisher: Send + Sync {
+    /// 按档位润色文本。档位为 `None` 或文本为空时返回原文。
+    fn polish<'a>(
+        &'a self,
+        text: &'a str,
+        level: PolishLevel,
+    ) -> Pin<Box<dyn Future<Output = Result<String, PolisherError>> + Send + 'a>>;
+
+    /// 润色并追加用户补充要求。
+    fn polish_with_instruction<'a>(
+        &'a self,
+        text: &'a str,
+        level: PolishLevel,
+        instruction: &'a str,
+    ) -> Pin<Box<dyn Future<Output = Result<String, PolisherError>> + Send + 'a>>;
+
+    /// 回收空闲资源：本地引擎据此在空闲超时后关掉运行时进程，远端无事可做。
+    fn release_idle<'a>(
+        &'a self,
+    ) -> Pin<Box<dyn Future<Output = Result<bool, PolisherError>> + Send + 'a>> {
+        Box::pin(async { Ok(false) })
+    }
+
+    /// 流水线停止时释放资源（本地引擎在这里关掉运行时进程）。
+    fn shutdown<'a>(&'a self) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+        Box::pin(async {})
+    }
+}
+
+impl Polisher for LLMFormatter {
+    fn polish<'a>(
+        &'a self,
+        text: &'a str,
+        level: PolishLevel,
+    ) -> Pin<Box<dyn Future<Output = Result<String, PolisherError>> + Send + 'a>> {
+        Box::pin(async move { LLMFormatter::polish(self, text, level).await })
+    }
+
+    fn polish_with_instruction<'a>(
+        &'a self,
+        text: &'a str,
+        level: PolishLevel,
+        instruction: &'a str,
+    ) -> Pin<Box<dyn Future<Output = Result<String, PolisherError>> + Send + 'a>> {
+        Box::pin(async move {
+            LLMFormatter::polish_with_instruction(self, text, level, instruction).await
+        })
+    }
+}
+
+/// 按配置构造润色引擎。
+///
+/// 实时流水线与历史重润都走这里，保证两条路径用的是同一个后端。
+pub fn build_polisher(cfg: &crate::config::Config) -> Result<Box<dyn Polisher>, PolisherError> {
+    match cfg.polisher.backend.trim().to_lowercase().as_str() {
+        "local" => Ok(Box::new(LocalPolisher::new(cfg)?)),
+        _ => Ok(Box::new(LLMFormatter::from_config_with_sources(cfg)?)),
+    }
+}

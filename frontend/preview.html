@@ -553,6 +553,73 @@
                         </div>
                       </section>
 
+                      <!-- 本地润色段：真实实现里是润色分区在“润色引擎”选为本地时的分支 -->
+                      <section class="settings-section settings-section--polishing">
+                        <h3 class="settings-section-title">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+                          润色（本地档）
+                        </h3>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">润色引擎</span>
+                          <div class="settings-field-control settings-field-control--narrow">
+                            <select class="select">
+                              <option>云端 API</option>
+                              <option selected>本地模型</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">润色级别</span>
+                          <div class="settings-field-control settings-field-control--narrow">
+                            <select class="select">
+                              <option>关闭</option>
+                              <option selected>开启（中等档）</option>
+                            </select>
+                          </div>
+                        </div>
+                        <p class="settings-hint settings-hint--polish">本地档只提供一档，参数已按实测调好。</p>
+                        <div class="settings-model-grid">
+                          <div class="settings-model-card is-active">
+                            <div class="settings-model-card-head">
+                              <span class="settings-model-card-name">qwen3-0.6b</span>
+                              <span class="settings-model-card-badge">当前</span>
+                            </div>
+                            <p class="settings-model-card-desc">默认档，速度最快，约 1 GB 内存。</p>
+                            <p class="settings-model-card-meta">378 MB · Qwen3-0.6B-Q4_K_M.gguf</p>
+                            <div class="settings-model-card-actions">
+                              <button type="button" class="btn btn-sm btn-secondary" disabled>当前</button>
+                              <button type="button" class="btn btn-sm btn-danger">删除</button>
+                            </div>
+                          </div>
+                          <div class="settings-model-card">
+                            <div class="settings-model-card-head">
+                              <span class="settings-model-card-name">qwen3-1.7b</span>
+                            </div>
+                            <p class="settings-model-card-desc">质量更高，速度约为默认档的一半，约 2.5 GB 内存。</p>
+                            <p class="settings-model-card-meta">1.0 GB · 未下载</p>
+                            <div class="settings-model-card-actions">
+                              <button type="button" class="btn btn-sm btn-primary">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                下载并使用
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="settings-field">
+                          <span class="settings-field-label-text">润色运行时</span>
+                          <div class="settings-field-control">
+                            <span class="badge">已安装 b11612</span>
+                            <button type="button" class="btn btn-sm btn-secondary">重新下载</button>
+                          </div>
+                        </div>
+                        <div class="model-progress" style="width: 100%">
+                          <div class="progress-bar">
+                            <div class="progress-fill" style="width: 42%"></div>
+                          </div>
+                          <span class="progress-text">42%</span>
+                        </div>
+                      </section>
+
                       <!-- 外观段 -->
                       <section class="settings-section settings-section--appearance">
                         <h3 class="settings-section-title">

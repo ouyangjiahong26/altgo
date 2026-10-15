@@ -164,3 +164,27 @@ export function useModelDownloadProgress(): {
     total: 0,
   });
 }
+
+/** 润色模型下载进度，载荷形状与转写模型的进度事件一致。 */
+export function usePolishModelDownloadProgress(): {
+  name: string | null;
+  downloaded: number;
+  total: number;
+} {
+  return useTauriEvent("polish-model-download-progress", {
+    name: null,
+    downloaded: 0,
+    total: 0,
+  });
+}
+
+/** 润色运行时下载进度，同一时刻只有一个运行时，载荷不带名字。 */
+export function usePolishRuntimeDownloadProgress(): {
+  downloaded: number;
+  total: number;
+} {
+  return useTauriEvent("polish-runtime-download-progress", {
+    downloaded: 0,
+    total: 0,
+  });
+}

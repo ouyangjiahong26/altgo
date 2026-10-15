@@ -14,20 +14,20 @@ altgo：Rust + Tauri 桌面语音转文字工具。
 Key Listener → State Machine → Recorder → Transcriber → Polisher → Output (+ History)
 ```
 
-- 按键事件经 `mpsc` 进 `src-tauri/src/voice_pipeline/context.rs` 的 `tokio::select!` 三路主循环（按键、状态机超时 `sleep_until(deadline)`、oneshot 停止信号）。`state_machine.rs` 的 5 态状态机（Idle/PotentialPress/Recording/WaitSecondClick/ContinuousRecording）同步返回 `StartRecord`/`StopRecord`。转写与润色在主循环内串行完成，保证单次转写互斥（ADR-0003）。
-- 停止录音后由 `handlers::handle_stop_record` 收尾：先把 PCM 封装为 WAV，交 `SherpaTranscriber`（`spawn_blocking` 推理），再过 `LLMFormatter::polish`（失败置 `polish_failed` 并回退原文），得到的 `TranscriptionResult` 交给 `PipelineSink`。`tauri_sink.rs` 由此发前端事件并切悬浮窗相位。`TranscriptionDispatch` 落到 `select_text`（按偏好选文本）后写剪贴板（`Output::write_clipboard`，Windows 可选 `inject_text`，默认关，见 ADR-0005），最后 `HistoryStore::append` 追加历史。
-- 关键 trait 接缝：`KeyListener`、`Recorder`、`Output`、`Transcriber`、`KeyCapture`（`key_capture/mod.rs`）、`PipelineSink`/`TranscriptionDispatch`（`voice_pipeline/`）、`OverlayWindow`/`OverlaySink`（`overlay/seam.rs`）、`UpdateProvider`（`updater.rs`）、`UserActivityClock`（`overlay/activity.rs`）。
+- 按键事件经 `mpsc` 进 `src-tauri/src/voice_pipeline/context.rs` 的 `tokio::select!` 五路主循环（按键、状态机超时 `sleep_until(deadline)`、重试请求、空闲回收节拍、oneshot 停止信号）。`state_machine.rs` 的 5 态状态机（Idle/PotentialPress/Recording/WaitSecondClick/ContinuousRecording）同步返回 `StartRecord`/`StopRecord`。转写与润色在主循环内串行完成，保证单次转写互斥（ADR-0003）。主循环退出前会显式关掉本地润色运行时。
+- 停止录音后由 `handlers::handle_stop_record` 收尾：先把 PCM 封装为 WAV，交 `SherpaTranscriber`（`spawn_blocking` 推理），再过 `Polisher::polish`（远端 `LLMFormatter` 或本机 `LocalPolisher`，本地档的输出还要过保真校验，失败置 `polish_failed` 并回退原文），得到的 `TranscriptionResult` 交给 `PipelineSink`。`tauri_sink.rs` 由此发前端事件并切悬浮窗相位。`TranscriptionDispatch` 落到 `select_text`（按偏好选文本）后写剪贴板（`Output::write_clipboard`，Windows 可选 `inject_text`，默认关，见 ADR-0005），最后 `HistoryStore::append` 追加历史。
+- 关键 trait 接缝：`KeyListener`、`Recorder`、`Output`、`Transcriber`、`Polisher`（`polisher.rs`，远端与本地两个实现）、`RuntimeProcess`/`RuntimeChild`（`polish_runtime/`，子进程生命周期）、`KeyCapture`（`key_capture/mod.rs`）、`PipelineSink`/`TranscriptionDispatch`（`voice_pipeline/`）、`OverlayWindow`/`OverlaySink`（`overlay/seam.rs`）、`UpdateProvider`（`updater.rs`）、`UserActivityClock`（`overlay/activity.rs`）。
 - 平台模块三文件布局：`mod.rs` 定 trait 与 `#[cfg(target_os)] Platform*` 别名，`linux.rs`/`windows.rs` 各自实现。Linux 走子进程（`xinput`/`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`），Windows 走原生 API（WH_KEYBOARD_LL、cpal/WASAPI、arboard 加 SendInput）。
 - 整条管道跑在独立 OS 线程的 current_thread tokio runtime 上（`lib.rs::spawn_pipeline_thread`）。一切阻塞工作（推理、剪贴板、历史 I/O、join 线程）走 `spawn_blocking`。
 - 状态管理：Tauri managed state 四件。`ConfigStore` 持锁更新，校验或落盘失败回滚内存。`HistoryStore` 模块级 I/O 锁，Unix 落盘 0o600。`PipelineController` 管生命周期与 `PipelineStatus` 五态。另有 `Arc<dyn Output>`。
-- IPC：`cmd.rs` 23 个 `#[tauri::command]`。事件有 `pipeline-status`/`transcription-result`/`polish-failed`/`history-updated`/`overlay-state` 等，emit 点在 `tauri_sink.rs` 与 `cmd.rs`，前端 `hooks/useTauri.ts` 统一 listen。
+- IPC：`cmd.rs` 29 个 `#[tauri::command]`。事件有 `pipeline-status`/`transcription-result`/`polish-failed`/`history-updated`/`overlay-state`/`polish-model-download-progress` 等，emit 点在 `tauri_sink.rs` 与 `cmd.rs`，前端 `hooks/useTauri.ts` 统一 listen。
 - 前端三个窗口。主窗（`index.html`，HashRouter 两个页面：主页含历史列表与设置，首次启动先显示引导向导）。悬浮窗（`overlay.html`，独立样式链，动画只动 transform 防 Linux WM 黑晕）。更新说明窗口（`update-notes.html`，手动检查发现新版本时弹出，随应用启动常驻加载，关闭走 hide）。主题、字体、窗口尺寸存 localStorage，不进 Tauri 配置。
 
 ## Key Directories
 
 | 路径 | 用途 |
 |---|---|
-| `src-tauri/src/` | Rust 核心（crate `altgo-tauri`）：`voice_pipeline/` 业务主循环、`key_listener/`、`key_capture/`、`recorder/`、`output/`、`overlay/`（seam/manager/tauri/activity 分层）、`polisher/`，根文件见 “Important Files” |
+| `src-tauri/src/` | Rust 核心（crate `altgo-tauri`）：`voice_pipeline/` 业务主循环、`key_listener/`、`key_capture/`、`recorder/`、`output/`、`overlay/`（seam/manager/tauri/activity 分层）、`polisher/`（含 `local.rs` 与 `fidelity.rs`）、`polish_runtime/`（本地润色运行时与进程管理）、`polish_model.rs`、`download.rs`（共用下载内核），根文件见 “Important Files” |
 |`frontend/src/`|React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）加 `overlay.tsx` 悬浮窗。`styles/` 分层按加载顺序为 design-tokens、design-system、global、layout、components、pages|
 |`frontend/style-review.html`|样式审查页目录（`frontend/review/` 下按主题分五个分页：设计 token、基础与组件、界面、窗口、页面整体）：各分页按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*`，另加悬浮窗与更新说明窗口的 `src/overlay.css`、`src/styles/pages/update-notes.css`（这两份不在 `main.tsx` 的链上），共享 `review/review.css` 框架样式与 `review/review.js` 主题、字号切换。`frontend/preview.html` 是改样式后的唯一预览入口（一页看全各窗口，带配色切换），`review/figures.html` 按窗口真实尺寸单独渲染任一状态（`?fig=` 指定，`?probe=` 打印控件计算值），均不在 vite 构建入口内|
 | `tools/assets/` | 品牌资产生成：图标母版 `altgo-icon.svg`（带底方块）与 `altgo-mark.svg`（透明底裸标记）、`build-icon.mjs`，横幅与分享图母版、`build-assets.mjs`，GPT 出图 `gen.mjs`（提示词见 `prompts.brand.json`），截图用静态服务器 `serve.mjs`。用法见 `tools/assets/README.md` |
@@ -89,7 +89,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 ## Important Files
 
-- `src-tauri/src/lib.rs`：装配入口 `run()`、`spawn_pipeline_thread`、23 个命令注册。
+- `src-tauri/src/lib.rs`：装配入口 `run()`、`spawn_pipeline_thread`、29 个命令注册。
 - `src-tauri/src/voice_pipeline/context.rs`：select! 主循环。`handlers.rs`：录音、转写、润色、分发编排。
 - `src-tauri/src/cmd.rs`：全部 IPC 命令（测试在 `cmd/tests.rs`）。`tauri_sink.rs`：事件映射与悬浮窗相位切换。
 - `src-tauri/src/error.rs`：全部错误枚举。`state_machine.rs`：按键状态机。
@@ -129,7 +129,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 ## Testing & QA
 
-- 五层模型（`docs/testing.md`）：纯逻辑、语音流水线、Tauri 适配（含 Linux 平台接缝）、前端交互、端到端（当前 0 个，缺口清单 6 条）。一个模块的测试属于且仅属于一层。
+- 五层模型（`docs/testing.md`）：纯逻辑、语音流水线、Tauri 适配（含 Linux 平台接缝）、前端交互、端到端（当前 0 个，缺口清单 7 条）。一个模块的测试属于且仅属于一层。
 - 组织：每个源文件末尾 `#[cfg(test)] mod tests`（`use super::*`）。无集成测试目录。前端测试与源码同目录（vitest 加 jsdom 加 Testing Library，`*.test.ts(x)`）。
 - 替身四类：tempfile（文件 I/O）、mockito（HTTP 假服务器）、共享 `src-tauri/src/voice_pipeline/test_doubles.rs`（流水线层唯一替身来源，不自造第二套）、闭包注入（emit/download/spawn）。`tauri_sink.rs`、`overlay/manager.rs`、`updater.rs` 各有模块私有 mock。
 - 环境容忍：依赖系统工具的测试对两种环境都断言（有 `xinput` 断 Ok，无则断 Err），保证无显示服务器的 CI 与开发机一致。禁止用 `#[ignore]` 藏测试。

@@ -45,11 +45,21 @@ export function DoneStep({ t, config, onlineActive, message }: DoneStepProps) {
           <span className="settings-field-label-text">{t("settings.polishing")}</span>
           <div className="settings-field-control">
             <span className="onboarding-summary-value">
-              {config.polishLevel === "none"
-                ? t("settings.polish_none")
-                : [config.polishModel, t(POLISH_LEVEL_KEYS[config.polishLevel] ?? "settings.polish_none")]
-                  .filter(Boolean)
-                  .join(" · ")}
+              {config.polishBackend === "local"
+                ? [
+                    t("settings.polish_backend_local"),
+                    config.polishLevel === "none"
+                      ? t("settings.polish_local_level_none")
+                      : t("settings.polish_local_level_on"),
+                    config.polishLocalModel,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : config.polishLevel === "none"
+                  ? t("settings.polish_none")
+                  : [config.polishModel, t(POLISH_LEVEL_KEYS[config.polishLevel] ?? "settings.polish_none")]
+                    .filter(Boolean)
+                    .join(" · ")}
             </span>
           </div>
         </div>

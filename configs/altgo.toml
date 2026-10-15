@@ -33,11 +33,13 @@ model = "mimo-v2.5-asr"             # 在线 ASR 模型名
 timeout = 60                        # 请求超时时间（秒）
 
 [polisher]
+backend = "remote"                  # 润色引擎："remote"（远端 API，默认）或 "local"（本机运行时，需先下载运行时与模型）
+local_model = "qwen3-0.6b"          # 本地模型（backend = "local" 时生效）："qwen3-0.6b"、"qwen3-1.7b"，或自定义 GGUF 文件路径
 protocol = "openai"                 # "openai"（OpenAI 兼容 API）或 "anthropic"（Anthropic Messages API）
-api_key = ""                        # API Key，也可通过 ALTGO_POLISHER_API_KEY 环境变量设置
-api_base_url = ""                   # API Base URL，level 不为 "none" 时必须设置，带不带版本路径均可
+api_key = ""                        # API Key，也可通过 ALTGO_POLISHER_API_KEY 环境变量设置（backend = "remote" 时必需）
+api_base_url = ""                   # API Base URL，backend = "remote" 且 level 不为 "none" 时必需，带不带版本路径均可
                                      # （如 https://api.deepseek.com 或 https://api.moonshot.cn/v1）
-model = ""                          # 模型名，level 不为 "none" 时必须设置
+model = ""                          # 模型名，backend = "remote" 且 level 不为 "none" 时必需
 level = "none"                      # 润色级别："none"（禁用）、"light"、"medium"、"heavy"
 max_tokens = 1024                   # LLM 响应的最大 token 数
 timeout = 60                        # 请求超时时间（秒）

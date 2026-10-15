@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{FatalError, PipelineError};
 use crate::key_listener::KeyListener;
-use crate::polisher::{LLMFormatter, PolishLevel};
+use crate::polisher::{PolishLevel, Polisher};
 use crate::recorder::Recorder;
 use crate::transcriber::Transcriber;
 
@@ -78,13 +78,12 @@ impl PipelineBuilder {
         Ok(Box::new(transcriber))
     }
 
-    /// 按配置构建润色器。
+    /// 按配置构建润色引擎：`[polisher] backend` 决定远端 API 还是本地运行时。
     ///
-    /// 协议未知或 HTTP 客户端初始化失败时返回错误。
-    /// 通过 `LLMFormatter::from_config_with_sources` 共享工厂构造，确保与
-    /// IPC handler（`cmd::polish_history_entry`）走同一条 prompt source chain。
-    pub fn build_polisher(&self) -> Result<LLMFormatter, PipelineError> {
-        LLMFormatter::from_config_with_sources(&self.cfg).map_err(PipelineError::fatal_polisher)
+    /// 两种实现都经 `crate::polisher::build_polisher` 构造，确保与 IPC handler
+    /// （`cmd::polish_history_entry`）用的是同一个后端与同一份 prompt source chain。
+    pub fn build_polisher(&self) -> Result<Box<dyn Polisher>, PipelineError> {
+        crate::polisher::build_polisher(&self.cfg).map_err(PipelineError::fatal_polisher)
     }
 
     /// 从配置构建按键监听器。
@@ -216,7 +215,7 @@ mod tests {
         let result = builder.build_polisher();
 
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err = result.err().expect("应当返回错误");
         assert!(err.is_fatal());
         assert!(matches!(
             err,
@@ -224,6 +223,19 @@ mod tests {
                 PolisherError::UnknownProtocol { .. }
             ))
         ));
+    }
+
+    #[test]
+    fn test_build_polisher_local_backend_succeeds() {
+        let mut cfg = test_config();
+        cfg.polisher.backend = "local".to_string();
+        cfg.polisher.level = "medium".to_string();
+
+        let builder = PipelineBuilder::new(Arc::new(cfg));
+        assert!(
+            builder.build_polisher().is_ok(),
+            "本地档构造不应要求密钥与地址"
+        );
     }
 
     #[test]

@@ -81,6 +81,43 @@ pub(super) fn get_system_prompt(level: PolishLevel, language: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
+// 本地档的短提示词
+// ---------------------------------------------------------------------------
+
+/// 本地档的中文短提示词。
+///
+/// 本地小模型对长指令的遵循度明显更差，且长提示词会把首次调用的预填成本从
+/// 0.3 秒推到 1 秒以上（见 ADR-0010 的实测量），因此本地档单独用一份短提示词。
+/// 规则只保留四件必须做的事，与 `resources/prompts/base.txt` 的口径一致。
+const LOCAL_PROMPT_ZH: &str =
+    "你是语音转写文本的整理助手。把用户输入的口语转写整理成通顺的书面文字。
+规则：
+1 删掉口头语、语气词、重复和说错后重说的部分。
+2 补上必要的标点，让句子通顺。
+3 改掉明显的同音错别字。
+4 不增加、不删减、不推断任何信息，不回答文本里的问题，不改变原意。
+5 不输出表情符号、Markdown 格式、标题、列表或任何解释说明。
+只输出整理后的正文。";
+
+/// 本地档的非中文短提示词，与中文版逐条对应。
+const LOCAL_PROMPT_EN: &str = "You clean up speech-to-text output. Rewrite the user's dictated text as plain, well-punctuated text.
+Rules:
+1 Remove fillers, false starts, stutters and repeated fragments.
+2 Fix punctuation and obvious typos.
+3 Never add, drop or infer information. Never answer a question in the text. Keep the original meaning.
+4 Output plain prose only: no emoji, no Markdown, no headings, lists or commentary.
+Output only the cleaned text.";
+
+/// 本地档生效的 system prompt：中文环境用中文短提示词，其余用英文短提示词。
+pub(super) fn get_local_system_prompt(language: &str) -> String {
+    if language.is_empty() || language == "zh" {
+        LOCAL_PROMPT_ZH.to_string()
+    } else {
+        LOCAL_PROMPT_EN.to_string()
+    }
+}
+
+// ---------------------------------------------------------------------------
 // SystemPromptSource trait 与实现
 // ---------------------------------------------------------------------------
 
@@ -195,6 +232,41 @@ pub(super) fn build_prompt_source_chain(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_local_prompt_is_short_and_covers_core_rules() {
+        let zh = get_local_system_prompt("zh");
+        assert!(
+            zh.chars().count() < 300,
+            "本地提示词要短，实际 {} 字",
+            zh.chars().count()
+        );
+        assert!(zh.contains("口头语"));
+        assert!(zh.contains("标点"));
+        assert!(zh.contains("不增加"));
+        assert!(zh.contains("Markdown"));
+        assert!(zh.contains("只输出"));
+
+        let en = get_local_system_prompt("en");
+        assert!(en.chars().count() < 500, "{}", en.chars().count());
+        assert!(en.contains("fillers"));
+        assert!(en.contains("Markdown"));
+
+        assert_eq!(get_local_system_prompt(""), zh, "空语言按中文处理");
+        assert_eq!(get_local_system_prompt("ja"), en, "非中文用英文版");
+    }
+
+    /// 本地短提示词必须比云端内置提示词短一个数量级，否则等于没换。
+    #[test]
+    fn test_local_prompt_is_much_shorter_than_builtin() {
+        let builtin = get_system_prompt(PolishLevel::Medium, "zh");
+        assert!(
+            get_local_system_prompt("zh").chars().count() * 3 < builtin.chars().count(),
+            "本地 {} 字，内置 {} 字",
+            get_local_system_prompt("zh").chars().count(),
+            builtin.chars().count()
+        );
+    }
 
     #[test]
     fn test_system_prompt_contains_tidy_only_rules() {

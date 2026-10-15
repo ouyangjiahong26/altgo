@@ -230,6 +230,8 @@ fn build_config_response_maps_fields() {
     cfg.transcriber.language = "en".to_string();
     cfg.transcriber.model = "sense-voice".to_string();
     cfg.polisher.level = "light".to_string();
+    cfg.polisher.backend = "local".to_string();
+    cfg.polisher.local_model = "qwen3-1.7b".to_string();
     cfg.polisher.thinking_level = "high".to_string();
     cfg.polisher.api_key = "polish-key".to_string();
     cfg.output.inject_text = true;
@@ -241,6 +243,11 @@ fn build_config_response_maps_fields() {
     assert_eq!(resp.model, "sense-voice");
     assert!(resp.has_polisher_api_key);
     assert_eq!(resp.polish_level, "light");
+    assert_eq!(
+        resp.polish_backend, "local",
+        "本地档选择必须回传前端，否则保存时会写回云端"
+    );
+    assert_eq!(resp.polish_local_model, "qwen3-1.7b");
     assert_eq!(resp.polish_thinking_level, "high");
     assert_eq!(resp.overlay_position, "bottom_center");
     assert!(resp.auto_check_update);
@@ -547,4 +554,124 @@ fn retry_pending_transcription_core_validates_slot_and_pipeline() {
     retry.set(tx);
     assert!(retry_pending_transcription_core(&store, &retry).is_ok());
     assert_eq!(rx.try_recv(), Ok(()));
+}
+
+// -- 本地润色：润色模型与运行时 ---------------------------------------------
+
+/// 收集事件用的注入发射器。
+fn collecting_emitter(events: &Arc<Mutex<Vec<(String, serde_json::Value)>>>) -> EventEmitter {
+    let sink = Arc::clone(events);
+    Arc::new(move |event: &str, payload| {
+        sink.lock().unwrap().push((event.to_string(), payload));
+    })
+}
+
+#[tokio::test]
+async fn download_polish_model_emits_initial_progress_then_success() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let emit = collecting_emitter(&events);
+
+    download_polish_model_with_emitter("qwen3-0.6b", emit, |_name, mut on_progress| async move {
+        on_progress(0, 100);
+        on_progress(100, 100);
+        Ok(PathBuf::from(
+            "/polish-models/qwen3-0.6b/Qwen3-0.6B-Q4_K_M.gguf",
+        ))
+    })
+    .await
+    .unwrap();
+
+    let events = events.lock().unwrap();
+    assert!(events.len() >= 3, "{events:?}");
+    assert_eq!(events[0].0, "polish-model-download-progress");
+    assert_eq!(events[0].1["name"], "qwen3-0.6b");
+    assert_eq!(events[0].1["downloaded"], 0);
+    assert_eq!(
+        events[0].1["total"],
+        crate::polish_model::find("qwen3-0.6b").unwrap().size_bytes as i64
+    );
+
+    let last = events.last().unwrap();
+    assert_eq!(last.0, "polish-model-download-finished");
+    assert_eq!(last.1["success"], true);
+    assert_eq!(last.1["name"], "qwen3-0.6b");
+    assert!(last.1["path"].as_str().unwrap().ends_with(".gguf"));
+}
+
+#[tokio::test]
+async fn download_polish_model_failure_reports_error_in_finished_event() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let emit = collecting_emitter(&events);
+
+    download_polish_model_with_emitter("qwen3-1.7b", emit, |_name, _on_progress| async move {
+        Err(ModelError::DownloadFailed("网络不通".to_string()))
+    })
+    .await
+    .unwrap();
+
+    let events = events.lock().unwrap();
+    let last = events.last().unwrap();
+    assert_eq!(last.0, "polish-model-download-finished");
+    assert_eq!(last.1["success"], false);
+    assert_eq!(last.1["name"], "qwen3-1.7b");
+    assert!(last.1["error"].as_str().unwrap().contains("网络不通"));
+}
+
+#[tokio::test]
+async fn download_polish_model_rejects_unknown_name_without_events() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let emit = collecting_emitter(&events);
+
+    let error =
+        download_polish_model_with_emitter("ernie-0.3b", emit, |_name, _on_progress| async move {
+            Ok(PathBuf::from("/unused"))
+        })
+        .await
+        .unwrap_err();
+
+    assert!(error.contains("ernie-0.3b"), "{error}");
+    assert!(events.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn download_polish_runtime_emits_progress_and_success() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let emit = collecting_emitter(&events);
+
+    download_polish_runtime_with_emitter(19_553_433, emit, |mut on_progress| async move {
+        on_progress(1_000, 19_553_433);
+        on_progress(19_553_433, 19_553_433);
+        Ok(())
+    })
+    .await
+    .unwrap();
+
+    let events = events.lock().unwrap();
+    assert_eq!(events[0].0, "polish-runtime-download-progress");
+    assert_eq!(events[0].1["downloaded"], 0);
+    assert_eq!(events[0].1["total"], 19_553_433);
+    let last = events.last().unwrap();
+    assert_eq!(last.0, "polish-runtime-download-finished");
+    assert_eq!(last.1["success"], true);
+}
+
+#[tokio::test]
+async fn download_polish_runtime_failure_reports_chinese_message() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let emit = collecting_emitter(&events);
+
+    download_polish_runtime_with_emitter(1, emit, |_on_progress| async move {
+        Err(crate::error::PolishRuntimeError::Download(
+            "网络不通".to_string(),
+        ))
+    })
+    .await
+    .unwrap();
+
+    let events = events.lock().unwrap();
+    let last = events.last().unwrap();
+    assert_eq!(last.0, "polish-runtime-download-finished");
+    assert_eq!(last.1["success"], false);
+    let error = last.1["error"].as_str().unwrap();
+    assert!(error.contains("下载润色运行时失败"), "{error}");
 }

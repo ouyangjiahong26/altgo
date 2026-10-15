@@ -18,6 +18,8 @@ describe("saveRequestBody", () => {
     polishApiBaseUrl: "",
     polishProtocol: "openai",
     polishThinkingLevel: "off",
+    polishBackend: "remote",
+    polishLocalModel: "qwen3-0.6b",
     guiLanguage: "zh",
     overlayPosition: "bottom_center",
     autoCheckUpdate: true,
@@ -51,6 +53,16 @@ describe("saveRequestBody", () => {
     expect(result).toHaveProperty("polishThinkingLevel", "medium");
   });
 
+  it("includes polishBackend in the request body", () => {
+    const result = saveRequestBody({ ...base, polishBackend: "local" });
+    expect(result).toHaveProperty("polishBackend", "local");
+  });
+
+  it("includes polishLocalModel in the request body", () => {
+    const result = saveRequestBody({ ...base, polishLocalModel: "qwen3-1.7b" });
+    expect(result).toHaveProperty("polishLocalModel", "qwen3-1.7b");
+  });
+
   it("includes polishApiKey when polisherApiKey is non-empty", () => {
     const result = saveRequestBody({ ...base, polisherApiKey: "sk-def" });
     expect(result).toHaveProperty("polishApiKey", "sk-def");
@@ -81,6 +93,33 @@ describe("normalizeConfig", () => {
     expect(result.linuxEvdevCode).toBeNull();
   });
 
+  it("defaults the polish backend to remote and the local model name", () => {
+    const input = {
+      keyName: "AltRight",
+      language: "zh",
+      model: "",
+      polishLevel: "none",
+      polishModel: "",
+      polishApiBaseUrl: "",
+      guiLanguage: "zh",
+      polisherApiKey: "",
+      hasPolisherApiKey: false,
+    } as unknown as AppConfig;
+    const result = normalizeConfig(input);
+    expect(result.polishBackend).toBe("remote");
+    expect(result.polishLocalModel).toBe("qwen3-0.6b");
+  });
+
+  it("normalizes a local polish backend case-insensitively", () => {
+    const input = { polishBackend: " Local " } as unknown as AppConfig;
+    expect(normalizeConfig(input).polishBackend).toBe("local");
+  });
+
+  it("falls back to remote for an unknown polish backend", () => {
+    const input = { polishBackend: "cloud" } as unknown as AppConfig;
+    expect(normalizeConfig(input).polishBackend).toBe("remote");
+  });
+
   it("clears API key in normalized output", () => {
     const input: AppConfig = {
       keyName: "AltRight",
@@ -98,6 +137,8 @@ describe("normalizeConfig", () => {
       polishApiBaseUrl: "",
       polishProtocol: "openai",
       polishThinkingLevel: "off",
+      polishBackend: "local",
+      polishLocalModel: "qwen3-1.7b",
       guiLanguage: "zh",
       overlayPosition: "bottom_center",
       autoCheckUpdate: true,
