@@ -7,6 +7,10 @@
 
 ## Unreleased
 
+### Added
+
+- **新增离线资产包，给完全没有外网的机器用**：`offline-assets-v2.7.8` 这个 tag 的 Release 提供 Windows x64 的 zip，内含 NSIS 安装器、转写模型、润色模型、润色运行时与放置脚本，另有带 WebView2 离线安装器的变体供 Windows 10 使用（Windows 11 自带 WebView2，取不带的那份）。包内附 `SHA256SUMS` 与第三方许可证清单，放置脚本核对校验和后把三个目录复制进 `%APPDATA%\altgo`，同名文件按哈希比对，相同跳过、不同覆盖，不修改配置文件。模型与运行时仍然按需下载，安装包体积与更新路径不变。
+
 ### Changed
 
 - **winget 与 Scoop 清单更新到 2.7.8**：winget 的 `PackageVersion`、`InstallerUrl`、`InstallerSha256` 与 Scoop 的两个架构条目按本次 Release 的 `checksums.txt` 更新。
