@@ -30,4 +30,5 @@ altgo-<版本>-offline-win-x64/
 ## 注意
 
 - 脚本必须带 UTF-8 BOM。Windows PowerShell 5.1 对无 BOM 的脚本按系统 ANSI 代码页解析，中文提示会变成乱码。
+- WebView2 安装器只允许随应用一起分发，永不单独挂成发布产物，也不得改名或重打包。包内清单要带该许可快照与 §9 的 SmartScreen 通知，详见 `docs/adr/0012-offline-asset-pack.md` 的后果一节。
 - 安装器与 WebView2 离线安装器都不进版本 Release 的产物清单，版本 Release 的产物校验与 `checksums.txt` 范围（deb、rpm、AppImage、`*-setup.exe`）保持不变。
