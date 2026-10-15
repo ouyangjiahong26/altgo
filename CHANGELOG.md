@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## Unreleased
+
+### Changed
+
+- **winget 与 Scoop 清单更新到 2.7.8**：winget 的 `PackageVersion`、`InstallerUrl`、`InstallerSha256` 与 Scoop 的两个架构条目按本次 Release 的 `checksums.txt` 更新。
+
 ## v2.7.8 (2026-10-15)
 
 ### Added
