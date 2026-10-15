@@ -43,6 +43,20 @@ sudo usermod -aG input "$USER"
 
 不要把“先复制 `configs/altgo.toml` 再手改”当作默认路径，那是高级用法。日常用户只使用界面即可。
 
+## 无外网环境安装（Windows x64）
+
+目标机器完全没有外网时，安装器与模型都要靠搬运。到 [离线资产包](https://github.com/ouyangjiahong26/altgo/releases/tag/offline-assets-v2.7.8) 下载一个 zip：Windows 11 用 `altgo-2.7.8-offline-win-x64.zip`，Windows 10 或不确定是否装了 WebView2 用 `altgo-2.7.8-offline-win-x64-with-webview2.zip`。
+
+解压后按顺序执行：
+
+1. 在解压目录打开 PowerShell，运行 `powershell -ExecutionPolicy Bypass -File .\install-offline-assets.ps1`。脚本先核对包内 `SHA256SUMS`，再把 `models`、`polish-models`、`runtime` 三个目录复制到 `%APPDATA%\altgo`，已存在的文件按哈希比对，相同就跳过。它不修改 `altgo.toml`，不动你已有的配置。
+2. Windows 10 再运行 `webview2\MicrosoftEdgeWebView2RuntimeInstallerX64.exe`。Windows 11 自带 WebView2，跳过这一步。
+3. 运行 `altgo_2.7.8_x64-setup.exe` 安装应用，从开始菜单启动。
+
+安装完成后占用约 1.5 GB 磁盘。启动后在设置里把转写模型选为本地 `sense-voice`、润色引擎选本地档，模型已经在位，界面显示为已下载，不需要再联网。
+
+想先确认 zip 没被改动，可以用 `certutil -hashfile <zip> SHA256` 与资产 Release 页面上给出的值比对，解压后包内每个文件的校验由脚本负责。
+
 ## 开发者：从源码构建
 
 与主仓库一致，使用 `make build` 打包。日常验证也建议以 `make build` 为主。

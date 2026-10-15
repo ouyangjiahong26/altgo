@@ -154,6 +154,10 @@ _Avoid_: capture mode、key capture mode。
 
 **安装包（Installer）**
 供人下载安装的发布产物：Windows 唯一形态是 NSIS 安装器，Linux 为 deb、rpm 与 AppImage。_Avoid_: 安装程序。
+
+**离线资产包（Offline Asset Pack）**
+面向无外网环境的一次性交付包：内含安装器、转写模型、润色模型、润色运行时与放置脚本，挂在固定 tag 的独立 Release 上，不随安装包分发，也不参与应用更新。_Avoid_: 一键安装包、离线安装包。
+
 ## 语言
 
 **界面语言（UI Language）**
