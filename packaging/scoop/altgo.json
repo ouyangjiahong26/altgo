@@ -1,5 +1,5 @@
 {
-    "version": "2.7.7",
+    "version": "2.7.8",
     "description": "桌面语音转文字工具：按住触发键说话，松开后自动转写并写入剪贴板",
     "homepage": "https://github.com/ouyangjiahong26/altgo",
     "license": "MIT",
@@ -8,12 +8,12 @@
     },
     "architecture": {
         "64bit": {
-            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.7.7/altgo_2.7.7_x64-setup.exe#/dl.7z",
-            "hash": "7e6c32bb4586c1f51db040c101408b3ab6e28c8575da4e8a280fa8628e203947"
+            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.7.8/altgo_2.7.8_x64-setup.exe#/dl.7z",
+            "hash": "84432729b7328831574bece7c2a9ea8d70ab329445a129322d324f287a4c5cb4"
         },
         "arm64": {
-            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.7.7/altgo_2.7.7_arm64-setup.exe#/dl.7z",
-            "hash": "c52f8f455219297d0749a5a91c2ac4b29fbbb5b98e83fa34327bbdb944d1172e"
+            "url": "https://github.com/ouyangjiahong26/altgo/releases/download/v2.7.8/altgo_2.7.8_arm64-setup.exe#/dl.7z",
+            "hash": "fd498d4ccac66677211f5259cc23b5e7275e2ea7f0c7b63791ed810eb73792fe"
         }
     },
     "pre_install": [

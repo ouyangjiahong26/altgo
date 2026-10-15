@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+
+PackageIdentifier: ouyangjiahong26.altgo
+PackageVersion: 2.7.8
+InstallerType: nullsoft
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/ouyangjiahong26/altgo/releases/download/v2.7.8/altgo_2.7.8_x64-setup.exe
+    InstallerSha256: 84432729b7328831574bece7c2a9ea8d70ab329445a129322d324f287a4c5cb4
+ManifestType: installer
+ManifestVersion: 1.10.0
