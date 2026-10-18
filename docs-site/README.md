@@ -1,6 +1,6 @@
 # altgo 文档站（Docusaurus）
 
-面向最终用户的说明文档站点，只有简体中文（`zh-Hans`）一个语言版本。生产环境部署在 GitHub Pages：
+面向最终用户的说明文档站点，主体为简体中文（`zh-Hans`）。SignPath 申请所需的隐私政策与快速开始页面提供英文版本，英文在前、中文在后。生产环境部署在 GitHub Pages：
 
 [https://ouyangjiahong26.github.io/altgo/](https://ouyangjiahong26.github.io/altgo/)
 

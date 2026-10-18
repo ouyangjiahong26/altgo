@@ -117,16 +117,20 @@ x64 与 arm64 按设备架构选择对应包。安装后从开始菜单启动 al
 
 ## Code signing policy
 
-Windows 安装包（`*-setup.exe`）的代码签名接入 SignPath Foundation 的免费签名，接入完成后所有 Release 都使用同一签名身份：
+Windows installers (`*-setup.exe`) use free code signing provided by SignPath Foundation. After onboarding is complete, every release will be signed with the same identity.
 
 > Free code signing provided by SignPath.io, certificate by SignPath Foundation
 
 - Committers and reviewers: [ouyangjiahong26](https://github.com/ouyangjiahong26)
 - Approvers: [ouyangjiahong26](https://github.com/ouyangjiahong26)
-- 隐私政策：[隐私政策](https://ouyangjiahong26.github.io/altgo/docs/privacy)
-- 接入状态、申请条件与发布流程：[`docs/code-signing.md`](docs/code-signing.md)
+- Privacy policy: [Privacy Policy](https://ouyangjiahong26.github.io/altgo/docs/privacy)
+- Onboarding status, requirements and release process: [`docs/code-signing.md`](docs/code-signing.md)
 
-签名后 Windows 的 SmartScreen 与 UAC 提示会显示 SignPath Foundation 作为发布者。信誉要随着干净安装逐步积累，新版本首次下载仍可能出现提示。
+After signing is enabled, Windows SmartScreen and UAC prompts will show SignPath Foundation as the publisher. Reputation builds up over clean installs, so the first downloads of a new release may still show a warning.
+
+### 中文
+
+Windows 安装包（`*-setup.exe`）的代码签名接入 SignPath Foundation 的免费签名，接入完成后所有 Release 都使用同一签名身份，Committers and reviewers 与 Approvers 均为 [ouyangjiahong26](https://github.com/ouyangjiahong26)。隐私政策见[隐私政策](https://ouyangjiahong26.github.io/altgo/docs/privacy)，接入状态、申请条件与发布流程见 [`docs/code-signing.md`](docs/code-signing.md)。签名后 Windows 的 SmartScreen 与 UAC 提示会显示 SignPath Foundation 作为发布者，信誉要随着干净安装逐步积累，新版本首次下载仍可能出现提示。
 
 ## 许可证
 
