@@ -92,6 +92,7 @@ const config: Config = {
           items: [
             {label: '架构设计', to: '/docs/architecture'},
             {label: '常见问题', to: '/docs/faq'},
+            {label: '隐私政策', to: '/docs/privacy'},
           ],
         },
         {

@@ -41,6 +41,8 @@ sudo usermod -aG input "$USER"
 
 想先确认下载的文件没被改动，可以从同一版本的 Release 页面下载 `checksums.txt`，再用 `certutil -hashfile <安装包> SHA256` 算出本文件的哈希，与其中对应行比对。
 
+Windows 安装包使用 SignPath Foundation 提供的免费代码签名（接入中），签名政策的完整说明见 [README 的 Code signing policy](https://github.com/ouyangjiahong26/altgo#code-signing-policy) 一节，数据去向见[隐私政策](./privacy)。
+
 不要把“先复制 `configs/altgo.toml` 再手改”当作默认路径，那是高级用法。日常用户只使用界面即可。
 
 ## 无外网环境安装（Windows x64）

@@ -19,6 +19,11 @@ const sidebars: SidebarsConfig = {
       items: ['architecture', 'faq'],
       collapsed: false,
     },
+    {
+      type: 'doc',
+      id: 'privacy',
+      label: '隐私政策',
+    },
   ],
 };
 
