@@ -22,7 +22,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'doc',
       id: 'privacy',
-      label: '隐私政策',
+      label: 'Privacy Policy / 隐私政策',
     },
   ],
 };
