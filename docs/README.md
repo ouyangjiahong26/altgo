@@ -6,6 +6,7 @@
 |------|------|
 | [`architecture.md`](architecture.md) | 系统架构速览（与 testing.md 配套） |
 | [`testing.md`](testing.md) | 测试套件画像与维护提示 |
+| [`code-signing.md`](code-signing.md) | Windows 安装包的签名方案、SignPath 申请条件与发布流程改造 |
 | [`adr/`](adr/) | 架构决策记录（ADR） |
 
 **用户向说明**请优先阅读：

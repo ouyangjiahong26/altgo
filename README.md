@@ -115,6 +115,19 @@ x64 与 arm64 按设备架构选择对应包。安装后从开始菜单启动 al
 - [`docs/README.md`](docs/README.md)：设计与规划文档索引
 - [`CHANGELOG.md`](CHANGELOG.md)：版本历史
 
+## Code signing policy
+
+Windows 安装包（`*-setup.exe`）的代码签名接入 SignPath Foundation 的免费签名，接入完成后所有 Release 都使用同一签名身份：
+
+> Free code signing provided by SignPath.io, certificate by SignPath Foundation
+
+- Committers and reviewers: [ouyangjiahong26](https://github.com/ouyangjiahong26)
+- Approvers: [ouyangjiahong26](https://github.com/ouyangjiahong26)
+- 隐私政策：[隐私政策](https://ouyangjiahong26.github.io/altgo/docs/privacy)
+- 接入状态、申请条件与发布流程：[`docs/code-signing.md`](docs/code-signing.md)
+
+签名后 Windows 的 SmartScreen 与 UAC 提示会显示 SignPath Foundation 作为发布者。信誉要随着干净安装逐步积累，新版本首次下载仍可能出现提示。
+
 ## 许可证
 
 [MIT License](LICENSE)
