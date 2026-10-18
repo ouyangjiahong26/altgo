@@ -37,7 +37,7 @@ README 已补政策段与角色，文档站已有隐私政策页。
 Project name: altgo
 Repository: https://github.com/ouyangjiahong26/altgo
 License: MIT
-Download page: https://github.com/ouyangjiahong26/altgo/releases
+Download page: https://ouyangjiahong26.github.io/altgo/docs/quick-start
 Documentation: https://ouyangjiahong26.github.io/altgo/
 Code signing policy: https://github.com/ouyangjiahong26/altgo#code-signing-policy
 Privacy policy: https://ouyangjiahong26.github.io/altgo/docs/privacy
@@ -55,6 +55,8 @@ release workflow from the tagged source. Signing would let users verify that the
 installer was built from this repository and would replace the unknown publisher
 label with a verifiable one.
 ```
+
+Download page 用文档站的快速开始页面，因为 GitHub Releases 页面不会提到 SignPath Foundation，不满足表单对 Download URL 的要求。
 
 ## 申请步骤
 
