@@ -50,6 +50,8 @@ export function OnboardingBody({ w }: { w: Wizard }) {
           update={w.update}
           catalogPresets={w.catalogPresets}
           catalogError={w.catalogError}
+          catalogLoading={w.catalogLoading}
+          onRetryCatalog={w.onRetryCatalog}
           polishModels={w.polishModels}
           polishDownloading={w.polishDownloading}
           getPolishDownloadProgress={w.getPolishDownloadProgress}

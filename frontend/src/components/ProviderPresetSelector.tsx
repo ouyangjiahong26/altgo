@@ -15,6 +15,12 @@ interface Props {
   lang: string;
   t: (key: string) => string;
   onSelect: (preset: ProviderPreset, model?: ModelCatalogEntry) => void;
+  /** 目录加载中（列表为空时弹窗显示加载态而不是“没有匹配”）。 */
+  catalogLoading?: boolean;
+  /** 目录拉取失败的错误文案（列表为空时弹窗显示失败原因与重试入口）。 */
+  catalogError?: string | null;
+  /** 重试拉取目录的回调，组件保持纯展示，不自行发起请求。 */
+  onRetryCatalog?: () => void;
 }
 
 export function ProviderPresetSelector({
@@ -25,6 +31,9 @@ export function ProviderPresetSelector({
   lang: _lang,
   t,
   onSelect,
+  catalogLoading = false,
+  catalogError = null,
+  onRetryCatalog,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -179,8 +188,25 @@ export function ProviderPresetSelector({
               />
             </div>
 
+            {/* 目录三态：加载中 / 拉取失败 / 已加载但搜索无命中。已有可用列表时
+                保留列表不清空，仅在列表为空时才进入前两态。 */}
             <div className="provider-preset-list">
-              {filteredPresets.length === 0 ? (
+              {catalogLoading && presets.length === 0 ? (
+                <p className="provider-preset-empty">{t("settings.catalog_loading")}</p>
+              ) : !catalogLoading && catalogError != null && presets.length === 0 ? (
+                <div className="provider-preset-catalog-error">
+                  <p className="provider-preset-empty">{catalogError}</p>
+                  {onRetryCatalog && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={onRetryCatalog}
+                    >
+                      {t("settings.catalog_retry")}
+                    </button>
+                  )}
+                </div>
+              ) : filteredPresets.length === 0 ? (
                 <p className="provider-preset-empty">{t("settings.no_matching_providers")}</p>
               ) : (
                 filteredPresets.map((preset) => {

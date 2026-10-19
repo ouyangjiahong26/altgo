@@ -13,6 +13,8 @@ interface PolishStepProps {
   update: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => void;
   catalogPresets: ProviderPreset[];
   catalogError: string | null;
+  catalogLoading: boolean;
+  onRetryCatalog: () => void;
   polishModels: PolishModelEntry[];
   polishDownloading: string | null;
   getPolishDownloadProgress: (name: string) => { percent: number; connecting: boolean };
@@ -21,6 +23,7 @@ interface PolishStepProps {
 
 export function PolishStep({
   t, lang, stepLabel, config, update, catalogPresets, catalogError,
+  catalogLoading, onRetryCatalog,
   polishModels, polishDownloading, getPolishDownloadProgress, onDownloadLocalPolish,
 }: PolishStepProps) {
   const localActive = config.polishBackend === "local";
@@ -44,12 +47,12 @@ export function PolishStep({
           <PresetAndLevelFields
             t={t} lang={lang} config={config} update={update}
             catalogPresets={catalogPresets}
+            catalogError={catalogError}
+            catalogLoading={catalogLoading}
+            onRetryCatalog={onRetryCatalog}
           />
           <ConnectionFields t={t} config={config} update={update} />
         </div>
-      )}
-      {!localActive && catalogError && (
-        <p className="settings-hint settings-test-err">{catalogError}</p>
       )}
     </div>
   );
@@ -140,12 +143,13 @@ function LocalPolishCard({
   );
 }
 
-/** 供应商预设与润色级别。 */
+/** 供应商预设与润色级别。目录三态（加载中 / 失败可重试 / 搜索无命中）由弹窗内呈现。 */
 function PresetAndLevelFields({
-  t, lang, config, update, catalogPresets,
+  t, lang, config, update, catalogPresets, catalogError, catalogLoading, onRetryCatalog,
 }: Pick<
   PolishStepProps,
-  "t" | "lang" | "config" | "update" | "catalogPresets"
+  | "t" | "lang" | "config" | "update" | "catalogPresets"
+  | "catalogError" | "catalogLoading" | "onRetryCatalog"
 >) {
   return (
     <>
@@ -156,6 +160,9 @@ function PresetAndLevelFields({
         currentModel={config.polishModel}
         lang={lang}
         t={t}
+        catalogLoading={catalogLoading}
+        catalogError={catalogError}
+        onRetryCatalog={onRetryCatalog}
         onSelect={(preset: ProviderPreset, model?: ModelCatalogEntry) => {
           update("polishApiBaseUrl", preset.apiBaseUrl);
           update("polishModel", model?.model || preset.defaultModel);
