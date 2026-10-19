@@ -1,6 +1,12 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AppConfig } from "../../hooks/useConfigForm";
+import {
+  ASR_PROTOCOL_OPTIONS,
+  ASR_PROVIDER_CUSTOM,
+  ASR_PROVIDER_PRESETS,
+  asrProviderValue,
+} from "../../config/asrPresets";
 
 export interface OnlineAsrPanelProps {
   t: (key: string) => string;
@@ -14,14 +20,42 @@ export interface OnlineAsrPanelProps {
 }
 
 /**
- * 在线识别面板：密钥输入、清除已存密钥与高级模型/地址项。
+ * 在线识别面板：服务商预设、密钥输入、清除已存密钥与高级模型/地址/协议项。
  * 开合状态由父层持有，切换本地/在线后端再切回时保持原开合。
  */
 export function OnlineAsrPanel({
   t, config, update, advancedOpen, setAdvancedOpen, clearingKey, clearError, onClearApiKey,
 }: OnlineAsrPanelProps) {
+  const applyPreset = (id: string) => {
+    const preset = ASR_PROVIDER_PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    update("asrApiBaseUrl", preset.apiBaseUrl);
+    update("asrModel", preset.model);
+    update("asrProtocol", preset.protocol);
+  };
+
   return (
     <>
+      <div className="settings-field">
+        <span className="settings-field-label-text">{t("settings.asr_provider")}</span>
+        <div className="settings-field-control settings-field-control--narrow">
+          <select
+            className="select"
+            aria-label={t("settings.asr_provider")}
+            value={asrProviderValue(config)}
+            onChange={(e) => applyPreset(e.target.value)}
+          >
+            {ASR_PROVIDER_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {t(p.nameKey)}
+              </option>
+            ))}
+            <option value={ASR_PROVIDER_CUSTOM}>
+              {t("settings.asr_provider_custom")}
+            </option>
+          </select>
+        </div>
+      </div>
       <div className="settings-field">
         <span className="settings-field-label-text">{t("settings.api_key")}</span>
         <div className="settings-field-control">
@@ -89,6 +123,27 @@ function AsrAdvancedFields({
             onChange={(e) => update("asrApiBaseUrl", e.target.value)}
             placeholder="https://token-plan-cn.xiaomimimo.com/v1"
           />
+        </div>
+      </div>
+      <div className="settings-field">
+        <span className="settings-field-label-text">{t("settings.asr_protocol")}</span>
+        <div className="settings-field-control">
+          <select
+            className="select"
+            aria-label={t("settings.asr_protocol")}
+            value={config.asrProtocol}
+            onChange={(e) => update("asrProtocol", e.target.value)}
+          >
+            {ASR_PROTOCOL_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {t(o.labelKey)}
+              </option>
+            ))}
+            {/* 手写 TOML 里的未知协议值原样保留，避免受控下拉错位回显。 */}
+            {!ASR_PROTOCOL_OPTIONS.some((o) => o.value === config.asrProtocol) && (
+              <option value={config.asrProtocol}>{config.asrProtocol}</option>
+            )}
+          </select>
         </div>
       </div>
     </>

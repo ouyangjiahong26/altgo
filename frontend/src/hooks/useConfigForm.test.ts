@@ -1,33 +1,35 @@
 import { describe, it, expect } from "vitest";
 import { saveRequestBody, normalizeConfig, AppConfig } from "./useConfigForm";
 
-describe("saveRequestBody", () => {
-  const base: AppConfig = {
-    keyName: "AltRight",
-    linuxEvdevCode: 100,
-    windowsVkCode: null,
-    language: "zh",
-    model: "sense-voice",
-    transcriberBackend: "local",
-    asrModel: "",
-    asrApiBaseUrl: "",
-    asrApiKey: "",
-    hasAsrApiKey: false,
-    polishLevel: "none",
-    polishModel: "",
-    polishApiBaseUrl: "",
-    polishProtocol: "openai",
-    polishThinkingLevel: "off",
-    polishBackend: "remote",
-    polishLocalModel: "qwen3-0.6b",
-    guiLanguage: "zh",
-    overlayPosition: "bottom_center",
-    autoCheckUpdate: true,
-    injectText: false,
-    polisherApiKey: "",
-    hasPolisherApiKey: false,
-  };
+// 各 describe 共用的完整配置基线。
+const base: AppConfig = {
+  keyName: "AltRight",
+  linuxEvdevCode: 100,
+  windowsVkCode: null,
+  language: "zh",
+  model: "sense-voice",
+  transcriberBackend: "local",
+  asrModel: "",
+  asrApiBaseUrl: "",
+  asrProtocol: "mimo_chat",
+  asrApiKey: "",
+  hasAsrApiKey: false,
+  polishLevel: "none",
+  polishModel: "",
+  polishApiBaseUrl: "",
+  polishProtocol: "openai",
+  polishThinkingLevel: "off",
+  polishBackend: "remote",
+  polishLocalModel: "qwen3-0.6b",
+  guiLanguage: "zh",
+  overlayPosition: "bottom_center",
+  autoCheckUpdate: true,
+  injectText: false,
+  polisherApiKey: "",
+  hasPolisherApiKey: false,
+};
 
+describe("saveRequestBody", () => {
   it("includes autoCheckUpdate in the request body", () => {
     const result = saveRequestBody({ ...base, autoCheckUpdate: false });
     expect(result).toHaveProperty("autoCheckUpdate", false);
@@ -41,6 +43,11 @@ describe("saveRequestBody", () => {
   it("includes overlayPosition in the request body", () => {
     const result = saveRequestBody({ ...base, overlayPosition: "top_center" });
     expect(result).toHaveProperty("overlayPosition", "top_center");
+  });
+
+  it("includes asrProtocol in the request body", () => {
+    const result = saveRequestBody({ ...base, asrProtocol: "transcriptions" });
+    expect(result).toHaveProperty("asrProtocol", "transcriptions");
   });
 
   it("includes polishProtocol in the request body", () => {
@@ -130,6 +137,7 @@ describe("normalizeConfig", () => {
       transcriberBackend: "local",
       asrModel: "",
       asrApiBaseUrl: "",
+      asrProtocol: "transcriptions",
       asrApiKey: "secret",
       hasAsrApiKey: true,
       polishLevel: "none",
@@ -151,5 +159,14 @@ describe("normalizeConfig", () => {
     expect(result.hasPolisherApiKey).toBe(true);
     expect(result.asrApiKey).toBe("");
     expect(result.hasAsrApiKey).toBe(true);
+  });
+
+  it("缺省 asrProtocol 归一为 mimo_chat，非缺省取值原样保留", () => {
+    // 旧配置无该字段（undefined）按后端缺省呈现。
+    const legacy = normalizeConfig({ ...base, asrProtocol: undefined } as unknown as AppConfig);
+    expect(legacy.asrProtocol).toBe("mimo_chat");
+
+    const set = normalizeConfig({ ...base, asrProtocol: "chat_input_audio" });
+    expect(set.asrProtocol).toBe("chat_input_audio");
   });
 });

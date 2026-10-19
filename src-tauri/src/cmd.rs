@@ -46,6 +46,7 @@ pub struct ConfigResponse {
     pub model: String,
     pub transcriber_backend: String,
     pub asr_model: String,
+    pub asr_protocol: String,
     pub asr_api_base_url: String,
     pub has_asr_api_key: bool,
     pub polish_level: String,
@@ -71,6 +72,7 @@ fn build_config_response(cfg: &crate::config::Config) -> ConfigResponse {
         model: cfg.transcriber.model.clone(),
         transcriber_backend: cfg.transcriber.backend.clone(),
         asr_model: cfg.transcriber.online.model.clone(),
+        asr_protocol: cfg.transcriber.online.protocol.clone(),
         asr_api_base_url: cfg.transcriber.online.api_base_url.clone(),
         // 明文 key 不回读，只回“是否已配置”。
         has_asr_api_key: !cfg.transcriber.online.api_key.trim().is_empty(),

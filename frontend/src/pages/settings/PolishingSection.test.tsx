@@ -14,6 +14,7 @@ const baseConfig: AppConfig = {
   transcriberBackend: "local",
   asrModel: "",
   asrApiBaseUrl: "",
+  asrProtocol: "mimo_chat",
   asrApiKey: "",
   hasAsrApiKey: false,
   polishLevel: "medium",

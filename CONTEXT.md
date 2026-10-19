@@ -8,10 +8,16 @@
 端到端处理链：从按键开始，依次录音、转写、润色，最后输出。由状态机驱动，运行时由 `PipelineController` 管理。
 
 **转写引擎（Transcription Engine）**
-把 WAV 音频转成文本的后端，由 `[transcriber] backend` 选择。两个实现：本地 `SherpaTranscriber`（内嵌 sherpa-onnx 的 SenseVoice，离线可用，模型需先下载）与在线 `MimoAsr`（MiMo ASR 云服务，需配置 API Key）。
+把 WAV 音频转成文本的后端，由 `[transcriber] backend` 选择。两个实现：本地 `SherpaTranscriber`（内嵌 sherpa-onnx 的 SenseVoice，离线可用，模型需先下载）与在线 `OnlineAsr`（按协议家族接入云端 ASR，需配置 API Key）。
+
+**在线转写协议（Online Transcription Protocol）**
+`[transcriber.online] protocol` 字段声明的云端 ASR 接入方式，取值 `mimo_chat`（缺省，MiMo 网关方言的 chat + input_audio，请求携带私有 `asr_options` 扩展）、`chat_input_audio`（不带 `asr_options` 的纯 OpenAI 形状，如百炼 qwen3-asr-flash、OpenAI audio-preview）、`transcriptions`（OpenAI `/audio/transcriptions` multipart，如 whisper、智谱 glm-asr、SiliconFlow SenseVoiceSmall 云端版）。三个协议在 `OnlineAsr`（`online_asr.rs`）同一实现内分派，不为每家厂商写独立适配器。_Avoid_: MiMo 协议（指泛化后的概念时）、ASR 后端（易与 `backend` 字段混淆）。
+
+**转写协议家族（Transcription Protocol Family）**
+请求/响应形状相同的一组云端 ASR 端点的归类。同一家族内换服务商只改 base URL、模型名与 API Key，不改协议取值；接入新家族才需要新协议值。决策记录见 ADR-0010。
 
 **提供商预设（Provider Preset）**
-预配置的 API 提供商模板，包含名称、base URL、API 格式、推荐模型与分类。当前仅用于润色设置。存放在 `frontend/src/config/modelPresets.ts`。
+预配置的 API 提供商模板，包含名称、base URL、API 格式、推荐模型与分类。用于润色设置（`frontend/src/config/modelPresets.ts`）与在线转写设置（前端静态表，选中自动填 base URL、模型与协议，字段仍可手改，不进配置结构）。
 
 **待重试录音（Pending Recording）**
 转写失败或识别结果为空时保留在内存中的录音本体（WAV 字节，单槽、只留最新一段、不落盘、不进历史）。保留的唯一目的是重新识别：主窗横幅提供“重新识别”与“放弃”，重试请求进入流水线主循环串行执行（ADR-0003）。实现为 `voice_pipeline/pending.rs` 的 `PendingRecordingStore`。_Avoid_: 失败缓存、录音备份。
