@@ -11,6 +11,7 @@ export interface AppConfig {
   transcriberBackend: string;
   asrModel: string;
   asrApiBaseUrl: string;
+  asrProtocol: string;
   asrApiKey: string;
   hasAsrApiKey: boolean;
   polishLevel: string;
@@ -40,6 +41,7 @@ export function saveRequestBody(c: AppConfig) {
     transcriberBackend: c.transcriberBackend,
     asrModel: c.asrModel,
     asrApiBaseUrl: c.asrApiBaseUrl,
+    asrProtocol: c.asrProtocol,
     ...(c.asrApiKey ? { asrApiKey: c.asrApiKey } : {}),
     polishLevel: c.polishLevel,
     polishModel: c.polishModel,
@@ -72,6 +74,8 @@ export function normalizeConfig(c: AppConfig): AppConfig {
     polishLocalModel: c.polishLocalModel || "qwen3-0.6b",
     asrModel: c.asrModel ?? "",
     asrApiBaseUrl: c.asrApiBaseUrl ?? "",
+    // 后端缺省即 mimo_chat：旧配置无该字段时按缺省呈现，与后端实际行为一致。
+    asrProtocol: c.asrProtocol ?? "mimo_chat",
     asrApiKey: "",
     hasAsrApiKey: c.hasAsrApiKey ?? false,
     polisherApiKey: "",

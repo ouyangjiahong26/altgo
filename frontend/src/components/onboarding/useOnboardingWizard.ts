@@ -60,7 +60,10 @@ export function useOnboardingWizard(onDone: () => void) {
     models, downloading, getDownloadProgress,
     polishModels: polishMgr.models, polishDownloading: polishMgr.downloading,
     getPolishDownloadProgress: polishMgr.getDownloadProgress,
-    catalogPresets: catalog.catalogPresets, catalogError: catalog.catalogError,
+    catalogPresets: catalog.catalogPresets,
+    catalogError: catalog.catalogError,
+    catalogLoading: catalog.catalogLoading,
+    onRetryCatalog: catalog.loadCatalogPresets,
     step: nav.step, stepIndex: nav.stepIndex, onlineActive,
     stepLabel, nextLabel, goto: nav.goto, handleNext: nav.handleNext,
     applyLocalModel: modelActions.applyLocalModel,
@@ -70,18 +73,31 @@ export function useOnboardingWizard(onDone: () => void) {
   };
 }
 
-/** 供应商目录：向导挂载时拉取一次，失败记错误（仍可手填）。 */
+/** 供应商目录：向导挂载时拉取一次，失败记错误（仍可手填），第 3 步弹窗内可重试。 */
 function useOnboardingCatalog() {
   const [catalogPresets, setCatalogPresets] = useState<ProviderPreset[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
+  // loadCatalog 失败即清缓存，重试会重新请求；加载中不重入。
+  const loadCatalogPresets = async () => {
+    if (catalogLoading) return;
+    setCatalogLoading(true);
+    setCatalogError(null);
+    try {
+      setCatalogPresets(await loadCatalog());
+    } catch (e) {
+      setCatalogError(String(e));
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
   useEffect(() => {
-    loadCatalog()
-      .then(setCatalogPresets)
-      .catch((e) => setCatalogError(String(e)));
+    void loadCatalogPresets();
   }, []);
 
-  return { catalogPresets, catalogError };
+  return { catalogPresets, catalogError, catalogLoading, loadCatalogPresets };
 }
 
 /** 收尾保存：保存成功后落引导标记并结束向导，失败留在完成步显示表单错误。 */

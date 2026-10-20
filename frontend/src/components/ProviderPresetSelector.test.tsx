@@ -79,4 +79,62 @@ describe("ProviderPresetSelector", () => {
     // target=_blank 在 WebView 里走 create 信号被静默吞掉，必须走 opener。
     expect(openUrlMock).toHaveBeenCalledWith("https://example.com/key");
   });
+
+  it("shows catalog loading instead of no-match while the catalog is loading", () => {
+    render(<ProviderPresetSelector {...baseProps} presets={[]} catalogLoading />);
+
+    fireEvent.click(screen.getByText("settings.add_provider"));
+
+    expect(screen.getByText("settings.catalog_loading")).toBeTruthy();
+    expect(screen.queryByText("settings.no_matching_providers")).toBeNull();
+  });
+
+  it("shows catalog error with retry when the fetch failed and no list exists", () => {
+    const onRetryCatalog = vi.fn();
+    render(
+      <ProviderPresetSelector
+        {...baseProps}
+        presets={[]}
+        catalogError="目录拉取失败"
+        onRetryCatalog={onRetryCatalog}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("settings.add_provider"));
+
+    expect(screen.getByText("目录拉取失败")).toBeTruthy();
+    expect(screen.queryByText("settings.no_matching_providers")).toBeNull();
+
+    fireEvent.click(screen.getByText("settings.catalog_retry"));
+    expect(onRetryCatalog).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the existing list during a retry after a previous success", () => {
+    render(
+      <ProviderPresetSelector
+        {...baseProps}
+        catalogLoading
+        catalogError="目录拉取失败"
+        onRetryCatalog={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("settings.add_provider"));
+
+    // 已有可用列表时重试进行中保留列表，不进入加载态或错误态。
+    expect(screen.getByText("Example Provider")).toBeTruthy();
+    expect(screen.queryByText("settings.catalog_loading")).toBeNull();
+    expect(screen.queryByText("目录拉取失败")).toBeNull();
+  });
+
+  it("shows no-match only when the catalog loaded and search found nothing", () => {
+    render(<ProviderPresetSelector {...baseProps} />);
+
+    fireEvent.click(screen.getByText("settings.add_provider"));
+    fireEvent.change(screen.getByPlaceholderText("settings.search_providers"), {
+      target: { value: "不存在的供应商" },
+    });
+
+    expect(screen.getByText("settings.no_matching_providers")).toBeTruthy();
+  });
 });

@@ -133,7 +133,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - 组织：每个源文件末尾 `#[cfg(test)] mod tests`（`use super::*`）。无集成测试目录。前端测试与源码同目录（vitest 加 jsdom 加 Testing Library，`*.test.ts(x)`）。
 - 替身四类：tempfile（文件 I/O）、mockito（HTTP 假服务器）、共享 `src-tauri/src/voice_pipeline/test_doubles.rs`（流水线层唯一替身来源，不自造第二套）、闭包注入（emit/download/spawn）。`tauri_sink.rs`、`overlay/manager.rs`、`updater.rs` 各有模块私有 mock。
 - 环境容忍：依赖系统工具的测试对两种环境都断言（有 `xinput` 断 Ok，无则断 Err），保证无显示服务器的 CI 与开发机一致。禁止用 `#[ignore]` 藏测试。
-- 回归基线：`cargo test --manifest-path=src-tauri/Cargo.toml --lib` 全部通过，加 `cd frontend && npm test`，无静默跳过。只有端到端层能覆盖的风险，在 PR 里写明手动验证方式。测试数量与分布现查不进文档（`cargo test … --lib -- --list`）。覆盖率未统计。在线转写（MiMo）已回归，测试在 `mimo_asr.rs`。
+- 回归基线：`cargo test --manifest-path=src-tauri/Cargo.toml --lib` 全部通过，加 `cd frontend && npm test`，无静默跳过。只有端到端层能覆盖的风险，在 PR 里写明手动验证方式。测试数量与分布现查不进文档（`cargo test … --lib -- --list`）。覆盖率未统计。在线转写（多协议家族，ADR-0010）已回归，测试在 `online_asr.rs`。
 - CI 矩阵：Linux amd64 与 arm64 全跑 `cargo test --lib`（fmt、clippy、前端测试仅 amd64 各一次）。Windows x64 跑测试，arm64 交叉编译仅 `cargo check --target`。
 
 ## 写作要求
