@@ -14,7 +14,7 @@
 `[transcriber.online] protocol` 字段声明的云端 ASR 接入方式，取值 `mimo_chat`（缺省，MiMo 网关方言的 chat + input_audio，请求携带私有 `asr_options` 扩展）、`chat_input_audio`（不带 `asr_options` 的纯 OpenAI 形状，如百炼 qwen3-asr-flash、OpenAI audio-preview）、`transcriptions`（OpenAI `/audio/transcriptions` multipart，如 whisper、智谱 glm-asr、SiliconFlow SenseVoiceSmall 云端版）。三个协议在 `OnlineAsr`（`online_asr.rs`）同一实现内分派，不为每家厂商写独立适配器。_Avoid_: MiMo 协议（指泛化后的概念时）、ASR 后端（易与 `backend` 字段混淆）。
 
 **转写协议家族（Transcription Protocol Family）**
-请求/响应形状相同的一组云端 ASR 端点的归类。同一家族内换服务商只改 base URL、模型名与 API Key，不改协议取值；接入新家族才需要新协议值。决策记录见 ADR-0010。
+请求/响应形状相同的一组云端 ASR 端点的归类。同一家族内换服务商只改 base URL、模型名与 API Key，不改协议取值；接入新家族才需要新协议值。决策记录见 ADR-0013。
 
 **提供商预设（Provider Preset）**
 预配置的 API 提供商模板，包含名称、base URL、API 格式、推荐模型与分类。用于润色设置（`frontend/src/config/modelPresets.ts`）与在线转写设置（前端静态表，选中自动填 base URL、模型与协议，字段仍可手改，不进配置结构）。

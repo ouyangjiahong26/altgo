@@ -177,7 +177,7 @@ lib.rs
 
 ### 在线引擎：协议家族分派
 
-`OnlineAsr`（`online_asr.rs`）按 `[transcriber.online] protocol` 在三个协议家族间分派（ADR-0010）：
+`OnlineAsr`（`online_asr.rs`）按 `[transcriber.online] protocol` 在三个协议家族间分派（ADR-0013）：
 
 - `mimo_chat`（缺省）：MiMo 网关的 `chat/completions`——WAV 以 base64 放进单个 `input_audio` 内容块，`asr_options.language` 传 `[transcriber] language`（空串发 `"auto"`），文本取自 `choices[0].message.content`。
 - `chat_input_audio`：同 chat 形状但不带 `asr_options`，语言非空时作为顶层字段携带、空值不传。

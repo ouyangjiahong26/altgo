@@ -16,8 +16,7 @@ import {
   usePolishModelManager,
   type UsePolishModelManagerResult,
 } from "../../hooks/usePolishModelManager";
-import { loadCatalog } from "../../config/catalog";
-import { type ProviderPreset } from "../../config/modelPresets";
+import { useCatalogLoader } from "../../hooks/useCatalogLoader";
 import { completeOnboarding } from "../../onboarding";
 
 export type Step = "welcome" | "key" | "engine" | "polish" | "done";
@@ -44,7 +43,7 @@ export function useOnboardingWizard(onDone: () => void) {
   } = form;
   const { models, downloading, getDownloadProgress } = modelMgr;
 
-  const catalog = useOnboardingCatalog();
+  const catalog = useCatalogLoader();
   const { finish } = useOnboardingFinish(saving, message, onDone, save);
   const modelActions = useOnboardingModelActions(update, setMessage, modelMgr);
   const polishActions = useOnboardingPolishActions(update, setMessage, polishMgr);
@@ -71,33 +70,6 @@ export function useOnboardingWizard(onDone: () => void) {
     downloadLocalPolish: polishActions.downloadLocalPolish,
     startDragging,
   };
-}
-
-/** 供应商目录：向导挂载时拉取一次，失败记错误（仍可手填），第 3 步弹窗内可重试。 */
-function useOnboardingCatalog() {
-  const [catalogPresets, setCatalogPresets] = useState<ProviderPreset[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogError, setCatalogError] = useState<string | null>(null);
-
-  // loadCatalog 失败即清缓存，重试会重新请求；加载中不重入。
-  const loadCatalogPresets = async () => {
-    if (catalogLoading) return;
-    setCatalogLoading(true);
-    setCatalogError(null);
-    try {
-      setCatalogPresets(await loadCatalog());
-    } catch (e) {
-      setCatalogError(String(e));
-    } finally {
-      setCatalogLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadCatalogPresets();
-  }, []);
-
-  return { catalogPresets, catalogError, catalogLoading, loadCatalogPresets };
 }
 
 /** 收尾保存：保存成功后落引导标记并结束向导，失败留在完成步显示表单错误。 */

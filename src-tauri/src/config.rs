@@ -143,7 +143,7 @@ impl Default for TranscriberConfig {
     }
 }
 
-/// 在线转写后端配置：按协议家族接入云端 ASR（ADR-0010）。
+/// 在线转写后端配置：按协议家族接入云端 ASR（ADR-0013）。
 /// 在线后端仅在 `[transcriber] backend = "online"` 时生效。
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]

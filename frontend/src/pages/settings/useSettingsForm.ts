@@ -26,8 +26,7 @@ import {
   type FontSizePref,
   type WindowSizePref,
 } from "../../ui-size";
-import { loadCatalog } from "../../config/catalog";
-import type { ProviderPreset } from "../../config/modelPresets";
+import { useCatalogLoader } from "../../hooks/useCatalogLoader";
 import { openUpdateNotes, type UpdateInfo } from "../../updateNotes";
 
 /** 设置页全部状态与副作用的唯一入口，Settings 组件与区块树只消费其返回值。 */
@@ -51,7 +50,7 @@ export function useSettingsForm() {
   const toggles = useSectionToggles();
   const version = useAppVersion();
   const appearance = useAppearancePrefs();
-  const catalog = useOnlineCatalogLoader();
+  const catalog = useCatalogLoader();
   const connection = usePolisherConnection(config, setConfig);
   const asrKey = useAsrKeyClearing(setConfig);
   const updateCheck = useUpdateChecker();
@@ -129,32 +128,6 @@ function useAppearancePrefs() {
   };
 
   return { fontSize, windowSize, handleFontSizeChange, handleWindowSizeChange };
-}
-
-function useOnlineCatalogLoader() {
-  const [catalogPresets, setCatalogPresets] = useState<ProviderPreset[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogError, setCatalogError] = useState<string | null>(null);
-
-  // 拉取 omp 供应商目录（设置页挂载时自动调用，失败可重试，手填地址仍可用）。
-  const loadOnlineCatalog = async () => {
-    if (catalogLoading) return;
-    setCatalogLoading(true);
-    setCatalogError(null);
-    try {
-      setCatalogPresets(await loadCatalog());
-    } catch (e) {
-      setCatalogError(String(e));
-    } finally {
-      setCatalogLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadOnlineCatalog();
-  }, []);
-
-  return { catalogPresets, catalogLoading, catalogError, loadOnlineCatalog };
 }
 
 function usePolisherConnection(
