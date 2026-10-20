@@ -1,6 +1,6 @@
 //! 在线 ASR 转写器：按协议家族分派。
 //!
-//! 三个协议共享同一实现（ADR-0010）：
+//! 三个协议共享同一实现（ADR-0013）：
 //! - `mimo_chat`：MiMo 网关方言的 chat/completions + input_audio，请求携带
 //!   私有 `asr_options` 扩展，语言经 `asr_options.language` 传递；
 //! - `chat_input_audio`：纯 OpenAI 形状的 chat/completions + input_audio，
@@ -221,6 +221,8 @@ impl Transcriber for OnlineAsr {
 
             // chat 族：标准 chat.completion 响应，文本在 choices[0].message.content；
             // transcriptions 族：文本在顶层 text 字段。
+            // 响应合法但没有可用内容（空 choices 或空 text）时与润色器的
+            // EmptyResponse 同口径，交由上层统一按“空结果”处理。
             let text = match self.protocol {
                 OnlineProtocol::Transcriptions => {
                     #[derive(serde::Deserialize)]
@@ -238,9 +240,12 @@ impl Transcriber for OnlineAsr {
                         .choices
                         .first()
                         .map(|c| c.message.content.trim().to_string())
-                        .ok_or_else(|| TranscriberError::JsonError("empty choices".to_string()))?
+                        .unwrap_or_default()
                 }
             };
+            if text.is_empty() {
+                return Err(TranscriberError::EmptyResponse);
+            }
 
             (on_progress)(1.0);
             Ok(TranscribeResult {
