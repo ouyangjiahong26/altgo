@@ -34,6 +34,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 pub use connectivity::{describe_test_error, test_connection};
+pub(crate) use endpoint::append_request_path;
 pub use endpoint::build_endpoint;
 pub use formatter::LLMFormatter;
 pub use level::{PolishLevel, ThinkingLevel};
