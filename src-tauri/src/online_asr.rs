@@ -44,29 +44,12 @@ impl OnlineProtocol {
     }
 }
 
-/// 由 base URL 推导 transcriptions endpoint，规则与润色器 `build_endpoint` 同源：
-/// 路径已以 `/audio/transcriptions` 结尾时视为完整 endpoint；路径为空补
-/// `/v1/audio/transcriptions`（OpenAI SDK 默认约定）；否则仅补请求路径，
-/// 版本段（`/v1`、`/api/paas/v4` 等）由 base 自带。
+/// 由 base URL 推导 transcriptions endpoint：复用润色器的共享规则
+/// （路径为空补 `/v1` 前缀、已含请求路径直接用、否则仅补请求路径），
+/// 请求路径为 `/audio/transcriptions`。
 fn build_transcriptions_endpoint(base_url: &str) -> Result<String, TranscriberError> {
-    let trimmed = base_url.trim().trim_end_matches('/');
-    if trimmed.is_empty() {
-        return Err(TranscriberError::InvalidBaseUrl(base_url.to_string()));
-    }
-    let path_start = match trimmed.find("://") {
-        Some(scheme_end) => trimmed[scheme_end + 3..]
-            .find('/')
-            .map(|p| scheme_end + 3 + p),
-        None => trimmed.find('/'),
-    };
-    let path = path_start.map(|i| &trimmed[i..]).unwrap_or("");
-    if path.ends_with("/audio/transcriptions") {
-        Ok(trimmed.to_string())
-    } else if path.is_empty() {
-        Ok(format!("{trimmed}/v1/audio/transcriptions"))
-    } else {
-        Ok(format!("{trimmed}/audio/transcriptions"))
-    }
+    crate::polisher::append_request_path(base_url, "/audio/transcriptions")
+        .map_err(|_| TranscriberError::InvalidBaseUrl(base_url.to_string()))
 }
 
 /// 在线转写器：构造时确定协议与 endpoint，转写时按协议分派请求形状。
@@ -146,6 +129,69 @@ impl OnlineAsr {
         }
         body
     }
+
+    /// 发送 chat 族请求：音频 base64 进 JSON 请求体。
+    async fn post_chat(&self, audio: &[u8]) -> Result<reqwest::Response, TranscriberError> {
+        let audio_b64 = base64::engine::general_purpose::STANDARD.encode(audio);
+        let body = self.chat_request_body(audio_b64);
+        self.client
+            .post(&self.endpoint)
+            .bearer_auth(&self.api_key)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| TranscriberError::HttpError(e.to_string()))
+    }
+
+    /// 发送 transcriptions 族请求：WAV 字节直传 multipart，语言空值不传。
+    async fn post_transcriptions(
+        &self,
+        audio: &[u8],
+    ) -> Result<reqwest::Response, TranscriberError> {
+        let file = reqwest::multipart::Part::bytes(audio.to_vec())
+            .file_name("audio.wav")
+            .mime_str("audio/wav")
+            .map_err(|e| TranscriberError::HttpError(e.to_string()))?;
+        let mut form = reqwest::multipart::Form::new()
+            .text("model", self.model.clone())
+            .part("file", file);
+        let language = self.language.trim();
+        if !language.is_empty() {
+            form = form.text("language", language.to_string());
+        }
+        self.client
+            .post(&self.endpoint)
+            .bearer_auth(&self.api_key)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|e| TranscriberError::HttpError(e.to_string()))
+    }
+
+    /// 按协议解析响应文本。chat 族取 choices[0].message.content，
+    /// transcriptions 族取顶层 text 字段。空文本交由调用方按 EmptyResponse 处理。
+    fn extract_text(&self, resp_text: &str) -> Result<String, TranscriberError> {
+        match self.protocol {
+            OnlineProtocol::Transcriptions => {
+                #[derive(serde::Deserialize)]
+                struct TranscriptionsResponse {
+                    text: String,
+                }
+                let parsed: TranscriptionsResponse = serde_json::from_str(resp_text)
+                    .map_err(|e| TranscriberError::JsonError(e.to_string()))?;
+                Ok(parsed.text.trim().to_string())
+            }
+            _ => {
+                let parsed: ChatResponse = serde_json::from_str(resp_text)
+                    .map_err(|e| TranscriberError::JsonError(e.to_string()))?;
+                Ok(parsed
+                    .choices
+                    .first()
+                    .map(|c| c.message.content.trim().to_string())
+                    .unwrap_or_default())
+            }
+        }
+    }
 }
 
 impl Transcriber for OnlineAsr {
@@ -167,39 +213,9 @@ impl Transcriber for OnlineAsr {
             }
             // 交互式听写不做重试：快速失败反馈更好，超时由 client 承担。
             let resp = match self.protocol {
-                OnlineProtocol::Transcriptions => {
-                    let mut form = reqwest::multipart::Form::new()
-                        .text("model", self.model.clone())
-                        .part(
-                            "file",
-                            reqwest::multipart::Part::bytes(audio.to_vec())
-                                .file_name("audio.wav")
-                                .mime_str("audio/wav")
-                                .map_err(|e| TranscriberError::HttpError(e.to_string()))?,
-                        );
-                    let language = self.language.trim();
-                    if !language.is_empty() {
-                        form = form.text("language", language.to_string());
-                    }
-                    self.client
-                        .post(&self.endpoint)
-                        .bearer_auth(&self.api_key)
-                        .multipart(form)
-                        .send()
-                        .await
-                }
-                _ => {
-                    let audio_b64 = base64::engine::general_purpose::STANDARD.encode(audio);
-                    let body = self.chat_request_body(audio_b64);
-                    self.client
-                        .post(&self.endpoint)
-                        .bearer_auth(&self.api_key)
-                        .json(&body)
-                        .send()
-                        .await
-                }
-            }
-            .map_err(|e| TranscriberError::HttpError(e.to_string()))?;
+                OnlineProtocol::Transcriptions => self.post_transcriptions(audio).await?,
+                _ => self.post_chat(audio).await?,
+            };
 
             let status = resp.status().as_u16();
             let resp_text = resp
@@ -219,30 +235,9 @@ impl Transcriber for OnlineAsr {
                 });
             }
 
-            // chat 族：标准 chat.completion 响应，文本在 choices[0].message.content；
-            // transcriptions 族：文本在顶层 text 字段。
             // 响应合法但没有可用内容（空 choices 或空 text）时与润色器的
             // EmptyResponse 同口径，交由上层统一按“空结果”处理。
-            let text = match self.protocol {
-                OnlineProtocol::Transcriptions => {
-                    #[derive(serde::Deserialize)]
-                    struct TranscriptionsResponse {
-                        text: String,
-                    }
-                    let parsed: TranscriptionsResponse = serde_json::from_str(&resp_text)
-                        .map_err(|e| TranscriberError::JsonError(e.to_string()))?;
-                    parsed.text.trim().to_string()
-                }
-                _ => {
-                    let parsed: ChatResponse = serde_json::from_str(&resp_text)
-                        .map_err(|e| TranscriberError::JsonError(e.to_string()))?;
-                    parsed
-                        .choices
-                        .first()
-                        .map(|c| c.message.content.trim().to_string())
-                        .unwrap_or_default()
-                }
-            };
+            let text = self.extract_text(&resp_text)?;
             if text.is_empty() {
                 return Err(TranscriberError::EmptyResponse);
             }

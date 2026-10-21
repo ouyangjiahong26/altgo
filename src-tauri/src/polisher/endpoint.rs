@@ -8,17 +8,24 @@ use crate::error::PolisherError;
 /// 兼容两种写法：带版本路径的 base（如 `https://api.moonshot.cn/v1`、
 /// `https://open.bigmodel.cn/api/paas/v4`）与不带路径的 origin
 /// （如 `https://api.deepseek.com`）。
-///
-/// 规则：
-/// 1. 剥首尾空白与尾部 `/`。
-/// 2. 路径已以该协议的请求路径（openai `/chat/completions`、anthropic
-///    `/messages`）结尾时，视为完整 endpoint，直接使用。
-/// 3. 路径为空：openai 补 `/v1/chat/completions`，anthropic 补 `/v1/messages`
-///    （两家官方 SDK 的默认约定）。
-/// 4. 路径非空：仅补请求路径，版本段（`/v1`、`/api/paas/v4` 等）由 base 自带。
 pub fn build_endpoint(
     base_url: &str,
     protocol: protocol::ApiProtocol,
+) -> Result<String, PolisherError> {
+    match protocol {
+        protocol::ApiProtocol::OpenAi => append_request_path(base_url, "/chat/completions"),
+        protocol::ApiProtocol::Anthropic => append_request_path(base_url, "/messages"),
+    }
+}
+
+/// 按 base URL 与请求路径拼出完整 endpoint，规则被各协议共享：
+/// 1. 剥首尾空白与尾部 `/`。
+/// 2. 路径已以请求路径结尾时，视为完整 endpoint，直接使用。
+/// 3. 路径为空：补 `/v1` 前缀再加请求路径（各家官方 SDK 的默认约定）。
+/// 4. 路径非空：仅补请求路径，版本段（`/v1`、`/api/paas/v4` 等）由 base 自带。
+pub(crate) fn append_request_path(
+    base_url: &str,
+    request_path: &str,
 ) -> Result<String, PolisherError> {
     let trimmed = base_url.trim().trim_end_matches('/');
     if trimmed.is_empty() {
@@ -34,25 +41,12 @@ pub fn build_endpoint(
     };
     let path = path_start.map(|i| &trimmed[i..]).unwrap_or("");
 
-    match protocol {
-        protocol::ApiProtocol::OpenAi => {
-            if path.ends_with("/chat/completions") {
-                Ok(trimmed.to_string())
-            } else if path.is_empty() {
-                Ok(format!("{trimmed}/v1/chat/completions"))
-            } else {
-                Ok(format!("{trimmed}/chat/completions"))
-            }
-        }
-        protocol::ApiProtocol::Anthropic => {
-            if path.ends_with("/messages") {
-                Ok(trimmed.to_string())
-            } else if path.is_empty() {
-                Ok(format!("{trimmed}/v1/messages"))
-            } else {
-                Ok(format!("{trimmed}/messages"))
-            }
-        }
+    if path.ends_with(request_path) {
+        Ok(trimmed.to_string())
+    } else if path.is_empty() {
+        Ok(format!("{trimmed}/v1{request_path}"))
+    } else {
+        Ok(format!("{trimmed}{request_path}"))
     }
 }
 
