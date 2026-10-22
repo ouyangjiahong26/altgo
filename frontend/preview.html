@@ -226,7 +226,7 @@
                   <div class="home">
                     <!-- 触发键自检卡（probe.kind === "prompt"）：内容卡，常驻内容流顶部 -->
                     <div class="home-probe-area">
-                      <div class="home-probe" aria-live="polite">
+                      <div class="card home-probe" aria-live="polite">
                         <div class="home-probe-head"><span>先确认触发键能用</span></div>
                         <p class="home-probe-detail">按一下触发键，看它能不能被识别。检测要按住触发键说一句话，这一下会正常录音。不检测也可以直接开始用。</p>
                         <div class="home-probe-actions">
@@ -293,7 +293,7 @@
                 <main class="layout-main">
                   <div class="home">
                     <section class="home-result">
-                      <div class="home-result-card">
+                      <div class="card home-result-card">
                         <div class="home-result-head">
                           <span class="home-result-label">转写结果</span>
                           <span class="home-result-meta">刚刚</span>
@@ -313,7 +313,7 @@
                           <button type="button" class="btn btn-sm btn-outline btn-danger"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>清空全部</button>
                         </div>
                       </div>
-                      <ul class="history-list">
+                      <ul class="card history-list">
                         <li class="history-item">
                           <label class="history-item-check"><input type="checkbox" checked /></label>
                           <div class="history-item-body">
@@ -410,7 +410,7 @@
                     </div>
                     <!-- 自检卡：超时态（带三段动作） -->
                     <div class="home-probe-area">
-                      <div class="home-probe" aria-live="polite">
+                      <div class="card home-probe" aria-live="polite">
                         <div class="home-probe-head"><span>没有收到任何按键</span></div>
                         <p class="home-probe-detail">可能是键盘权限不足、监听方式不适用，也可能这个键被系统或其他工具拦下了。到设置里换一个触发键再试。</p>
                         <div class="home-probe-actions">
