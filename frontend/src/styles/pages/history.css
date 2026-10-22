@@ -71,7 +71,7 @@
   padding: var(--space-6) var(--space-3);
 }
 
-/* ── 列表：一块内容卡 ─────────────────────────
+/* ── 列表：一块内容卡（皮肤取自 .card） ─────────
    行与行之间只隔一条发丝线，悬停换底色，不加影、不位移。 */
 
 .history-list {
@@ -80,9 +80,6 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
   overflow: hidden;
 }
 
@@ -178,29 +175,13 @@
   color: var(--color-text-faint);
 }
 
-/* 行内操作：压低高度与内边距，四个动作尽量排成一行 */
+/* 行内操作：只负责排布，按钮尺寸与字色都交给 .btn-sm 与各自的变体 */
 .history-item-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
   margin-top: var(--space-2);
-}
-
-.history-item-actions .btn {
-  height: var(--control-height-sm);
-  padding: 0 var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-
-.history-item-actions .btn:hover:not(:disabled) {
-  color: var(--color-text);
-}
-
-.history-item-actions .btn svg {
-  width: 13px;
-  height: 13px;
 }
 
 /* 复制成功的短暂回执：绿字绿底，2 秒后由状态自行恢复 */
@@ -227,17 +208,5 @@
 }
 
 .history-spin {
-  animation: history-spin 0.8s linear infinite;
-}
-
-@keyframes history-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .history-spin {
-    animation: none;
-  }
+  animation: spin var(--duration-spin) linear infinite;
 }

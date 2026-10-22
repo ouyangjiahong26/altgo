@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo 样式审查 · 窗口</title>
+    <link rel="icon" href="../public/altgo-logo.svg" type="image/svg+xml" />
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
     <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -107,7 +108,7 @@
               </header>
             </div>
           </div>
-          <div class="sr-caption">品牌标记 18px + 字标 14px/600，副标题 11px 且用左侧发丝线与字标分隔；窗口按钮 28×26，关闭按钮悬停转红。</div>
+          <div class="sr-caption">品牌标记 18px + 字标 14px/600，副标题 11px 且用左侧发丝线与字标分隔。窗口按钮 28×26，关闭按钮悬停转红。</div>
 
           <h3>浮动底栏</h3>
           <div class="sr-frame sr-frame--win" style="padding: 0; height: 120px; position: relative; background: var(--color-bg)">
@@ -126,7 +127,7 @@
               </div>
             </div>
           </div>
-          <div class="sr-caption">当前页用 <code>surface-2</code> 实底加 <code>text</code> 色文字；悬停只换底色，不做位移。</div>
+          <div class="sr-caption">当前页用 <code>surface-2</code> 实底加 <code>text</code> 色文字。悬停只换底色，不做位移。</div>
 
           <div class="sr-frame sr-frame--win" style="padding: 0; height: 120px; position: relative; background: var(--color-bg)">
             <div class="layout" style="height: 120px">
@@ -194,7 +195,7 @@
                   </div>
                 </div>
               </div>
-              <div class="sr-caption">转写中：琥珀环形指示加 158px 进度线；拿不到进度时改成往复滑动的不定态。</div>
+              <div class="sr-caption">转写中：琥珀环形指示加 158px 进度线。拿不到进度时改成往复滑动的不定态。</div>
             </div>
             <div>
               <div class="sr-frame sr-frame--ov">
@@ -251,7 +252,7 @@
         <section class="sr-sec" id="update-notes">
           <h2>更新说明窗</h2>
           <p class="sr-desc">
-            340×400 的不透明无边框窗。结构与主窗一致：自绘标题栏、内容区、底部操作区，三段之间用发丝线分隔；
+            340×400 的不透明无边框窗。结构与主窗一致：自绘标题栏、内容区、底部操作区，三段之间用发丝线分隔。
             差别是这里没有导航，窗口只服务一件事。
           </p>
           <div class="sr-col">

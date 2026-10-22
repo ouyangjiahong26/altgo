@@ -117,7 +117,7 @@ function InjectTextField({
         {t("settings.inject_text")}
       </span>
       <div className="settings-field-control">
-        {/* 开关用 button 承载，role="switch" 加 aria-checked 才有正确的开合语义；
+        {/* 开关用 button 承载，role="switch" 加 aria-checked 才有正确的开合语义。
             名称取自同一行的可见标签，不另造无障碍文案。 */}
         <button
           type="button"

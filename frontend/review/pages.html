@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo 样式审查 · 页面整体</title>
+    <link rel="icon" href="../public/altgo-logo.svg" type="image/svg+xml" />
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
     <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -312,7 +313,7 @@
           <h2>历史骨架</h2>
           <p class="sr-desc">
             历史是主页内的一块面板（<code>HistoryPanel.tsx</code> 加 <code>pages/history.css</code>）：标题借分组标签的语气，
-            批量操作在同行的右侧；列表是一块内容卡，行与行之间只隔一条发丝线。首行是索引，时间在左，
+            批量操作在同行的右侧。列表是一块内容卡，行与行之间只隔一条发丝线。首行是索引，时间在左，
             来源与各环节耗时收成胶囊徽标。
           </p>
           <div class="sr-pair">
@@ -514,6 +515,23 @@
                           </div>
                         </section>
 
+                        <section class="settings-section settings-section--language">
+                          <header class="settings-section-head">
+                            <h3 class="settings-section-head-title">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                              界面语言
+                            </h3>
+                            <p class="settings-section-head-note">界面文字语言，与识别语言无关。</p>
+                          </header>
+                          <div class="card settings-rows">
+                            <div class="settings-field settings-field--solo">
+                              <div class="settings-field-control">
+                                <select class="select" aria-label="界面语言"><option>自动检测</option><option>中文</option><option>English</option></select>
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+
                         <div class="card settings-save">
                           <span class="settings-save-status" role="status" aria-live="polite">
                             <span class="badge badge-success">设置已保存</span>
@@ -637,7 +655,7 @@
                   </div>
                 </div>
               </div>
-              <div class="sr-caption">配置步：品牌头右侧是步骤序号，进度条按步点亮；单选卡与列表卡同形。</div>
+              <div class="sr-caption">配置步：品牌头右侧是步骤序号，进度条按步点亮。单选卡与列表卡同形。</div>
             </div>
           </div>
           <div class="sr-note">

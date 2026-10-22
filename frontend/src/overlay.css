@@ -20,7 +20,7 @@
   align-items: flex-end;
   justify-content: center;
   width: 100%;
-  /* 窗口 64px = 胶囊 40px + 底部 12px；顶部余下的 12px 由 overlay-base 里
+  /* 窗口 64px = 胶囊 40px + 底部 12px。顶部余下的 12px 由 overlay-base 里
      #root 的底对齐产生。这两处数字直接对应 Rust 侧的窗口几何，故写死像素。 */
   padding-bottom: 12px;
   transition: transform var(--duration-normal) var(--ease-out);
@@ -81,8 +81,8 @@
 
 /* ── 录音：红点 + 中性电平轨迹 ──────────────── */
 
-/* 红色只留在 7px 录音点上（录音的通行记号，也是品牌插图里的写法）；波形走中性
-   灰阶，避免一条 158px 长的语义色横条占满胶囊——语义色只铺小面积。 */
+/* 红色只留在 7px 录音点上（录音的通行记号，也是品牌插图里的写法）。波形走中性
+   灰阶，避免一条 158px 长的语义色横条占满胶囊。语义色只铺小面积。 */
 .dot {
   position: relative;
   width: 7px;
@@ -148,7 +148,7 @@
   border: 2px solid var(--overlay-processing-track);
   border-top-color: var(--color-amber);
   border-radius: var(--radius-full);
-  animation: overlay-spin 0.9s linear infinite;
+  animation: spin var(--duration-spin) linear infinite;
   will-change: transform;
   flex: none;
 }

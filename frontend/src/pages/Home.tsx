@@ -267,7 +267,7 @@ function ProbeCard({ probe, triggerLabel, t, onBegin, onRetry, onClose, onSettin
   const unresolved = t("main.probe_code_unresolved");
 
   return (
-    <div className="home-probe" aria-live="polite">
+    <div className="card home-probe" aria-live="polite">
       <div className="home-probe-head">
         {probe.kind === "probing" && (
           <span className="home-status-dot breathing" style={{ background: "var(--color-amber)" }} />
@@ -543,7 +543,7 @@ export default function Home() {
         </section>
       ) : (
         <section className="home-result">
-          <div className="home-result-card">
+          <div className="card home-result-card">
             <div className="home-result-head">
               <span className="home-result-label">{t("main.result_label")}</span>
               <span className="home-result-meta">{t("main.result_meta")}</span>

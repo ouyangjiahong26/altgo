@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo 样式审查 · 设计 token</title>
+    <link rel="icon" href="../public/altgo-logo.svg" type="image/svg+xml" />
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
     <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -131,7 +132,7 @@
               .tabular：2026/10/21 18:06 · 230 MB · 0xA4
             </p>
           </div>
-          <div class="sr-caption">字标为实色文字，不使用渐变；中文标题不额外加字距。</div>
+          <div class="sr-caption">字标为实色文字，不使用渐变。中文标题不额外加字距。</div>
         </section>
 
         <section class="sr-sec" id="shape">
@@ -153,7 +154,7 @@
           <div class="sr-row" id="shadow-scale"></div>
           <h3>动效 --duration-* / --ease-*</h3>
           <div class="sr-row" id="motion-scale"></div>
-          <div class="sr-caption">交互反馈一律不超过 200 ms；系统开启“减少动态效果”时动画与过渡全部停用。</div>
+          <div class="sr-caption">交互反馈一律不超过 200 ms。系统开启“减少动态效果”时动画与过渡全部停用。</div>
           <h3>字体 / 行高 / 字距 / 其它</h3>
           <div class="sr-list" id="misc-tokens"></div>
           <div class="sr-caption">悬浮窗阴影刻意为无：半透明阴影在部分 Linux 合成器上会渲染成黑影，预览即为真实效果。</div>
@@ -219,7 +220,7 @@
         },
         {
           title: "底部浮动栏",
-          tokens: ["--color-dock-bg", "--color-dock-border"],
+          tokens: ["--color-dock-bg"],
         },
         {
           title: "悬浮窗专用",
@@ -402,6 +403,7 @@
           "--duration-fast",
           "--duration-normal",
           "--duration-slow",
+          "--duration-spin",
           "--ease-out",
           "--ease-in-out",
           "--ease-spring",
@@ -450,10 +452,6 @@
         {
           name: "--tracking-tighter",
           preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-sm)">统计数值 20</span>`,
-        },
-        {
-          name: "--tracking-caps",
-          preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">TRACKING CAPS</span>`,
         },
         {
           name: "--font-regular",

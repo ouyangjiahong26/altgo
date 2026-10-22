@@ -2,7 +2,7 @@
    altgo：设计令牌
 
    设计语言：shadcn new-york 式的中性 zinc 灰阶，扁平克制，信息密度优先。
-   结构靠面阶差与发丝线表达，颜色只表达含义（成功、危险、进行中）；
+   结构靠面阶差与发丝线表达，颜色只表达含义（成功、危险、进行中与信息）。
    主操作用近黑实心，不做彩色强调。大块统计面用 20px 圆角与 muted 底色区分，
    控件与小面板用 10px 以内的圆角，保持方正。
 
@@ -11,7 +11,7 @@
 
 :root {
   /* ── 排版（深浅主题共用） ───────────────── */
-  /* 拉丁字形用 Inter，中文回退到系统 UI 字体；等宽用于键码、URL、命令。 */
+  /* 拉丁字形用 Inter，中文回退到系统 UI 字体。等宽用于键码、URL、命令。 */
   --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
@@ -31,7 +31,6 @@
 
   --tracking-tight: -0.018em;
   --tracking-tighter: -0.03em;
-  --tracking-caps: 0.06em;
 
   --font-regular: 400;
   --font-medium: 500;
@@ -73,6 +72,8 @@
   --duration-fast: 90ms;
   --duration-normal: 150ms;
   --duration-slow: 200ms;
+  /* 持续旋转的加载指示不跟随交互时长，单独给一档 */
+  --duration-spin: 900ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -155,7 +156,6 @@
 
   /* 底栏：半透明面加毛玻璃，浮在内容之上 */
   --color-dock-bg: rgba(255, 255, 255, 0.86);
-  --color-dock-border: var(--color-border);
 
   /* 悬浮窗用实色：半透明阴影叠在透明窗口上，部分 Linux 合成器会预乘成黑影
      （2026-07 在 mutter/X11 实测复现），层次靠实色面 + 细边框表达。 */
@@ -231,7 +231,6 @@
   --shadow-focus: 0 0 0 1px var(--color-accent);
 
   --color-dock-bg: rgba(24, 24, 27, 0.86);
-  --color-dock-border: oklch(1 0 0 / 10%);
 
   --overlay-surface-solid: oklch(0.21 0.006 285.885);
   --overlay-border: oklch(1 0 0 / 12%);

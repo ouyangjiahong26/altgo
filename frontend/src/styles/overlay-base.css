@@ -34,9 +34,9 @@ body {
   cursor: default;
 }
 
-/* 胶囊贴底而不是贴顶：Rust 侧 OVERLAY_SIZE 按「40px 胶囊 + 上下各 12px 余量」
+/* 胶囊贴底而不是贴顶：Rust 侧 OVERLAY_SIZE 按“40px 胶囊加上下各 12px 余量”
    推导窗口高度与屏幕定位。块级容器在 #root 里默认贴顶，会让胶囊整体上移
-   12px、底部留出 24px，与定位假设错开；这里把 #root 换成纵向容器对齐到底。 */
+   12px、底部留出 24px，与定位假设错开。这里把 #root 换成纵向容器对齐到底。 */
 #root {
   display: flex;
   align-items: flex-end;

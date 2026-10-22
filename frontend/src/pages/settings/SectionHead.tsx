@@ -43,6 +43,7 @@ interface CollapsibleSectionHeadProps extends SectionHeadProps {
 /**
  * 可折叠区块头：整条是按钮，开合状态用 aria-expanded 表达。
  * 外面套 h3，保证与其他区块一样出现在标题大纲里。
+ * 内容区收起时不渲染，因此 aria-controls 只在展开时输出，避免空 IDREF。
  * 可访问名称固定为标题本身，说明句只作为可见文字，不把名称撑长。
  */
 export function CollapsibleSectionHead({
@@ -59,7 +60,7 @@ export function CollapsibleSectionHead({
         type="button"
         className="settings-section-head settings-section-head--toggle"
         aria-expanded={expanded}
-        aria-controls={controls}
+        aria-controls={expanded ? controls : undefined}
         aria-label={title}
         onClick={onToggle}
       >

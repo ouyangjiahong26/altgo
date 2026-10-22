@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo 样式审查 · 控件</title>
+    <link rel="icon" href="../public/altgo-logo.svg" type="image/svg+xml" />
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
     <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -168,8 +169,8 @@
         <section class="sr-sec" id="toggles">
           <h2>勾选 / 开关 / 分段</h2>
           <p class="sr-desc">
-            勾选框与单选框自绘外观，选中态用主色填充；开关是按钮形态，<code>aria-checked</code>
-            表达状态；分段控件是胶囊底加白色滑块，当前项 <code>.is-active</code>。
+            勾选框与单选框自绘外观，选中态用主色填充。开关是按钮形态，<code>aria-checked</code>
+            表达状态。分段控件是胶囊底加白色滑块，当前项 <code>.is-active</code>。
           </p>
           <div class="sr-pair">
             <div class="sr-frame sr-col">
@@ -182,7 +183,7 @@
                 <label class="history-select-all"><input type="radio" name="sr-radio-demo" checked /><span>单选（选中）</span></label>
                 <label class="history-select-all"><input type="radio" name="sr-radio-demo" /><span>单选</span></label>
               </div>
-              <div class="sr-caption" style="margin: 0">勾选 15px 见方、4px 圆角；单选全圆角。</div>
+              <div class="sr-caption" style="margin: 0">勾选 15px 见方、4px 圆角。单选全圆角。</div>
             </div>
             <div class="sr-frame sr-col">
               <div class="sr-row">
@@ -246,7 +247,7 @@
         <section class="sr-sec" id="cards">
           <h2>卡片 / 统计面 / 空态</h2>
           <p class="sr-desc">
-            两种卡片：内容卡是 <code>surface-1</code> 加发丝线、14px 圆角；统计面是 muted 底、无边框、20px 圆角，
+            两种卡片：内容卡是 <code>surface-1</code> 加发丝线、14px 圆角。统计面是 muted 底、无边框、20px 圆角，
             用于数量、状态与关键数值。空态给一个图标、一句动作指引和一个明确操作。
           </p>
           <div class="sr-pair">

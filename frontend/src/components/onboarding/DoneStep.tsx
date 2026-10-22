@@ -54,7 +54,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** 润色摘要：本地档显示后端、档位与模型；云端档显示模型与档位。 */
+/** 润色摘要：本地档显示后端、档位与模型，云端档显示模型与档位。 */
 function polishSummary(t: (key: string) => string, config: AppConfig): string {
   if (config.polishBackend === "local") {
     return [

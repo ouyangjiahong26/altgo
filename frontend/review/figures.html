@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo 窗口状态预览</title>
+    <link rel="icon" href="../public/altgo-logo.svg" type="image/svg+xml" />
     <!--
       窗口状态的单页预览：每个状态按真实窗口尺寸渲染，可在浏览器里直接看，
       也可由 ?fig=<id> 单独显示一个（贴到别处核对或截图时用）、?probe=<id> 额外打印
@@ -531,6 +532,23 @@
                     <span class="settings-field-label-text">字体大小</span>
                     <div class="settings-field-control">
                       <select class="select"><option>小</option><option selected>标准</option><option>大</option></select>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-section settings-section--language">
+                <header class="settings-section-head">
+                  <h3 class="settings-section-head-title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                    界面语言
+                  </h3>
+                  <p class="settings-section-head-note">界面文字语言，与识别语言无关。</p>
+                </header>
+                <div class="card settings-rows">
+                  <div class="settings-field settings-field--solo">
+                    <div class="settings-field-control">
+                      <select class="select" aria-label="界面语言"><option>自动检测</option><option>中文</option><option>English</option></select>
                     </div>
                   </div>
                 </div>

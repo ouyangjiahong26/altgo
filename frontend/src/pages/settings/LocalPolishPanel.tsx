@@ -129,7 +129,7 @@ function PolishModelCard({
             </button>
             <button
               type="button"
-              className="btn btn-sm btn-ghost"
+              className="btn btn-sm btn-danger"
               onClick={() => void onDelete(m.name)}
             >
               <Trash2 size={12} aria-hidden="true" />

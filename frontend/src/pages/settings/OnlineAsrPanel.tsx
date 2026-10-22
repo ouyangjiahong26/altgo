@@ -87,7 +87,7 @@ export function OnlineAsrPanel({
         type="button"
         className="settings-advanced"
         aria-expanded={advancedOpen}
-        aria-controls={advancedId}
+        aria-controls={advancedOpen ? advancedId : undefined}
         onClick={() => setAdvancedOpen(!advancedOpen)}
       >
         {advancedOpen ? (

@@ -125,7 +125,7 @@ function HistoryStageMeta({
   }
   return (
     <div className="history-item-meta">
-      {/* 在线识别要走网络与密钥，用信息色标出来；本地识别保持中性底色 */}
+      {/* 在线识别要走网络与密钥，用信息色标出来，本地识别保持中性底色 */}
       <span
         className={`badge history-item-badge${
           meta.backend === "online" ? " badge-info" : ""

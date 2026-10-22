@@ -133,7 +133,7 @@ function ModelCardActions({
       </button>
       <button
         type="button"
-        className="btn btn-sm btn-ghost"
+        className="btn btn-sm btn-danger"
         onClick={() => void onDelete(m.name)}
       >
         <Trash2 size={12} aria-hidden="true" />
@@ -182,7 +182,7 @@ function AdvancedModelPath({
         type="button"
         className="settings-advanced"
         aria-expanded={advancedPath}
-        aria-controls={bodyId}
+        aria-controls={advancedPath ? bodyId : undefined}
         onClick={() => setAdvancedPath(!advancedPath)}
       >
         {advancedPath ? (

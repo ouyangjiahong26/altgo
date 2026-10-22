@@ -273,7 +273,7 @@ function PolishAdvancedBlock({
         type="button"
         className="settings-advanced"
         aria-expanded={polishAdvancedOpen}
-        aria-controls={bodyId}
+        aria-controls={polishAdvancedOpen ? bodyId : undefined}
         onClick={() => setPolishAdvancedOpen(!polishAdvancedOpen)}
       >
         {polishAdvancedOpen ? (

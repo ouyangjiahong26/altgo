@@ -41,14 +41,14 @@
   </style>
 
   <defs>
-    <!-- 7px 红点 + 扩散环（复刻 .dot / .dot::after，inset -3px；红取 --color-red 的夜间值） -->
+    <!-- 7px 红点 + 扩散环，复刻 .dot 与 .dot::after（inset -3px）。红取 --color-red 的夜间值。 -->
     <g id="recording-dot">
       <circle class="ring-pulse" r="3.5" fill="none" stroke="#f87171" stroke-width="1"/>
       <circle r="3.5" fill="#f87171"/>
     </g>
   </defs>
 
-  <!-- 悬浮条居中：440 宽画布、248 宽条，两侧各留 96；面取 --overlay-surface-solid，线取 --overlay-border -->
+  <!-- 悬浮条居中：440 宽画布、248 宽条，两侧各留 96。面取 --overlay-surface-solid，线取 --overlay-border。 -->
   <rect x="96" y="0" width="248" height="40" rx="10" fill="#27272a" stroke="#414144"/>
   <use href="#recording-dot" x="136" y="20"/>
   <!-- 轨迹右对齐、底部对齐：8 条 2px 中性条，静止高度即 CSS 里的实测形状 -->

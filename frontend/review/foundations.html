@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo 样式审查 · 基础层</title>
+    <link rel="icon" href="../public/altgo-logo.svg" type="image/svg+xml" />
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
     <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -109,8 +110,8 @@
         <section class="sr-sec" id="type">
           <h2>排版与字重</h2>
           <p class="sr-desc">
-            界面文案用 Inter，中文回退系统 UI 字体；命令、键码、URL 用 JetBrains Mono。
-            标题（h1 到 h4）统一 600 字重、收紧字距、两端平衡换行；段落做避免孤字换行。
+            界面文案用 Inter，中文回退系统 UI 字体。命令、键码、URL 用 JetBrains Mono。
+            标题（h1 到 h4）统一 600 字重、收紧字距、两端平衡换行。段落做避免孤字换行。
             数据类文字（时间戳、容量、进度、键码）加 <code>.tabular</code> 走等宽数字。
           </p>
 
@@ -160,7 +161,7 @@
           <div class="sr-pair">
             <div class="sr-frame sr-col">
               <div class="sr-desc" style="margin: 0">
-                用 Tab 键在下列控件间移动，能看到焦点环；用鼠标点击则不出现。
+                用 Tab 键在下列控件间移动，能看到焦点环。用鼠标点击则不出现。
               </div>
               <div class="sr-row">
                 <button type="button" class="btn btn-primary">主按钮</button>
@@ -186,7 +187,7 @@
             </div>
           </div>
           <div class="sr-note">
-            键盘焦点环宽度与偏移来自 <code>--focus-ring-width</code> / <code>--focus-ring-offset</code>；
+            键盘焦点环宽度与偏移来自 <code>--focus-ring-width</code> 与 <code>--focus-ring-offset</code>。
             不要在页面样式里另写 <code>outline</code>，否则同一窗会出现两种焦点观感。
           </div>
         </section>

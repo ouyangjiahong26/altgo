@@ -1,11 +1,14 @@
 /** 向导头部：品牌、步骤编号与进度条。整条可拖拽，引导期间窗口没有系统标题栏。 */
 import type { Step } from "./useOnboardingWizard";
 
-/** 配置步的编号：欢迎与完成不编号，与 i18n 的“第 n 步 / 共 3 步”对应。 */
+/** 配置步的编号：欢迎与完成不编号，与 i18n 的“第 n 步 / 共 3 步”对应。
+ * 进度条的段数也从这张表推出，加一个配置步只改这一处。 */
 const CONFIG_STEP: Partial<Record<Step, number>> = { key: 1, engine: 2, polish: 3 };
 
-/** 进度条段数：等于配置步数，欢迎与完成步不额外占段。 */
-const SEGMENTS = [1, 2, 3];
+/** 进度条分段用的编号序列，由配置步表派生：有几段配置步就分几段。 */
+const SEGMENTS = Object.values(CONFIG_STEP).filter(
+  (n): n is number => n !== undefined,
+);
 
 interface OnboardingHeaderProps {
   step: Step;
@@ -15,7 +18,7 @@ interface OnboardingHeaderProps {
 
 export function OnboardingHeader({ step, stepLabel, onDragStart }: OnboardingHeaderProps) {
   const current = CONFIG_STEP[step];
-  // 走到第几步就点亮几段；完成步三段全亮，欢迎步一段不亮。
+  // 走到第几步就点亮几段，完成步三段全亮，欢迎步一段不亮。
   const filled = step === "done" ? SEGMENTS.length : (current ?? 0);
 
   return (

@@ -18,7 +18,7 @@
 
 /* ── 状态块：统计面范式 ─────────────────────────
    一眼要回答“现在能不能说话”。标签弱、数值大、图标在右上角，与仪表盘的
-   统计卡同构；状态色只落在数值与图标上，不铺底色。 */
+   统计卡同构。状态色只落在数值与图标上，不铺底色。 */
 
 .home-state {
   display: flex;
@@ -36,12 +36,12 @@
   height: 14px;
 }
 
-/* 录音中让图标轻轻呼吸，提示“正在收音”；只动透明度，不动布局 */
+/* 录音中让图标轻轻呼吸，提示“正在收音”，只动透明度，不动布局 */
 .home-state-icon.is-live {
   animation: home-status-breathe 1.8s var(--ease-in-out) infinite;
 }
 
-/* 数值即状态文字，走统计面的数值档；颜色由行内样式按状态取令牌 */
+/* 数值即状态文字，走统计面的数值档，颜色由行内样式按状态取令牌 */
 .home-status-text {
   line-height: var(--leading-tight);
 }
@@ -102,7 +102,7 @@
   }
 }
 
-/* ── 触发键自检卡：内容卡 ───────────────────── */
+/* ── 触发键自检卡：内容卡（皮肤取自 .card） ───── */
 
 .home-probe-area {
   display: flex;
@@ -115,9 +115,6 @@
 .home-probe {
   width: 100%;
   padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-bg-card);
   text-align: left;
 }
 
@@ -184,16 +181,10 @@
 
 /* 转写中的状态图标自转，只改 transform，不引入额外的加载控件 */
 .home-spin {
-  animation: home-spin 0.9s linear infinite;
+  animation: spin var(--duration-spin) linear infinite;
 }
 
-@keyframes home-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ── 结果卡：内容卡 ─────────────────────────── */
+/* ── 结果卡：内容卡（皮肤取自 .card） ─────────── */
 
 .home-result {
   display: flex;
@@ -203,9 +194,6 @@
 .home-result-card {
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
   overflow: hidden;
 }
 
@@ -332,34 +320,9 @@
 }
 
 /* ── 进入动效 ─────────────────────────────────
-   只动 opacity 与 transform，避免触发布局重算。 */
-
-@keyframes home-enter {
-  from {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
+   复用 motion.css 的 fade-in（只动 opacity 与 transform），不再本地另起一条。 */
 
 .home-state,
 .home-result {
-  animation: home-enter var(--duration-slow) var(--ease-out) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .home-state,
-  .home-result {
-    animation: none;
-  }
-
-  .home-status-dot.breathing,
-  .home-state-icon.is-live,
-  .home-spin,
-  .home-tx-progress-fill.indeterminate {
-    animation: none;
-  }
+  animation: fade-in var(--duration-normal) var(--ease-out) both;
 }

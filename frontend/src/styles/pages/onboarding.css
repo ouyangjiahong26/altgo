@@ -349,7 +349,7 @@
   color: var(--color-green);
 }
 
-/* 摘要按「标签 / 取值」两列读，取值可换行：润色一项可能同时带后端、档位与模型。 */
+/* 摘要按“标签 / 取值”两列读，取值可换行，润色一项可能同时带后端、档位与模型。 */
 .onboarding-summary .onboarding-item {
   align-items: baseline;
 }

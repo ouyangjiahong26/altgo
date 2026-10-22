@@ -101,12 +101,12 @@
   overflow: hidden;
 }
 
-/* 行与行之间一条发丝线；相邻块（字段、动作行、模型列表、说明）一并适用 */
+/* 行与行之间一条发丝线，相邻块（字段、动作行、模型列表、说明）一并适用 */
 .settings-rows > * + * {
   border-top: 1px solid var(--color-border-subtle);
 }
 
-/* 行内左右留白集中在这里，onboarding 自己的卡已有内边距，不会双份 */
+/* 行内左右留白集中在这里：卡片本身不留内边距，分隔线才能通到卡边 */
 .settings-rows :is(.settings-field, .settings-row-actions, .settings-advanced, .settings-card-note) {
   padding-inline: var(--space-3-5);
 }
@@ -120,8 +120,10 @@
   padding-block: var(--space-1);
 }
 
-/* 单项区块：行内没有标签，控件仍按上限靠右 */
+/* 单项区块：行内没有标签，控件显式落到第二列，才吃得到 190px 上限与右对齐。
+   只有一个子节点时 grid 会把它放进 1fr 列，select 的 width: 100% 就铺满整行。 */
 .settings-field--solo > .settings-field-control {
+  grid-column: 2;
   justify-content: flex-end;
 }
 
@@ -158,7 +160,7 @@
   min-width: 0;
 }
 
-/* 输入类控件占满所在列；列本身已被 190px 上限夹住，不做整行通铺 */
+/* 输入类控件占满所在列，列本身已被 190px 上限夹住，不做整行通铺 */
 .settings-field-control > .field,
 .settings-field-control > .select {
   width: 100%;
@@ -360,7 +362,7 @@
 
 /* 保存中的旋转图标：动的是 transform，不触发布局 */
 .settings-spin {
-  animation: overlay-spin 900ms linear infinite;
+  animation: spin var(--duration-spin) linear infinite;
 }
 
 /* ── 文本工具 ───────────────────────────────── */
