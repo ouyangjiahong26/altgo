@@ -1,7 +1,9 @@
 import { Palette } from "lucide-react";
+import { useId } from "react";
 import type { AppConfig } from "../../hooks/useConfigForm";
 import type { ThemePref } from "../../ThemeContext";
 import type { FontSizePref, WindowSizePref } from "../../ui-size";
+import { SectionHead, sectionNote } from "./SectionHead";
 
 interface AppearanceSectionProps {
   t: (key: string) => string;
@@ -29,14 +31,17 @@ export function AppearanceSection({
 }: AppearanceSectionProps) {
   return (
     <section className="settings-section settings-section--appearance">
-      <h3 className="settings-section-title">
-        <Palette size={14} />
-        {t("settings.appearance")}
-      </h3>
-      <ThemeField t={t} themePref={themePref} setTheme={setTheme} />
-      <FontSizeField t={t} fontSize={fontSize} onFontSizeChange={onFontSizeChange} />
-      <WindowSizeField t={t} windowSize={windowSize} onWindowSizeChange={onWindowSizeChange} />
-      <OverlayPositionField t={t} config={config} update={update} />
+      <SectionHead
+        leading={<Palette size={14} aria-hidden="true" />}
+        title={t("settings.appearance")}
+        note={sectionNote(t, "settings.appearance_note")}
+      />
+      <div className="card settings-rows">
+        <ThemeField t={t} themePref={themePref} setTheme={setTheme} />
+        <FontSizeField t={t} fontSize={fontSize} onFontSizeChange={onFontSizeChange} />
+        <WindowSizeField t={t} windowSize={windowSize} onWindowSizeChange={onWindowSizeChange} />
+        <OverlayPositionField t={t} config={config} update={update} />
+      </div>
     </section>
   );
 }
@@ -46,12 +51,17 @@ function ThemeField({
   themePref,
   setTheme,
 }: Pick<AppearanceSectionProps, "t" | "themePref" | "setTheme">) {
+  const labelId = useId();
+
   return (
     <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.theme")}</span>
+      <span className="settings-field-label-text" id={labelId}>
+        {t("settings.theme")}
+      </span>
       <div className="settings-field-control">
         <select
           className="select"
+          aria-labelledby={labelId}
           value={themePref}
           onChange={(e) => setTheme(e.target.value as ThemePref)}
         >
@@ -69,12 +79,17 @@ function FontSizeField({
   fontSize,
   onFontSizeChange,
 }: Pick<AppearanceSectionProps, "t" | "fontSize" | "onFontSizeChange">) {
+  const labelId = useId();
+
   return (
     <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.font_size")}</span>
+      <span className="settings-field-label-text" id={labelId}>
+        {t("settings.font_size")}
+      </span>
       <div className="settings-field-control">
         <select
           className="select"
+          aria-labelledby={labelId}
           value={fontSize}
           onChange={(e) => onFontSizeChange(e.target.value as FontSizePref)}
         >
@@ -92,12 +107,17 @@ function WindowSizeField({
   windowSize,
   onWindowSizeChange,
 }: Pick<AppearanceSectionProps, "t" | "windowSize" | "onWindowSizeChange">) {
+  const labelId = useId();
+
   return (
     <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.window_size")}</span>
+      <span className="settings-field-label-text" id={labelId}>
+        {t("settings.window_size")}
+      </span>
       <div className="settings-field-control">
         <select
           className="select"
+          aria-labelledby={labelId}
           value={windowSize}
           onChange={(e) => onWindowSizeChange(e.target.value as WindowSizePref)}
         >
@@ -115,12 +135,17 @@ function OverlayPositionField({
   config,
   update,
 }: Pick<AppearanceSectionProps, "t" | "config" | "update">) {
+  const labelId = useId();
+
   return (
     <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.overlay_position")}</span>
+      <span className="settings-field-label-text" id={labelId}>
+        {t("settings.overlay_position")}
+      </span>
       <div className="settings-field-control">
         <select
           className="select"
+          aria-labelledby={labelId}
           value={config.overlayPosition}
           onChange={(e) => update("overlayPosition", e.target.value)}
         >

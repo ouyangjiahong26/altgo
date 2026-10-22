@@ -1,7 +1,9 @@
 import { Sparkles } from "lucide-react";
+import { useId } from "react";
 import type { AppConfig } from "../../hooks/useConfigForm";
 import { LocalModelPanel, type LocalModelPanelProps } from "./LocalModelPanel";
 import { OnlineAsrPanel, type OnlineAsrPanelProps } from "./OnlineAsrPanel";
+import { SectionHead, sectionNote } from "./SectionHead";
 
 interface TranscriptionSectionProps {
   "data-settings-order"?: number;
@@ -31,12 +33,12 @@ export function TranscriptionSection({
       data-settings-order={order}
       className="settings-section settings-section--transcription"
     >
-      <h3 className="settings-section-title">
-        <Sparkles size={14} />
-        {t("settings.transcription")}
-      </h3>
-
-      <>
+      <SectionHead
+        leading={<Sparkles size={14} aria-hidden="true" />}
+        title={t("settings.transcription")}
+        note={sectionNote(t, "settings.transcription_note")}
+      />
+      <div className="card settings-rows">
         <LanguageBackendFields t={t} config={config} update={update} />
         {onlineActive ? (
           <OnlineAsrPanel t={t} config={config} update={update} {...onlineAsr} />
@@ -44,7 +46,7 @@ export function TranscriptionSection({
           <LocalModelPanel t={t} config={config} update={update} {...localModel} />
         )}
         <InjectTextField t={t} config={config} update={update} />
-      </>
+      </div>
     </section>
   );
 }
@@ -54,13 +56,19 @@ function LanguageBackendFields({
   config,
   update,
 }: Pick<TranscriptionSectionProps, "t" | "config" | "update">) {
+  const languageId = useId();
+  const backendId = useId();
+
   return (
     <>
       <div className="settings-field">
-        <span className="settings-field-label-text">{t("settings.language")}</span>
-        <div className="settings-field-control settings-field-control--narrow">
+        <span className="settings-field-label-text" id={languageId}>
+          {t("settings.language")}
+        </span>
+        <div className="settings-field-control">
           <select
             className="select"
+            aria-labelledby={languageId}
             value={config.language}
             onChange={(e) => update("language", e.target.value)}
           >
@@ -77,12 +85,13 @@ function LanguageBackendFields({
       </div>
 
       <div className="settings-field">
-        <span className="settings-field-label-text">
+        <span className="settings-field-label-text" id={backendId}>
           {t("settings.transcriber_backend")}
         </span>
         <div className="settings-field-control">
           <select
             className="select"
+            aria-labelledby={backendId}
             value={config.transcriberBackend === "online" ? "online" : "local"}
             onChange={(e) => update("transcriberBackend", e.target.value)}
           >
@@ -100,17 +109,24 @@ function InjectTextField({
   config,
   update,
 }: Pick<TranscriptionSectionProps, "t" | "config" | "update">) {
+  const labelId = useId();
+
   return (
     <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.inject_text")}</span>
+      <span className="settings-field-label-text" id={labelId}>
+        {t("settings.inject_text")}
+      </span>
       <div className="settings-field-control">
-        <label style={{ display: "flex", alignItems: "center", cursor: "pointer", gap: "var(--space-1-5)" }}>
-          <input
-            type="checkbox"
-            checked={config.injectText}
-            onChange={(e) => update("injectText", e.target.checked)}
-          />
-        </label>
+        {/* 开关用 button 承载，role="switch" 加 aria-checked 才有正确的开合语义；
+            名称取自同一行的可见标签，不另造无障碍文案。 */}
+        <button
+          type="button"
+          role="switch"
+          className="switch"
+          aria-checked={config.injectText}
+          aria-labelledby={labelId}
+          onClick={() => update("injectText", !config.injectText)}
+        />
       </div>
     </div>
   );
