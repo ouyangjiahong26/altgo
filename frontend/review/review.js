@@ -53,5 +53,7 @@ document.querySelectorAll("[data-size-btn]").forEach((b) =>
   b.addEventListener("click", () => setFontSize(b.dataset.sizeBtn)),
 );
 
-setTheme("dark");
+// 默认亮色，与产品默认（跟随系统时浅色系统即亮色）一致；根字号默认 17px 对应
+// ui-size.ts 的 medium 档。
+setTheme("light");
 setFontSize(17);

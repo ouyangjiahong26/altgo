@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>altgo 样式审查 · 界面</title>
+    <title>altgo 样式审查 · 控件</title>
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
     <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -21,14 +21,14 @@
     <link rel="stylesheet" href="review.css" />
   </head>
   <body>
-<header class="sr-top">
+    <header class="sr-top">
       <div>
-        <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 界面</div>
+        <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 控件</div>
         <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致，可切换深浅主题与根字号（15 / 17 / 19）。</div>
       </div>
       <div class="sr-ctl" role="group" aria-label="主题">
-        <button type="button" data-theme-btn="dark" aria-pressed="true">暗色</button>
-        <button type="button" data-theme-btn="light" aria-pressed="false">亮色</button>
+        <button type="button" data-theme-btn="light" aria-pressed="true">浅色</button>
+        <button type="button" data-theme-btn="dark" aria-pressed="false">深色</button>
       </div>
       <div class="sr-ctl" role="group" aria-label="根字号">
         <button type="button" data-size-btn="15" aria-pressed="false">15px</button>
@@ -41,216 +41,264 @@
         <div class="sr-nav-group">
           <div class="sr-nav-title">设计 token <a href="tokens.html" style="margin-left: 4px">整页 ↗</a></div>
           <a href="tokens.html#colors">色彩 token</a>
+          <a href="tokens.html#semantic">语义色</a>
           <a href="tokens.html#type">排版</a>
-          <a href="tokens.html#space">间距 / 圆角 / 动效</a>
+          <a href="tokens.html#shape">间距 / 圆角 / 动效</a>
         </div>
         <div class="sr-nav-group">
-          <div class="sr-nav-title">基础与组件 <a href="foundations.html" style="margin-left: 4px">整页 ↗</a></div>
-          <a href="foundations.html#base">基础层</a>
-          <a href="foundations.html#primitives">UI Primitives</a>
-          <a href="foundations.html#layout">Layout 头部</a>
+          <div class="sr-nav-title">基础层 <a href="foundations.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="foundations.html#type">排版与字重</a>
+          <a href="foundations.html#focus">焦点与选中</a>
+          <a href="foundations.html#scroll">滚动条</a>
         </div>
         <div class="sr-nav-group">
-          <div class="sr-nav-title">界面</div>
-          <a href="#settings" style="color: var(--color-text)">设置页</a>
-          <a href="#onboarding" style="color: var(--color-text)">首次引导</a>
+          <div class="sr-nav-title">控件</div>
+          <a href="#buttons" style="color: var(--color-text)">按钮</a>
+          <a href="#fields" style="color: var(--color-text)">输入与下拉</a>
+          <a href="#toggles" style="color: var(--color-text)">勾选 / 开关 / 分段</a>
+          <a href="#badges" style="color: var(--color-text)">徽标 / 键位</a>
+          <a href="#cards" style="color: var(--color-text)">卡片 / 统计面 / 空态</a>
         </div>
         <div class="sr-nav-group">
           <div class="sr-nav-title">窗口 <a href="windows.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="windows.html#titlebar">标题栏与浮动底栏</a>
           <a href="windows.html#overlay">悬浮窗</a>
-          <a href="windows.html#update-notes">更新说明窗口</a>
+          <a href="windows.html#update-notes">更新说明窗</a>
         </div>
         <div class="sr-nav-group">
-          <div class="sr-nav-title">页面整体 <a href="pages.html" style="margin-left: 4px">整页 ↗</a></div>
-          <a href="pages.html#pages">页面整体</a>
+          <div class="sr-nav-title">页面 <a href="pages.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="pages.html#home">主页</a>
+          <a href="pages.html#history">历史</a>
+          <a href="pages.html#settings">设置</a>
+          <a href="pages.html#onboarding">引导向导</a>
         </div>
       </nav>
       <main>
-<section class="sr-sec" id="settings">
-          <h2>设置页</h2>
-          <p class="sr-desc">设置页：区块卡分组堆叠，字段行左标签右控件，窗口变窄时字段改为上下堆叠。</p>
-          <div class="sr-frame sr-frame--tall">
-            <div class="settings-form">
-              <section class="settings-section settings-section--transcription">
-                <h3 class="settings-section-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
-                  转写
-                </h3>
+        <section class="sr-sec" id="buttons">
+          <h2>按钮</h2>
+          <p class="sr-desc">
+            控件基底来自 <code>ui-primitives.css</code>，页面只做尺寸与排布，不再各写一套按钮皮肤。
+            四档变体：主操作反色实心（每个视图至多一处）、次要操作 <code>surface-2</code> 底无边框、
+            描边按钮透明底加发丝线、幽灵按钮透明底悬停浮灰。危险操作默认只染红文字，悬停才浮现红底与红边。
+          </p>
+          <h3>四档变体</h3>
+          <div class="sr-frame sr-row">
+            <button type="button" class="btn btn-primary">主操作</button>
+            <button type="button" class="btn btn-secondary">次要操作</button>
+            <button type="button" class="btn btn-outline">描边按钮</button>
+            <button type="button" class="btn btn-ghost">幽灵按钮</button>
+            <button type="button" class="btn btn-danger">危险操作</button>
+          </div>
+          <div class="sr-caption">主操作与危险操作的悬停态需要把指针移上去才看得到。</div>
 
-                <div class="settings-field">
-                  <span class="settings-field-label-text">语言</span>
-                  <div class="settings-field-control settings-field-control--narrow">
-                    <select class="select">
-                      <option>中文</option>
-                      <option>English</option>
-                      <option>自动检测</option>
-                    </select>
-                  </div>
-                </div>
+          <h3>三档尺寸</h3>
+          <div class="sr-frame sr-row">
+            <button type="button" class="btn btn-secondary btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+              紧凑 26px
+            </button>
+            <button type="button" class="btn btn-secondary">默认 32px</button>
+            <button type="button" class="btn btn-secondary btn-lg">加大 36px</button>
+            <button type="button" class="btn btn-primary btn-block" style="max-width: 200px">通栏 btn-block</button>
+          </div>
+          <div class="sr-caption">默认高度 <code>--control-height</code> 32px，紧凑 26px，加大 36px，字号 12 至 14px。</div>
 
+          <h3>禁用与纯图标</h3>
+          <div class="sr-frame sr-row">
+            <button type="button" class="btn btn-primary" disabled>主操作（禁用）</button>
+            <button type="button" class="btn btn-secondary" disabled>次要（禁用）</button>
+            <button type="button" class="btn btn-ghost" disabled>幽灵（禁用）</button>
+            <button type="button" class="btn-icon" aria-label="图标按钮">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/></svg>
+            </button>
+          </div>
+          <div class="sr-caption">禁用态统一降到 45% 不透明度，不换色。</div>
+        </section>
+
+        <section class="sr-sec" id="fields">
+          <h2>输入与下拉</h2>
+          <p class="sr-desc">
+            <code>.field</code> 与 <code>.select</code> 共用同一盒式基座：高 32px、内边距 10px、8px 圆角、
+            令牌化底色与边框。下拉自绘箭头（<code>--select-chevron</code>），任何单写 <code>.select</code>
+            的标记都得到完整皮肤，不出现系统原生外观。
+          </p>
+          <div class="sr-pair">
+            <div class="sr-frame sr-col">
+              <input class="field" placeholder=".field 占位文字" />
+              <input class="field" value="已填写的取值" />
+              <input class="field" value="禁用态" disabled />
+              <select class="select">
+                <option>右Alt</option>
+                <option>左Alt</option>
+                <option>自定义键名…</option>
+              </select>
+              <select class="select" disabled>
+                <option>禁用态下拉</option>
+              </select>
+            </div>
+            <div class="sr-frame" style="padding: 0">
+              <div class="card settings-rows">
                 <div class="settings-field">
-                  <span class="settings-field-label-text">转写引擎</span>
+                  <span class="settings-field-label-text">单行字段</span>
                   <div class="settings-field-control">
-                    <select class="select">
-                      <option>本地 SenseVoice</option>
-                      <option>在线识别（MiMo ASR）</option>
-                    </select>
+                    <select class="select"><option>中文</option></select>
                   </div>
                 </div>
-
                 <div class="settings-field">
-                  <span class="settings-field-label-text">API Key</span>
+                  <div class="settings-field-label">
+                    <span class="settings-field-label-text">带读数的标签</span>
+                    <span class="settings-field-label-hint">当前触发键<code class="kbd">Alt_R</code></span>
+                  </div>
                   <div class="settings-field-control">
-                    <input class="field" type="password" value="sk-xxxxxxxx" />
+                    <input class="field" value="Alt_R" />
                   </div>
                 </div>
-
-                <div class="settings-field">
-                  <span class="settings-field-label-text"></span>
+                <div class="settings-field settings-field--solo">
                   <div class="settings-field-control">
-                    <p class="settings-hint settings-test-err">密钥无效或网络不可达</p>
+                    <select class="select"><option>跟随系统</option></select>
                   </div>
                 </div>
+                <p class="settings-card-note">卡内说明：settings-card-note，与字段同一条左边界。</p>
+              </div>
+            </div>
+          </div>
+          <div class="sr-caption">字段行是两列 grid：标签在左，控件在右，控件列上限 190px。输入类控件占满所在列，不做整行通铺。</div>
+        </section>
 
-                <div class="settings-polish-actions">
-                  <button class="btn-sm btn-secondary">测试连接</button>
-                  <button class="btn-sm btn-danger">清除已存密钥</button>
-                </div>
+        <section class="sr-sec" id="toggles">
+          <h2>勾选 / 开关 / 分段</h2>
+          <p class="sr-desc">
+            勾选框与单选框自绘外观，选中态用主色填充；开关是按钮形态，<code>aria-checked</code>
+            表达状态；分段控件是胶囊底加白色滑块，当前项 <code>.is-active</code>。
+          </p>
+          <div class="sr-pair">
+            <div class="sr-frame sr-col">
+              <div class="sr-row">
+                <label class="history-select-all"><input type="checkbox" checked /><span>勾选（选中）</span></label>
+                <label class="history-select-all"><input type="checkbox" /><span>勾选</span></label>
+                <label class="history-select-all"><input type="checkbox" disabled /><span>禁用</span></label>
+              </div>
+              <div class="sr-row">
+                <label class="history-select-all"><input type="radio" name="sr-radio-demo" checked /><span>单选（选中）</span></label>
+                <label class="history-select-all"><input type="radio" name="sr-radio-demo" /><span>单选</span></label>
+              </div>
+              <div class="sr-caption" style="margin: 0">勾选 15px 见方、4px 圆角；单选全圆角。</div>
+            </div>
+            <div class="sr-frame sr-col">
+              <div class="sr-row">
+                <button type="button" role="switch" class="switch" aria-checked="true" aria-label="开"></button>
+                <span style="font-size: var(--text-xs); color: var(--color-text-muted)">开</span>
+                <button type="button" role="switch" class="switch" aria-checked="false" aria-label="关"></button>
+                <span style="font-size: var(--text-xs); color: var(--color-text-muted)">关</span>
+                <button type="button" role="switch" class="switch" aria-checked="true" aria-label="禁用" disabled></button>
+              </div>
+              <div class="sr-caption" style="margin: 0">轨道 34×20，滑块 16px，选中态轨道用主色。</div>
+            </div>
+          </div>
+          <div class="sr-frame sr-row">
+            <div class="segmented" role="group" aria-label="配色">
+              <button type="button" class="is-active">浅色</button>
+              <button type="button">深色</button>
+            </div>
+            <div class="segmented" role="group" aria-label="字号">
+              <button type="button" class="is-active">小</button>
+              <button type="button">标准</button>
+              <button type="button">大</button>
+            </div>
+          </div>
+          <div class="sr-caption">分段控件容器与内部按钮都是全圆角，滑块用 <code>--color-bg</code> 加一级投影。</div>
+        </section>
 
-                <button class="settings-advanced-toggle">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                  高级：协议 / 模型 / 地址
-                </button>
-                <div>
-                  <div class="settings-field settings-field--nested">
-                    <span class="settings-field-label-text">模型</span>
-                    <div class="settings-field-control">
-                      <input class="field" value="mimo-v2.5-asr" />
-                    </div>
-                  </div>
-                  <div class="settings-field settings-field--nested">
-                    <span class="settings-field-label-text">接口地址</span>
-                    <div class="settings-field-control">
-                      <input class="field" value="https://token-plan-cn.xiaomimimo.com/v1" />
-                    </div>
-                  </div>
-                </div>
-
-                <div class="settings-model-grid">
-                  <div class="settings-model-card is-active">
-                    <div class="settings-model-card-head">
-                      <span class="settings-model-card-name">sense-voice</span>
-                      <span class="settings-model-card-badge">当前</span>
-                    </div>
-                    <p class="settings-model-card-desc">SenseVoice（中英日韩粤自动检测，速度快）</p>
-                    <p class="settings-model-card-meta">230 MB · 已下载</p>
-                    <div class="settings-model-card-actions">
-                      <button class="btn-sm btn-secondary">重新下载</button>
-                      <button class="btn-sm btn-danger">删除</button>
-                    </div>
-                  </div>
-                  <div class="settings-model-card">
-                    <div class="settings-model-card-head">
-                      <span class="settings-model-card-name">sense-voice-yue</span>
-                    </div>
-                    <p class="settings-model-card-desc">粤语增强模型</p>
-                    <p class="settings-model-card-meta">232 MB · 未下载</p>
-                    <div class="settings-model-card-actions">
-                      <button class="btn-sm btn-primary">下载并启用</button>
-                    </div>
-                  </div>
-                  <div class="settings-model-card" style="grid-column: 1 / -1">
-                    <div class="settings-model-card-head">
-                      <span class="settings-model-card-name">model.int8.onnx</span>
-                    </div>
-                    <div class="model-progress" style="width: 100%">
-                      <div class="progress-bar"><div class="progress-fill" style="width: 62%"></div></div>
-                      <div class="progress-text">62% · 12.3 MB/s</div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section class="settings-section settings-section--recording">
-                <h3 class="settings-section-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
-                  录音
-                </h3>
-                <div class="settings-field">
-                  <span class="settings-field-label-text">触发键</span>
-                  <div class="settings-field-control settings-field-control--trigger-key">
-                    <select class="select">
-                      <option>右 Alt（Alt_R）</option>
-                      <option>自定义…</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="settings-field">
-                  <span class="settings-field-label-text">按下以设置</span>
-                  <div class="settings-field-control">
-                    <div class="settings-key-binding-readout">
-                      <code class="kbd">Alt_R</code>
-                      <button class="btn-sm btn-secondary">按下以设置快捷键</button>
-                    </div>
-                  </div>
-                </div>
-                <div class="settings-field">
-                  <span class="settings-field-label-text">文本注入</span>
-                  <div class="settings-field-control">
-                    <input type="checkbox" checked />
-                  </div>
-                </div>
-                <p class="settings-hint">仅 Windows 生效，默认关闭（ADR-0005）。</p>
-              </section>
+        <section class="sr-sec" id="badges">
+          <h2>徽标 / 键位</h2>
+          <p class="sr-desc">
+            徽标是胶囊形：默认 <code>surface-2</code> 底，成功、危险、警告、信息四种语义底色按需使用。
+            键位标记是 6px 圆角、1px 边框、浅底、等宽字体，混排在句子里只留 2px 左右间距。
+          </p>
+          <div class="sr-frame sr-col">
+            <div class="sr-row">
+              <span class="badge">中性</span>
+              <span class="badge badge-accent">选中</span>
+              <span class="badge badge-success">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                设置已保存
+              </span>
+              <span class="badge badge-danger">危险</span>
+              <span class="badge badge-warning">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+                发现新版本 v2.7.9
+              </span>
+              <span class="badge badge-info">在线识别</span>
+            </div>
+            <div class="sr-row" style="align-items: baseline">
+              <span style="font-size: var(--text-xs); color: var(--color-text-secondary)">按住</span>
+              <span class="kbd">右Alt</span>
+              <span style="font-size: var(--text-xs); color: var(--color-text-secondary)">说话，松开即得文字。键码</span>
+              <span class="kbd">0xA4</span>
+            </div>
+            <div class="sr-row">
+              <span class="section-label">分组标签 section-label</span>
+              <hr class="divider" style="flex: 1; margin: 0" />
             </div>
           </div>
         </section>
 
-<section class="sr-sec" id="onboarding">
-          <h2>首次引导</h2>
-          <p class="sr-desc">首次引导向导：欢迎、触发键、转写引擎、润色、完成五屏，其中配置步共 3 步。</p>
-          <div class="sr-frame sr-frame--win">
-            <div class="onboarding">
-              <div class="onboarding-drag"></div>
-              <div class="onboarding-body">
-                <div class="onboarding-step">
-                  <img src="../public/altgo-logo.svg" alt="" width="52" height="52" class="onboarding-logo" />
-                  <h2 class="onboarding-title">欢迎使用 altgo</h2>
-                  <p class="onboarding-text">
-                    按住快捷键说话，松手自动转写并润色，结果写入剪贴板。先花一分钟完成基础设置。
-                  </p>
-                  <div class="onboarding-card">
-                    <button class="onboarding-choice">
-                      <span class="onboarding-choice-body">
-                        <span class="onboarding-choice-title">本地转写</span>
-                        <span class="onboarding-choice-desc">离线运行，首次需下载模型</span>
-                      </span>
-                    </button>
-                    <button class="onboarding-choice">
-                      <span class="onboarding-choice-body">
-                        <span class="onboarding-choice-title">在线转写</span>
-                        <span class="onboarding-choice-desc">填写 API Key 即可使用</span>
-                      </span>
-                    </button>
-                  </div>
-                  <div class="onboarding-summary">
-                    <span>转写引擎</span>
-                    <span class="onboarding-summary-value">本地 · sense-voice</span>
-                  </div>
-                  <div class="onboarding-dots">
-                    <span class="onboarding-dot active"></span>
-                    <span class="onboarding-dot"></span>
-                    <span class="onboarding-dot"></span>
-                  </div>
+        <section class="sr-sec" id="cards">
+          <h2>卡片 / 统计面 / 空态</h2>
+          <p class="sr-desc">
+            两种卡片：内容卡是 <code>surface-1</code> 加发丝线、14px 圆角；统计面是 muted 底、无边框、20px 圆角，
+            用于数量、状态与关键数值。空态给一个图标、一句动作指引和一个明确操作。
+          </p>
+          <div class="sr-pair">
+            <div>
+              <div class="card" style="padding: var(--space-3) var(--space-3-5)">
+                <span class="empty-state-title" style="font-size: var(--text-sm)">内容卡 .card</span>
+                <p style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-1)">
+                  一级面加发丝线，用于结果、列表容器、对话框与设置页的内容卡。
+                </p>
+              </div>
+              <div class="sr-caption">radius-xl = 14px</div>
+            </div>
+            <div>
+              <div class="stat-card">
+                <div class="stat-card-head">
+                  <span class="stat-card-label">当前状态</span>
+                  <span class="stat-card-icon" aria-hidden="true">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/></svg>
+                  </span>
                 </div>
+                <div class="stat-card-value">等待说话</div>
+                <p class="stat-card-hint">按住 <span class="kbd">右Alt</span> 说话，松开即得文字</p>
               </div>
-              <div class="onboarding-foot">
-                <span class="onboarding-step-label">第 1 步 / 共 3 步</span>
-                <button class="btn-primary">下一步</button>
-              </div>
+              <div class="sr-caption">radius-card = 20px，muted 底无边框</div>
             </div>
           </div>
-          <div class="sr-caption">分步入场动效，圆点指示当前步，末步为完成态图标。</div>
+          <div class="sr-pair" style="margin-top: var(--space-4)">
+            <div>
+              <div class="empty-state" style="border: 1px solid var(--color-border); border-radius: var(--radius-xl)">
+                <div class="empty-state-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
+                </div>
+                <p class="empty-state-hint">暂无历史记录。完成一次语音转写后会自动出现在此处。</p>
+              </div>
+              <div class="sr-caption">空态（无操作版）：主页的历史面板只用图标加一句指引</div>
+            </div>
+            <div>
+              <div class="empty-state" style="border: 1px solid var(--color-border); border-radius: var(--radius-xl)">
+                <div class="empty-state-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/></svg>
+                </div>
+                <p class="empty-state-title">还没有可用的触发键</p>
+                <p class="empty-state-hint">先检测一次，确认按键能被识别。</p>
+                <button type="button" class="btn btn-outline empty-state-action">检测触发键</button>
+              </div>
+              <div class="sr-caption">空态（带操作版）：一个图标、一句指引、一个明确操作</div>
+            </div>
+          </div>
+          <div class="sr-frame" style="height: 110px; display: grid; place-items: center">
+            <div class="loading-container" style="height: auto">加载中...</div>
+          </div>
+          <div class="sr-caption">加载占位 <code>.loading-container</code>：设置页读配置期间的整窗占位。</div>
         </section>
       </main>
     </div>
