@@ -1,6 +1,8 @@
 import { Keyboard, Mic } from "lucide-react";
+import { useId } from "react";
 import { KEY_PRESETS, isPresetKeyName, presetSelectValue } from "../../config/keyPresets";
 import type { AppConfig } from "../../hooks/useConfigForm";
+import { SectionHead, sectionNote } from "./SectionHead";
 
 interface RecordingSectionProps {
   "data-settings-order"?: number;
@@ -24,18 +26,21 @@ export function RecordingSection({
 }: RecordingSectionProps) {
   return (
     <section data-settings-order={order} className="settings-section settings-section--recording">
-      <h3 className="settings-section-title">
-        <Mic size={14} />
-        {t("settings.recording")}
-      </h3>
-      <KeyNameField t={t} config={config} onKeyNameChange={onKeyNameChange} />
-      <CustomKeyField t={t} config={config} onKeyNameChange={onKeyNameChange} />
-      <CaptureActivationField
-        t={t}
-        saving={saving}
-        keyCapturing={keyCapturing}
-        onCaptureActivationKey={onCaptureActivationKey}
+      <SectionHead
+        leading={<Mic size={14} aria-hidden="true" />}
+        title={t("settings.recording")}
+        note={sectionNote(t, "settings.recording_note")}
       />
+      <div className="card settings-rows">
+        <KeyNameField t={t} config={config} onKeyNameChange={onKeyNameChange} />
+        <CustomKeyField t={t} config={config} onKeyNameChange={onKeyNameChange} />
+        <CaptureActivationField
+          t={t}
+          saving={saving}
+          keyCapturing={keyCapturing}
+          onCaptureActivationKey={onCaptureActivationKey}
+        />
+      </div>
     </section>
   );
 }
@@ -45,12 +50,27 @@ function KeyNameField({
   config,
   onKeyNameChange,
 }: Pick<RecordingSectionProps, "t" | "config" | "onKeyNameChange">) {
+  const labelId = useId();
+  // 非预设按键的键名是抓到的原始 keysym，放在标签下方当读数，比塞进下拉旁边更易读。
+  const custom = !isPresetKeyName(config.keyName);
+
   return (
     <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.key_name")}</span>
-      <div className="settings-field-control settings-field-control--trigger-key">
+      <div className="settings-field-label">
+        <span className="settings-field-label-text" id={labelId}>
+          {t("settings.key_name")}
+        </span>
+        {custom && (
+          <span className="settings-field-label-hint">
+            {t("settings.key_binding_active")}
+            <code className="kbd">{config.keyName}</code>
+          </span>
+        )}
+      </div>
+      <div className="settings-field-control">
         <select
           className="select"
+          aria-labelledby={labelId}
           value={presetSelectValue(config.keyName)}
           onChange={(e) => {
             if (e.target.value === "__custom__") return;
@@ -64,12 +84,6 @@ function KeyNameField({
           ))}
           <option value="__custom__">{t("settings.key_custom")}</option>
         </select>
-        {!isPresetKeyName(config.keyName) && (
-          <div className="settings-key-binding-readout">
-            <span className="settings-muted">{t("settings.key_binding_active")}</span>
-            <code className="kbd">{config.keyName}</code>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -80,16 +94,20 @@ function CustomKeyField({
   config,
   onKeyNameChange,
 }: Pick<RecordingSectionProps, "t" | "config" | "onKeyNameChange">) {
+  const labelId = useId();
   // 仅自定义键名且尚未绑定 evdev 码时可手改键名。带码的绑定只能由按键捕获流程写回。
   if (isPresetKeyName(config.keyName) || config.linuxEvdevCode != null) return null;
 
   return (
     <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.key_custom_value")}</span>
+      <span className="settings-field-label-text" id={labelId}>
+        {t("settings.key_custom_value")}
+      </span>
       <div className="settings-field-control">
         <input
           type="text"
           className="field"
+          aria-labelledby={labelId}
           value={config.keyName}
           onChange={(e) => onKeyNameChange(e.target.value)}
         />
@@ -113,11 +131,11 @@ function CaptureActivationField({
       <div className="settings-field-control">
         <button
           type="button"
-          className="btn btn-secondary"
+          className="btn btn-sm btn-secondary"
           onClick={() => void onCaptureActivationKey()}
           disabled={saving || keyCapturing}
         >
-          <Keyboard size={14} />
+          <Keyboard size={14} aria-hidden="true" />
           {keyCapturing ? t("settings.capture_waiting") : t("settings.capture_activation_short")}
         </button>
       </div>

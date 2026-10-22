@@ -1,5 +1,12 @@
 @import './design-tokens.css';
 
+/* ============================================
+   悬浮窗基础层
+
+   这扇窗是 280×64 的透明无边框窗，只画一条 40px 高的胶囊，其余是空白。
+   基础层只做三件事：清掉浏览器默认边距、把窗口底色置透明、把胶囊贴到底部。
+   ============================================ */
+
 * {
   margin: 0;
   padding: 0;
@@ -11,17 +18,27 @@ body,
 #root {
   width: 100%;
   height: 100%;
+  /* 透明窗的空白处必须真的透明，否则会露出 WebView 的默认白底 */
   background: transparent;
   overflow: hidden;
 }
 
 body {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--overlay-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  cursor: default;
+}
+
+/* 胶囊贴底而不是贴顶：Rust 侧 OVERLAY_SIZE 按“40px 胶囊加上下各 12px 余量”
+   推导窗口高度与屏幕定位。块级容器在 #root 里默认贴顶，会让胶囊整体上移
+   12px、底部留出 24px，与定位假设错开。这里把 #root 换成纵向容器对齐到底。 */
+#root {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  font-family: var(--font-sans);
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  user-select: none;
 }

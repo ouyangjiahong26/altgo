@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { Dispatch, SetStateAction } from "react";
+import { useId, type Dispatch, type SetStateAction } from "react";
 import type { AppConfig } from "../../hooks/useConfigForm";
 import {
   ASR_PROTOCOL_OPTIONS,
@@ -26,6 +26,8 @@ export interface OnlineAsrPanelProps {
 export function OnlineAsrPanel({
   t, config, update, advancedOpen, setAdvancedOpen, clearingKey, clearError, onClearApiKey,
 }: OnlineAsrPanelProps) {
+  const advancedId = useId();
+
   const applyPreset = (id: string) => {
     const preset = ASR_PROVIDER_PRESETS.find((p) => p.id === id);
     if (!preset) return;
@@ -38,7 +40,7 @@ export function OnlineAsrPanel({
     <>
       <div className="settings-field">
         <span className="settings-field-label-text">{t("settings.asr_provider")}</span>
-        <div className="settings-field-control settings-field-control--narrow">
+        <div className="settings-field-control">
           <select
             className="select"
             aria-label={t("settings.asr_provider")}
@@ -68,9 +70,9 @@ export function OnlineAsrPanel({
           />
         </div>
       </div>
-      {clearError && <p className="settings-hint settings-test-err">{clearError}</p>}
+      {clearError && <p className="settings-card-note settings-test-err">{clearError}</p>}
       {config.hasAsrApiKey && (
-        <div className="settings-polish-actions">
+        <div className="settings-row-actions">
           <button
             type="button"
             className="btn btn-sm btn-secondary"
@@ -83,13 +85,23 @@ export function OnlineAsrPanel({
       )}
       <button
         type="button"
-        className="settings-advanced-toggle"
+        className="settings-advanced"
+        aria-expanded={advancedOpen}
+        aria-controls={advancedOpen ? advancedId : undefined}
         onClick={() => setAdvancedOpen(!advancedOpen)}
       >
-        {advancedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        {advancedOpen ? (
+          <ChevronDown size={14} aria-hidden="true" />
+        ) : (
+          <ChevronRight size={14} aria-hidden="true" />
+        )}
         {t("settings.advanced_asr")}
       </button>
-      {advancedOpen && <AsrAdvancedFields t={t} config={config} update={update} />}
+      {advancedOpen && (
+        <div className="settings-advanced-body" id={advancedId}>
+          <AsrAdvancedFields t={t} config={config} update={update} />
+        </div>
+      )}
     </>
   );
 }

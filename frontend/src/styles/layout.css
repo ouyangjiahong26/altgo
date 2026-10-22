@@ -1,44 +1,48 @@
 /* ============================================
-   布局样式：窗口标题栏与导航
+   布局样式：窗口标题栏、内容区与浮动底栏
 
-   标题栏按桌面工具的习惯做得紧凑（38px），字号压到 13px，视觉让位给内容。
+   标题栏只承担两件事：显示这是 altgo、提供拖拽与窗口按钮。页面切换放在底部的
+   浮动底栏里，内容因此能一直顶到窗口上沿，窄窗也不浪费一行高度。
    ============================================ */
 
 .layout {
+  position: relative;
   height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
 }
 
+/* ── 标题栏 ─────────────────────────────────── */
+
 .layout-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  min-height: 38px;
-  padding: 0 var(--space-3) 0 var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
+  gap: var(--space-3);
+  min-height: 42px;
+  padding: 0 var(--space-2) 0 var(--space-4);
   background: var(--color-surface-0);
+  border-bottom: 1px solid var(--color-border-subtle);
   -webkit-app-region: drag;
 }
 
 .layout-header-left {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .layout-logo-wrapper {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
 .layout-logo {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: var(--font-semibold);
   color: var(--color-text);
   letter-spacing: var(--tracking-tight);
@@ -46,15 +50,16 @@
 
 .layout-logo-mark {
   display: block;
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
+/* 副标题是这扇窗的一句话定位，用最弱一级文字，中文下不加字距 */
 .layout-subtitle {
   font-size: var(--text-2xs);
-  color: var(--color-text-faint);
-  padding-left: var(--space-3);
+  color: var(--color-text-muted);
+  padding-left: var(--space-2-5);
   border-left: 1px solid var(--color-border);
   line-height: 1.4;
   white-space: nowrap;
@@ -65,48 +70,8 @@
 .layout-header-right {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-}
-
-.layout-nav {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  -webkit-app-region: no-drag;
-}
-
-/* 导航项做成朴素的分段标签：不选时纯文字，选中时浅底 */
-.layout-nav-link {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--control-height-sm);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-md);
-  font-size: var(--text-xs);
-  font-weight: var(--font-medium);
-  color: var(--color-text-muted);
-  text-decoration: none;
-  white-space: nowrap;
+  gap: var(--space-1);
   flex-shrink: 0;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.layout-nav-link:hover {
-  background: var(--color-hover-surface);
-  color: var(--color-text);
-}
-
-.layout-nav-link.active {
-  background: var(--color-surface-2);
-  color: var(--color-text);
-}
-
-.layout-main {
-  flex: 1;
-  overflow-y: auto;
 }
 
 /* ── 窗口控制按钮 ────────────────────────────── */
@@ -116,7 +81,6 @@
   display: flex;
   align-items: center;
   gap: 1px;
-  margin-left: var(--space-1);
   -webkit-app-region: no-drag;
 }
 
@@ -124,8 +88,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 24px;
+  width: 28px;
+  height: 26px;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
@@ -146,8 +110,97 @@
   color: var(--color-on-primary);
 }
 
+/* ── 内容区 ─────────────────────────────────── */
+
+/* 底部给浮动底栏让位：内容滚到底时最后一个元素不会被底栏压住 */
+.layout-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: calc(var(--dock-height) + var(--dock-inset) + var(--space-3));
+}
+
+/* ── 浮动底栏 ───────────────────────────────── */
+
+/* 外框负责定位与居中对齐，本身不吃点击，按钮区再收回指针事件 */
+.layout-dock-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--dock-inset);
+  z-index: var(--z-dock);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.layout-dock {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-dock-bg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-app-region: no-drag;
+}
+
+.dock-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  height: calc(var(--dock-height) - 8px);
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.dock-item svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.dock-item:hover {
+  color: var(--color-text);
+  background: var(--color-hover-surface);
+}
+
+/* 当前页：实底色块，不用描边也不用彩色 */
+.dock-item.active {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+
+/* 有新版本时的提示点：贴在图标右上角，不改变按钮尺寸 */
+.dock-item-dot {
+  position: absolute;
+  top: 5px;
+  left: 13px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-red);
+}
+
 /* 窄长窗（三档预设宽度 400/440/480 均命中）：收紧标题栏并隐藏副标题，
-   让导航与窗口按钮保持单行。 */
+   让品牌与窗口按钮保持单行。 */
 @media (max-width: 520px) {
   .layout-header {
     padding: 0 var(--space-2) 0 var(--space-3);
@@ -155,9 +208,5 @@
 
   .layout-subtitle {
     display: none;
-  }
-
-  .window-controls {
-    margin-left: 0;
   }
 }

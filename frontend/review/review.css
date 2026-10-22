@@ -126,13 +126,14 @@
         border-radius: var(--radius-md);
         min-width: 0;
       }
+      /* 棋盘格只用令牌派生：半透明色叠在它上面就能看出透明度 */
       .sr-chip {
         flex: none;
         width: 34px;
         border-radius: var(--radius-sm);
         border: 1px solid var(--color-border);
-        background-image: linear-gradient(45deg, rgba(128, 128, 128, 0.35) 25%, transparent 25%, transparent 75%, rgba(128, 128, 128, 0.35) 75%),
-          linear-gradient(45deg, rgba(128, 128, 128, 0.35) 25%, transparent 25%, transparent 75%, rgba(128, 128, 128, 0.35) 75%);
+        background-image: linear-gradient(45deg, var(--color-surface-3) 25%, transparent 25%, transparent 75%, var(--color-surface-3) 75%),
+          linear-gradient(45deg, var(--color-surface-3) 25%, transparent 25%, transparent 75%, var(--color-surface-3) 75%);
         background-size: 10px 10px;
         background-position: 0 0, 5px 5px;
       }
@@ -230,13 +231,14 @@
         overflow: hidden;
         border-radius: var(--radius-2xl);
       }
+      /* 悬浮窗是透明窗，用令牌派生的棋盘格衬出边界 */
       .sr-frame--ov {
         display: flex;
         align-items: flex-end;
         justify-content: center;
         height: 96px;
         padding: 0;
-        background: repeating-conic-gradient(from 0deg, rgba(128, 128, 128, 0.18) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+        background: repeating-conic-gradient(from 0deg, var(--color-surface-3) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
       }
       /* 审查页里把整窗向导的 fixed 定位收回预览框，产品里它是全窗流程，必须 fixed。 */
       .sr-frame .onboarding {
@@ -271,7 +273,7 @@
         margin: var(--space-3) 0;
         padding: var(--space-3) var(--space-4);
         background: var(--color-amber-bg);
-        border: 1px solid var(--color-amber);
+        border: 1px solid color-mix(in srgb, var(--color-amber) 35%, transparent);
         border-radius: var(--radius-md);
         font-size: var(--text-sm);
         line-height: var(--leading-relaxed);
@@ -351,24 +353,43 @@
 .sr-frame--win {
   height: auto;
 }
-/* 首次引导是绝对定位整窗层，不贡献文档流高度，需保留固定帧高 */
-.sr-frame--win:has(.onboarding) {
-  height: 480px;
+
+/* 整窗框：按 tauri.conf.json 的真实窗口尺寸裁切（主窗 440×680）。内容超出由
+   .layout-main 内部滚动，底栏因此落在框内下沿，与真机同位置。 */
+.sr-frame--screen {
+  width: 440px;
+  max-width: 100%;
+  height: 680px;
+  padding: 0;
   overflow: hidden;
+  border-radius: var(--radius-2xl);
 }
+.sr-frame--screen .layout {
+  height: 100%;
+}
+.sr-frame--screen .layout-main {
+  overflow-y: auto;
+}
+/* 引导向导在产品里是 fixed 整窗层，整窗框里收回框内 */
+.sr-frame--screen .onboarding {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+}
+
+/* 部分预览（只截标题栏、只截一条底栏）用 .sr-frame--win：高度随内容，
+   不内部滚动。整窗预览改用 .sr-frame--screen。 */
 .sr-frame--win .layout {
   height: auto;
 }
 .sr-frame--win .layout-main {
   overflow-y: visible;
 }
+
+/* 悬浮窗是 280×64 的透明窗：整高 64px，胶囊贴底后正好剩 12px 上沿 */
 .sr-frame--ov {
   width: 280px;
+  height: 64px;
 }
-.sr-frame--notes {
-  height: auto;
-}
-.sr-frame--notes .update-notes-window {
-  height: auto;
-}
+
 

@@ -7,6 +7,8 @@ import { applyThemeToDocument, installThemeListeners } from "./theme";
 import UpdateNotesView from "./components/UpdateNotesView";
 import { UPDATE_NOTES_EVENT, type UpdateInfo } from "./updateNotes";
 import "./styles/global.css";
+// 底部操作按钮直接用跨页复用的 .btn 基底，避免本窗再维护一套按钮皮肤。
+import "./styles/components/ui-primitives.css";
 import "./styles/pages/update-notes.css";
 
 /**

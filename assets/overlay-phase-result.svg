@@ -2,7 +2,7 @@
   <!--
     悬浮窗相位：结果（转写完成、已写入剪贴板）。
     几何与配色 1:1 复刻 frontend/src/overlay.css 与 src/styles/design-tokens.css（dark 主题）：
-    悬浮条 248×40 圆角 6、完成圆盘 16px、结果单行省略。改动这些值时要同步本文件。
+    悬浮条 248×40 圆角 10、完成圆盘 16px、结果单行省略。改动这些值时要同步本文件。
   -->
   <style>
     .close-x {
@@ -15,14 +15,14 @@
     }
   </style>
 
-  <rect x="96" y="0" width="248" height="40" rx="6" fill="#222222" stroke="#3a3a3a"/>
-  <!-- ✓ 圆盘 16px（复刻 .done-indicator） -->
-  <circle cx="119" cy="20" r="8" fill="rgba(99,179,129,0.14)" stroke="rgba(99,179,129,0.35)"/>
-  <path d="M 115.5 20 L 118 22.5 L 123 17" fill="none" stroke="#63b381"
+  <rect x="96" y="0" width="248" height="40" rx="10" fill="#27272a" stroke="#414144"/>
+  <!-- ✓ 圆盘 16px（复刻 .done-indicator：--color-green 的 12% 底加 30% 描边） -->
+  <circle cx="119" cy="20" r="8" fill="#283c37" stroke="#2b5b4b"/>
+  <path d="M 115.5 20 L 118 22.5 L 123 17" fill="none" stroke="#34d399"
         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="135" y="24.5" font-size="13" fill="#c8c8c8">帮我把今天下午的会改到四…</text>
-  <!-- ×：悬停悬浮条时淡入（复刻 .btn-close） -->
-  <g class="close-x" stroke="#8a8a8a" stroke-width="1.75" stroke-linecap="round">
+  <text x="135" y="24.5" font-size="13" fill="#d4d4d8">帮我把今天下午的会改到四…</text>
+  <!-- ×：悬停悬浮条时淡入（复刻 .btn-close，取 --overlay-muted 的夜间值） -->
+  <g class="close-x" stroke="#a1a1aa" stroke-width="1.75" stroke-linecap="round">
     <line x1="316" y1="14" x2="328" y2="26"/>
     <line x1="328" y1="14" x2="316" y2="26"/>
   </g>
