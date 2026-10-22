@@ -1,6 +1,6 @@
 import { useTranslation } from "../i18n";
 import { NavLink } from "react-router-dom";
-import { Mic, Settings, Minus, Maximize2, Minimize2, X } from "lucide-react";
+import { House, Settings, Minus, Maximize2, Minimize2, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useEffect } from "react";
@@ -91,12 +91,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleHeaderMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (
-      target.closest("a") ||
-      target.closest("button") ||
-      target.closest("nav") ||
-      target.closest(".window-controls")
-    ) {
+    if (target.closest("a") || target.closest("button") || target.closest(".window-controls")) {
       return;
     }
     try {
@@ -114,8 +109,8 @@ export default function Layout({ children }: LayoutProps) {
             <img
               src="/altgo-logo.svg"
               alt=""
-              width={28}
-              height={28}
+              width={18}
+              height={18}
               className="layout-logo-mark"
             />
             <span className="layout-logo">altgo</span>
@@ -123,42 +118,6 @@ export default function Layout({ children }: LayoutProps) {
           <span className="layout-subtitle">{t("title.subtitle")}</span>
         </div>
         <div className="layout-header-right" data-tauri-drag-region="false">
-          <nav className="layout-nav">
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                `layout-nav-link ${isActive ? "active" : ""}`
-              }
-            >
-              <Mic size={16} />
-              {t("nav.home")}
-            </NavLink>
-            <NavLink
-              to="/settings"
-              className={({ isActive }) =>
-                `layout-nav-link ${isActive ? "active" : ""}`
-              }
-              style={{ position: "relative" }}
-            >
-              <Settings size={16} />
-              {t("nav.settings")}
-              {hasNewUpdate && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "4px",
-                    right: "4px",
-                    width: "7px",
-                    height: "7px",
-                    borderRadius: "50%",
-                    backgroundColor: "var(--color-red)",
-                  }}
-                  title={t("settings.update_available")}
-                />
-              )}
-            </NavLink>
-          </nav>
           <div className="window-controls">
             <button
               className="window-control-btn"
@@ -185,6 +144,32 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </header>
       <main className="layout-main">{children}</main>
+      <div className="layout-dock-wrap">
+        <nav className="layout-dock" aria-label={t("nav.label")}>
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) => `dock-item${isActive ? " active" : ""}`}
+          >
+            <House />
+            <span>{t("nav.home")}</span>
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => `dock-item${isActive ? " active" : ""}`}
+          >
+            <Settings />
+            <span>{t("nav.settings")}</span>
+            {hasNewUpdate && (
+              <span
+                className="dock-item-dot"
+                title={t("settings.update_available")}
+                aria-hidden="true"
+              />
+            )}
+          </NavLink>
+        </nav>
+      </div>
     </div>
   );
 }

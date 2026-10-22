@@ -2,6 +2,9 @@
 
 /* ============================================
    全局基础样式
+
+   只放与具体页面无关的底子：盒模型、字体渲染、窗口圆角、滚动条、选区、焦点。
+   组件与页面各自在 ui-primitives.css 与 pages/ 下定义。
    ============================================ */
 
 *,
@@ -65,8 +68,13 @@ p {
   text-wrap: pretty;
 }
 
+/* 数值类文字一律等宽数字：时间、容量、进度、键码对齐后不再跳动 */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ============================================
-   滚动条样式
+   滚动条：细条无轨道，嵌在卡片里不显突兀
    ============================================ */
 
 ::-webkit-scrollbar {
@@ -79,19 +87,19 @@ p {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--color-border-strong);
   border: 3px solid transparent;
   background-clip: padding-box;
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-strong);
+  background: var(--color-text-faint);
   background-clip: padding-box;
 }
 
 /* ============================================
-   选区
+   选区与焦点
    ============================================ */
 
 ::selection {
@@ -99,11 +107,7 @@ p {
   color: var(--color-text);
 }
 
-/* ============================================
-   焦点样式
-   ============================================ */
-
-/* 键盘焦点才画环，鼠标点击不画，避免桌面软件里到处都是蓝框。 */
+/* 键盘焦点才画环，鼠标点击不画，避免桌面软件里到处都是框 */
 :focus-visible {
   outline: var(--focus-ring-width) solid var(--color-accent);
   outline-offset: var(--focus-ring-offset);
@@ -111,17 +115,4 @@ p {
 
 :focus:not(:focus-visible) {
   outline: none;
-}
-
-/* ============================================
-   CJK 字距
-   ============================================ */
-
-/* tracking-caps 是为英文大写小标题设计的，中文界面下字距松散，恢复正常字距 */
-:lang(zh) .settings-section-title,
-:lang(zh) .layout-subtitle,
-:lang(zh) .settings-section-toggle,
-:lang(zh) .home-result-label,
-:lang(zh) .settings-model-card-badge {
-  letter-spacing: normal;
 }
