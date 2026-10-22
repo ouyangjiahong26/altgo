@@ -5,11 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## Unreleased
+## v2.8.0 (2026-10-22)
 
 ### Added
 
 - **新增离线资产包，给完全没有外网的机器用**：`offline-assets-v2.7.8` 这个 tag 的 Release 提供 Windows x64 的 zip，内含 NSIS 安装器、转写模型、润色模型、润色运行时与放置脚本，另有带 WebView2 离线安装器的变体供 Windows 10 使用（Windows 11 自带 WebView2，取不带的那份）。包内附 `SHA256SUMS` 与第三方许可证清单，放置脚本核对校验和后把三个目录复制进 `%APPDATA%\altgo`，同名文件按哈希比对，相同跳过、不同覆盖，不修改配置文件。模型与运行时仍然按需下载，安装包体积与更新路径不变。
+- **在线转写按协议家族支持多家云端 ASR（#304）**：`[transcriber.online]` 新增 `protocol` 字段，在线识别从只接小米 MiMo 泛化为按协议分派。`mimo_chat` 是 MiMo 网关方言，取缺省值，旧配置不含该字段时行为与升级前完全一致。`chat_input_audio` 覆盖 OpenAI 形状的音频输入，百炼 qwen3-asr-flash 的兼容模式与 OpenAI audio-preview 都走这一档。`transcriptions` 走 OpenAI 的 `/audio/transcriptions` 接口，whisper 系、智谱 glm-asr-2512 与 SiliconFlow 的 SenseVoice 云端版属于这一族。语言参数按协议映射，留空时不传，由服务端自动检测，多语种混说不锁死。设置页在线分区新增服务商预设下拉，覆盖 MiMo、智谱、OpenAI、Groq、SiliconFlow 与自定义，选中后自动填地址、默认模型与协议，字段仍可手改。除 MiMo 外的端点未实测（没有各家 Key），实现按 OpenAI 兼容文档与请求形状的接口测试覆盖。
 
 ### Changed
 
