@@ -73,11 +73,15 @@ export function HistoryEntryItem({
         />
       </label>
       <div className="history-item-body">
-        <time className="history-item-time" dateTime={new Date(e.createdAtMs).toISOString()}>
-          {formatTime(e.createdAtMs, uiLang)}
-        </time>
+        {/* 首行是这条记录的索引：什么时候、用什么跑的、各环节花了多久。
+            先看索引再决定要不要读正文，长时间线才能扫得动。 */}
+        <div className="history-item-top">
+          <time className="history-item-time" dateTime={new Date(e.createdAtMs).toISOString()}>
+            {formatTime(e.createdAtMs, uiLang)}
+          </time>
+          {e.meta && <HistoryStageMeta t={t} meta={e.meta} uiLang={uiLang} />}
+        </div>
         <p className="history-item-text">{e.text}</p>
-        {e.meta && <HistoryStageMeta t={t} meta={e.meta} uiLang={uiLang} />}
         {e.rawText !== e.text && (
           <p className="history-item-raw">
             <span className="history-item-raw-label">{t("history.raw_label")}</span>
@@ -101,7 +105,8 @@ export function HistoryEntryItem({
   );
 }
 
-/** 来源与耗时行：本地或在线标识 + 录音、识别、润色各环节耗时。 */
+/** 来源与耗时行：本地或在线标识 + 录音、识别、润色各环节耗时。
+ *  三个数字都是短数值，收成胶囊徽标后一行排得下，也比散排更好扫。 */
 function HistoryStageMeta({
   t, meta, uiLang,
 }: {
@@ -120,16 +125,18 @@ function HistoryStageMeta({
   }
   return (
     <div className="history-item-meta">
+      {/* 在线识别要走网络与密钥，用信息色标出来；本地识别保持中性底色 */}
       <span
         className={`badge history-item-badge${
-          meta.backend === "online" ? " badge-accent" : ""
+          meta.backend === "online" ? " badge-info" : ""
         }`}
       >
         {backendLabel}
       </span>
       {stages.map(([label, ms]) => (
-        <span key={label} className="history-item-stage">
-          {label} {formatDuration(ms, uiLang)}
+        <span key={label} className="badge history-item-badge history-item-stage">
+          {/* 标签与耗时拼成同一个文本节点，数字的前后间距不会在布局里丢掉 */}
+          {`${label} ${formatDuration(ms, uiLang)}`}
         </span>
       ))}
     </div>
@@ -163,18 +170,18 @@ function CopyTextButton({
   return (
     <button
       type="button"
-      className={`history-btn history-btn--small ${copiedText ? "history-btn--copied" : ""}`}
+      className={`btn btn-sm btn-ghost${copiedText ? " is-copied" : ""}`}
       onClick={onCopyText}
       title={t("history.copy")}
     >
       {copiedText ? (
         <>
-          <Check size={14} />
+          <Check size={13} />
           {t("history.copied")}
         </>
       ) : (
         <>
-          <Copy size={14} />
+          <Copy size={13} />
           {t("history.copy")}
         </>
       )}
@@ -188,18 +195,18 @@ function CopyRawButton({
   return (
     <button
       type="button"
-      className={`history-btn history-btn--small ${copiedRaw ? "history-btn--copied" : ""}`}
+      className={`btn btn-sm btn-ghost${copiedRaw ? " is-copied" : ""}`}
       onClick={onCopyRaw}
       title={t("history.copy_raw")}
     >
       {copiedRaw ? (
         <>
-          <Check size={14} />
+          <Check size={13} />
           {t("history.raw_copied")}
         </>
       ) : (
         <>
-          <FileText size={14} />
+          <FileText size={13} />
           {t("history.copy_raw")}
         </>
       )}
@@ -207,21 +214,22 @@ function CopyRawButton({
   );
 }
 
+/** 润色是这一行里唯一会改动正文的操作，用浅底把它从其余幽灵按钮里抬出来 */
 function PolishButton({
   t, polishing, onPolish,
 }: Pick<HistoryEntryItemProps, "t" | "polishing" | "onPolish">) {
   return (
     <button
       type="button"
-      className="history-btn history-btn--small history-btn--accent"
+      className="btn btn-sm btn-secondary"
       disabled={polishing}
       onClick={onPolish}
       title={t("history.polish")}
     >
       {polishing ? (
-        <Loader2 size={14} className="history-spin" />
+        <Loader2 size={13} className="history-spin" />
       ) : (
-        <Sparkles size={14} />
+        <Sparkles size={13} />
       )}
       {t("history.polish")}
     </button>
@@ -234,12 +242,12 @@ function PolishWithInstructionButton({
   return (
     <button
       type="button"
-      className="history-btn history-btn--small"
+      className="btn btn-sm btn-ghost"
       disabled={polishing}
       onClick={onOpenInstruction}
       title={t("history.polish_with_instruction")}
     >
-      <PenLine size={14} />
+      <PenLine size={13} />
       {t("history.polish_with_instruction")}
     </button>
   );
@@ -258,7 +266,7 @@ function HistoryInstructionArea({
     <div className="history-item-instruction">
       <input
         type="text"
-        className="history-instruction-input"
+        className="field history-instruction-input"
         value={instructionText}
         onChange={(ev) => onInstructionChange(ev.target.value)}
         onKeyDown={(ev) => {
@@ -271,19 +279,19 @@ function HistoryInstructionArea({
       />
       <button
         type="button"
-        className="history-btn history-btn--small history-btn--accent"
+        className="btn btn-sm btn-secondary"
         disabled={polishing}
         onClick={onInstructionSubmit}
       >
         {polishing ? (
-          <Loader2 size={14} className="history-spin" />
+          <Loader2 size={13} className="history-spin" />
         ) : (
           t("history.submit")
         )}
       </button>
       <button
         type="button"
-        className="history-btn history-btn--small"
+        className="btn btn-sm btn-ghost"
         disabled={polishing}
         onClick={onCloseInstruction}
       >
