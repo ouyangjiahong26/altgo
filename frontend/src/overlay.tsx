@@ -434,24 +434,18 @@ export function Overlay() {
   // 结果未到，继续显示 processing 视图，避免渲染出没有内容的空 island（闪烁）。
   const effectivePhase = s.phase === "done" && !s.result ? "processing" : s.phase;
 
-  if (s.phase === "done" && s.result) {
-    return (
-      <div className={containerClass} onTransitionEnd={s.handleTransitionEnd}>
-        <div className="island">
+  // 三个相位共用同一个胶囊：外层容器只做位移，胶囊只做淡入淡出，内容按相位替换。
+  return (
+    <div className={containerClass} onTransitionEnd={s.handleTransitionEnd}>
+      <div className="island">
+        {effectivePhase === "done" && s.result && (
           <DoneContent
             t={t}
             result={s.result}
             polishError={s.polishError}
             onClose={s.handleClose}
           />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={containerClass} onTransitionEnd={s.handleTransitionEnd}>
-      <div className="island">
+        )}
         {effectivePhase === "recording" && (
           <RecordingContent levelTrace={s.levelTrace} />
         )}

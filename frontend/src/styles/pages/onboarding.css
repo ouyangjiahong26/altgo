@@ -1,7 +1,9 @@
 /* ============================================
-   首次运行引导样式
+   首次运行引导
 
-   覆盖整窗的全屏向导：无导航、无侧边栏，只有拖拽条 + 内容 + 底部按钮。
+   整窗流程：没有导航、没有底栏，只有一条品牌与步骤指示的头部、可滚动的步骤
+   主体、以及底部的主次操作。窗口仍是主窗那个 400～480 宽的窄窗，所以内容只有
+   一列，卡片与字段行的形状与主窗、设置页保持一致。
    ============================================ */
 
 .onboarding {
@@ -11,23 +13,94 @@
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
+  /* 主窗 #root 装着 16px 圆角与透明窗底：整窗层盖住它时必须沿用同一圆角，
+     否则引导期间四角会变成直角。inherit 让最大化（圆角归零）时也自动跟随。 */
+  border-radius: inherit;
+  overflow: hidden;
   animation: fade-in var(--duration-normal) var(--ease-out) both;
 }
 
-/* 窗口无系统装饰，引导期间靠这条拖拽区移动窗口（同 Layout header 的做法）。 */
-.onboarding-drag {
+/* ── 头部：品牌与步骤指示 ──────────────────── */
+
+/* 窗口无系统装饰，整条头部就是拖拽区（与主窗标题栏同一做法）。 */
+.onboarding-header {
   flex: none;
-  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 42px;
+  padding: 0 var(--space-4);
+  background: var(--color-surface-0);
   -webkit-app-region: drag;
 }
+
+.onboarding-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.onboarding-brand-mark {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.onboarding-brand-name {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+}
+
+/* 步骤序号是位置信息，不是操作，用最弱一级文字并等宽数字，换步时不跳动。 */
+.onboarding-step-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-medium);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 进度条同时充当头部的分隔线：三段细线，走过的段抬到正文灰。 */
+.onboarding-progress {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  height: 2px;
+}
+
+.onboarding-progress-seg {
+  flex: 1;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-border-subtle);
+  transition: background-color var(--duration-normal) var(--ease-out);
+}
+
+.onboarding-progress-seg.is-done {
+  background: var(--color-text-faint);
+}
+
+/* ── 主体 ───────────────────────────────────── */
 
 .onboarding-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-1) var(--space-5) var(--space-5);
   display: flex;
   flex-direction: column;
+  padding: var(--space-5) var(--space-4) var(--space-4);
+}
+
+.onboarding-body--loading {
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .onboarding-step {
@@ -37,82 +110,163 @@
   animation: fade-in var(--duration-normal) var(--ease-out) both;
 }
 
-.onboarding-logo {
-  display: block;
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-1);
-}
-
-/* 步骤序号是流程信息，用中性小字，强调色只留给用户当前操作 */
-.onboarding-step-label {
-  font-size: var(--text-2xs);
-  font-weight: var(--font-medium);
-  letter-spacing: var(--tracking-caps);
-  color: var(--color-text-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-:lang(zh) .onboarding-step-label {
-  letter-spacing: normal;
+/* 欢迎步只有标题与一段说明，整块在窗口里居中，不做成左对齐的半屏。 */
+.onboarding-step--welcome {
+  flex: 1;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
 }
 
 .onboarding-title {
-  margin: 0;
   font-size: var(--text-xl);
   font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
   color: var(--color-text);
 }
 
-.onboarding-text {
-  margin: 0;
+.onboarding-step--welcome .onboarding-title {
+  font-size: var(--text-2xl);
+}
+
+.onboarding-lead {
   font-size: var(--text-sm);
   line-height: var(--leading-relaxed);
   color: var(--color-text-secondary);
+  text-wrap: pretty;
 }
+
+.onboarding-step--welcome .onboarding-lead {
+  margin: 0 auto;
+  max-width: 34ch;
+}
+
+/* ── 卡片：内容卡底座沿用 .card，这里只补排布 ── */
 
 .onboarding-card {
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2-5);
+  padding: var(--space-3) var(--space-3-5);
 }
 
-/* 引擎单选卡 */
+/* 字段行：标签在左、控件在右，控件宽度上限 190px，与设置页同一节奏。
+   卡片内字段之间不再画分隔线：一张卡只有两三行，边线会显得碎。 */
+.onboarding-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 32px;
+}
+
+.onboarding-field-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.onboarding-field-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex: 0 1 190px;
+  min-width: 0;
+}
+
+/* 行内按钮、徽标这类固定宽度的控件不参与拉伸。 */
+.onboarding-field-control--auto {
+  flex: 0 0 auto;
+}
+
+/* ── 列表卡：模型列表与完成摘要共用 ──────────── */
+
+/* 列表卡的行数不固定，靠发丝线分行比靠间距更清楚，因此这里不设 gap。 */
+.onboarding-list {
+  gap: 0;
+  padding: var(--space-1) var(--space-3-5);
+}
+
+.onboarding-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.onboarding-item + .onboarding-item {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+/* 模型条目左侧两行：名称在上，体积与文件名在下。 */
+.onboarding-model-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.onboarding-model-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text);
+}
+
+/* 文件名与体积用等宽：不同模型的数字长度不一时也能对齐。 */
+.onboarding-model-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 二选一：单选卡片 ───────────────────────── */
+
+.onboarding-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* 每个选项自成一张小卡：不再套一层容器卡，避免同处叠两层边线。 */
 .onboarding-choice {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
+  gap: var(--space-2-5);
+  padding: var(--space-2-5) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface-1);
+  background: var(--color-bg-card);
   cursor: pointer;
   transition:
     border-color var(--duration-fast) var(--ease-out),
     background-color var(--duration-fast) var(--ease-out);
 }
 
-.onboarding-choice + .onboarding-choice {
-  margin-top: var(--space-2);
-}
-
 .onboarding-choice:hover {
   border-color: var(--color-border-strong);
 }
 
-.onboarding-choice input {
-  margin-top: 2px;
+/* 选中态：淡色底加同色描边，是这套设计里唯一允许的底色变化。 */
+.onboarding-choice.is-active {
+  border-color: var(--color-accent-tint-border);
+  background: var(--color-accent-tint-bg);
 }
 
-.onboarding-choice.is-active {
-  border-color: var(--color-accent);
-  background: var(--color-accent-tint-bg);
+.onboarding-choice input {
+  margin-top: 1px;
 }
 
 .onboarding-choice-body {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -124,26 +278,69 @@
 
 .onboarding-choice-desc {
   font-size: var(--text-xs);
+  line-height: var(--leading-normal);
   color: var(--color-text-muted);
-  line-height: var(--leading-relaxed);
 }
 
-/* 完成页摘要 */
-.onboarding-summary {
+/* ── 下载进度 ───────────────────────────────── */
+
+.onboarding-meter {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
+  flex: 0 1 132px;
+  min-width: 0;
 }
 
-.onboarding-summary-value {
-  font-size: var(--text-sm);
-  color: var(--color-text);
+.onboarding-meter-track {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-3);
+  overflow: hidden;
 }
 
-.onboarding-done-icon {
+.onboarding-meter-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-amber);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.onboarding-meter-text {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 说明文字与错误 ─────────────────────────── */
+
+.onboarding-note {
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-muted);
+}
+
+/* 卡片内的操作行：按钮按内容宽度靠左，不跟着卡片拉伸成通栏。 */
+.onboarding-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.onboarding-error {
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--color-red);
+  word-break: break-word;
+}
+
+/* ── 完成步摘要 ─────────────────────────────── */
+
+.onboarding-done-icon {
+  display: grid;
+  place-items: center;
   width: 40px;
   height: 40px;
   border: 1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
@@ -152,36 +349,28 @@
   color: var(--color-green);
 }
 
+/* 摘要按「标签 / 取值」两列读，取值可换行：润色一项可能同时带后端、档位与模型。 */
+.onboarding-summary .onboarding-item {
+  align-items: baseline;
+}
+
+.onboarding-summary-value {
+  max-width: 62%;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  text-align: right;
+  word-break: break-word;
+}
+
+/* ── 底部操作 ───────────────────────────────── */
+
 .onboarding-foot {
   flex: none;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--color-border-subtle);
   background: var(--color-surface-0);
-}
-
-/* 进度点：当前步一根短横线，其余小圆点 */
-.onboarding-dots {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 5px;
-}
-
-.onboarding-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: var(--radius-full);
-  background: var(--color-border-strong);
-  transition:
-    width var(--duration-normal) var(--ease-out),
-    background-color var(--duration-normal) var(--ease-out);
-}
-
-.onboarding-dot.on {
-  width: 14px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent);
 }

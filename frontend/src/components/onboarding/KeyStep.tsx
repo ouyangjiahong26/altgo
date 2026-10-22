@@ -5,7 +5,6 @@ import { KEY_PRESETS, isPresetKeyName, presetSelectValue } from "../../config/ke
 
 interface KeyStepProps {
   t: (key: string) => string;
-  stepLabel: (n: number) => string;
   config: AppConfig;
   setConfig: React.Dispatch<React.SetStateAction<AppConfig | null>>;
   saving: boolean;
@@ -14,13 +13,12 @@ interface KeyStepProps {
 }
 
 export function KeyStep({
-  t, stepLabel, config, setConfig, saving, keyCapturing, captureActivationKey,
+  t, config, setConfig, saving, keyCapturing, captureActivationKey,
 }: KeyStepProps) {
   return (
     <div className="onboarding-step">
-      <div className="onboarding-step-label">{stepLabel(1)}</div>
       <h2 className="onboarding-title">{t("onboarding.key_title")}</h2>
-      <div className="onboarding-card">
+      <div className="card onboarding-card">
         <KeyNameField t={t} config={config} setConfig={setConfig} />
         {!isPresetKeyName(config.keyName) && config.linuxEvdevCode == null && (
           <CustomKeyField t={t} config={config} setConfig={setConfig} />
@@ -39,9 +37,9 @@ function KeyNameField({
   t, config, setConfig,
 }: Pick<KeyStepProps, "t" | "config" | "setConfig">) {
   return (
-    <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.key_name")}</span>
-      <div className="settings-field-control">
+    <div className="onboarding-field">
+      <span className="onboarding-field-label">{t("settings.key_name")}</span>
+      <div className="onboarding-field-control">
         <select
           className="select"
           value={presetSelectValue(config.keyName)}
@@ -71,9 +69,9 @@ function CustomKeyField({
   t, config, setConfig,
 }: Pick<KeyStepProps, "t" | "config" | "setConfig">) {
   return (
-    <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.key_custom_value")}</span>
-      <div className="settings-field-control">
+    <div className="onboarding-field">
+      <span className="onboarding-field-label">{t("settings.key_custom_value")}</span>
+      <div className="onboarding-field-control">
         <input
           type="text"
           className="field"
@@ -99,16 +97,16 @@ function CaptureKeyField({
   "t" | "saving" | "keyCapturing" | "captureActivationKey"
 >) {
   return (
-    <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.capture_activation")}</span>
-      <div className="settings-field-control">
+    <div className="onboarding-field">
+      <span className="onboarding-field-label">{t("settings.capture_activation")}</span>
+      <div className="onboarding-field-control onboarding-field-control--auto">
         <button
           type="button"
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-sm"
           onClick={() => void captureActivationKey()}
           disabled={saving || keyCapturing}
         >
-          <Keyboard size={14} />
+          <Keyboard size={13} />
           {keyCapturing
             ? t("settings.capture_waiting")
             : t("settings.capture_activation_short")}

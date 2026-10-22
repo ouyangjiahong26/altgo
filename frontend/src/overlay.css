@@ -1,17 +1,28 @@
-/* 悬浮窗岛 UI：仅使用合成层动画以保证 60fps */
-
 /* ============================================
-   容器：处理进入/退出过渡
+   悬浮窗：单行胶囊
+
+   窗口几何由 Rust 侧固定为 280×64（OVERLAY_SIZE），胶囊恒为 248×40，三个相位
+   共用同一条几何，相位切换只换内容、不改变外框，避免窗口内出现跳变。
+
+   两条硬约束：
+   1. 透明窗上不加投影。半透明阴影会被部分 Linux 合成器预乘成黑影（mutter/X11
+      实测），层次只能靠实色面加发丝线（见 design-tokens 的 overlay-* 注释）。
+   2. 动画只动 transform 与 opacity。位移与淡入淡出都落在合成层，不触发布局。
+
+   结果自动写入剪贴板，因此结果态没有复制按钮：`.btn-copy` 不作为节点渲染
+   （overlay.transitions 测试断言它不存在），改由常驻的关闭按钮收尾。
    ============================================ */
+
+/* ── 容器：只承载进入 / 退出位移 ─────────────── */
 
 .island-container {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  /* 窗口 280×64：胶囊 40px + 底部 12px + 顶部 12px 余量。 */
+  width: 100%;
+  /* 窗口 64px = 胶囊 40px + 底部 12px；顶部余下的 12px 由 overlay-base 里
+     #root 的底对齐产生。这两处数字直接对应 Rust 侧的窗口几何，故写死像素。 */
   padding-bottom: 12px;
-  /* 只对透明顶层容器做 transform 动画。给整个透明窗口做淡入淡出，在部分 Linux
-     窗管上会产生黑色光晕合成问题，因此把 opacity 放在内部实心岛上。 */
   transition: transform var(--duration-normal) var(--ease-out);
   will-change: transform;
 }
@@ -41,48 +52,42 @@
   opacity: 0;
 }
 
-/* ============================================
-   Island：三个相位共用的单一胶囊
-   ============================================ */
+/* ── 胶囊本体 ───────────────────────────────── */
 
-/* 全相位同一悬浮条几何（248×40、6px 圆角），相位切换只剩内容 crossfade。
-   40px = 单行文本 + 呼吸空间。248px = 窗口 280px 两侧各留 16px。
-   全圆角胶囊属于移动端语言，桌面悬浮条用方角更稳。 */
-
+/* 实色面 + 一圈发丝线。圆角用面板档（10px）：全圆角属于移动端语言，
+   桌面悬浮条用方一些的角更稳，也更容易和主窗的卡片对齐。 */
 .island {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-2-5);
   width: 248px;
   height: 40px;
-  padding: 0 12px;
-  /* 用实色背景替代 backdrop-filter，以提升 GPU 合成性能 */
+  padding: 0 var(--space-3);
   background: var(--overlay-surface-solid);
-  border-radius: var(--radius-md);
   border: 1px solid var(--overlay-border);
+  border-radius: var(--radius-lg);
   color: var(--overlay-text);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
   box-shadow: var(--overlay-shadow);
-  /* 把绘制/合成限制在实心岛内，避免阴影模糊渗入透明窗口背景。 */
+  /* 把绘制与合成限制在实心胶囊内，避免任何绘制渗出到透明窗背景。 */
   isolation: isolate;
   contain: paint;
   transition: opacity var(--duration-normal) var(--ease-out);
   will-change: opacity;
 }
 
-/* ============================================
-   Recording Dot：录音红点脉冲
-   ============================================ */
+/* ── 录音：红点 + 中性电平轨迹 ──────────────── */
 
-/* 7px 实心红点 + 向外扩散的环（只动 transform/opacity，合成层友好）。 */
+/* 红色只留在 7px 录音点上（录音的通行记号，也是品牌插图里的写法）；波形走中性
+   灰阶，避免一条 158px 长的语义色横条占满胶囊——语义色只铺小面积。 */
 .dot {
   position: relative;
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--color-red);
   flex: none;
 }
@@ -91,7 +96,7 @@
   content: "";
   position: absolute;
   inset: -3px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: 1px solid var(--color-red);
   opacity: 0;
   animation: overlay-dot-pulse-ring 1.8s ease-out infinite;
@@ -102,18 +107,16 @@
     transform: scale(0.6);
     opacity: 0.6;
   }
+
   70% {
     transform: scale(1.8);
     opacity: 0;
   }
+
   100% {
     opacity: 0;
   }
 }
-
-/* ============================================
-   Level Trace：录音相位的滚动电平轨迹
-   ============================================ */
 
 /* 最新一帧在右侧，视口宽度固定（53 条 ×2px + 52px 间隙 = 158px），从零帧起
    布局即稳定，旧帧随新帧进入从左侧裁出，胶囊内容不随录音时长增长。 */
@@ -122,8 +125,8 @@
   align-items: center;
   justify-content: flex-end;
   gap: 1px;
-  height: 14px;
   width: 158px;
+  height: 14px;
   overflow: hidden;
   flex: none;
 }
@@ -132,43 +135,41 @@
   flex-shrink: 0;
   width: 2px;
   min-height: 2px;
-  border-radius: 1px;
-  background: var(--color-red);
+  border-radius: var(--radius-full);
+  background: var(--overlay-result-text);
 }
 
-/* ============================================
-   处理中指示器
-   ============================================ */
+/* ── 转写中：环形指示 + 细进度线 ────────────── */
 
+/* 环形用琥珀（进行中），轨道用 overlay 专用低对比轨道色，不用边框色叠加。 */
 .processing-ring {
   width: 13px;
   height: 13px;
   border: 2px solid var(--overlay-processing-track);
   border-top-color: var(--color-amber);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   animation: overlay-spin 0.9s linear infinite;
   will-change: transform;
   flex: none;
 }
 
-/* 转写进度：使用 scaleX（仅合成层），一条扁平进度线，不做流光与发光 */
+/* 进度线只做 scaleX：宽度 158px 与轨迹同宽，两个相位切换时左侧元素对齐。 */
 .overlay-tx-progress-track {
+  position: relative;
   width: 158px;
-  height: 3px;
-  border-radius: 2px;
+  height: 2px;
+  border-radius: var(--radius-full);
   background: var(--overlay-processing-track);
   overflow: hidden;
-  position: relative;
   flex: none;
 }
 
 .overlay-tx-progress-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--radius-full);
   background: var(--color-amber);
-  /* 用 scaleX 而非 width，不触发重排，纯 GPU 合成 */
   transform-origin: left center;
-  transition: transform 0.35s var(--ease-out);
+  transition: transform var(--duration-slow) var(--ease-out);
   will-change: transform;
 }
 
@@ -180,38 +181,34 @@
   0% {
     transform: scaleX(0.4) translateX(-150%);
   }
+
   100% {
     transform: scaleX(0.4) translateX(350%);
   }
 }
 
-/* ============================================
-   完成指示器
-   ============================================ */
+/* ── 完成：绿色圆盘 + 单行结果 ──────────────── */
 
+/* 圆盘 16px 是胶囊里的最小可辨尺寸：再小勾就被边框吃掉，再大就会压过文字。 */
 .done-indicator {
-  width: 16px;
-  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
+  border-radius: var(--radius-full);
   background: var(--color-green-bg);
   color: var(--color-green);
-  border: 1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
-  border-radius: 50%;
-  flex: none;
 }
 
 /* 润色失败：✓ 圆盘转琥珀，与文本后的 ⚠ 一起提示已回退原文（悬停 ⚠ 看原因）。 */
 .done-indicator--failed {
+  border-color: color-mix(in srgb, var(--color-amber) 30%, transparent);
   background: var(--color-amber-bg);
   color: var(--color-amber);
-  border-color: color-mix(in srgb, var(--color-amber) 30%, transparent);
 }
-
-/* ============================================
-   结果展示
-   ============================================ */
 
 /* 单行省略：悬浮窗只承担“扫一眼确认”，全文在剪贴板与主窗历史。 */
 .result-text {
@@ -219,39 +216,37 @@
   min-width: 0;
   color: var(--overlay-result-text);
   font-size: var(--text-sm);
-  line-height: 1.4;
   font-weight: var(--font-regular);
+  line-height: var(--leading-normal);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .result-warn {
-  flex: none;
   display: flex;
   align-items: center;
+  flex: none;
   color: var(--color-amber);
   cursor: help;
 }
 
-/* ============================================
-   Close Button：悬停胶囊时淡入
-   ============================================ */
+/* ── 关闭按钮：悬停胶囊时淡入 ───────────────── */
 
 /* 默认透明但保留占位（淡入时不引起文本重排）。悬浮窗 focusable=false，
-   无键盘焦点路径，透明态可点击无碍。 */
+   没有键盘焦点路径，透明态可点击无碍。 */
 .btn-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
   height: 16px;
   padding: 0;
+  flex: none;
   border: none;
   background: transparent;
   color: var(--overlay-muted);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
   opacity: 0;
   transition:
     opacity var(--duration-fast) var(--ease-out),

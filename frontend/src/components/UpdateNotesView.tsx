@@ -48,25 +48,7 @@ export default function UpdateNotesView({
         </button>
       </header>
 
-      {info && (
-        <div className="update-notes-summary">
-          <div className="update-notes-headline">
-            {t("settings.update_available")} v{info.latestVersion}
-          </div>
-          <div className="update-notes-versions">
-            <span className="update-notes-version">
-              {t("update_notes.current")} {info.currentVersion}
-            </span>
-            <span className="update-notes-version update-notes-version--latest">
-              {t("update_notes.latest")} {info.latestVersion}
-            </span>
-            {info.date && (
-              // latest.json 的日期是完整 ISO 时间戳，头部只展示日期部分。
-              <span className="update-notes-date">{info.date.slice(0, 10)}</span>
-            )}
-          </div>
-        </div>
-      )}
+      {info && <VersionSummary t={t} info={info} />}
 
       <div className="update-notes-body">
         {hasNotes ? (
@@ -81,7 +63,7 @@ export default function UpdateNotesView({
         {info?.supportTier === "in_place" ? (
           <button
             type="button"
-            className="update-notes-btn update-notes-btn--primary"
+            className="btn btn-primary btn-lg btn-block"
             onClick={onInstall}
             disabled={installing}
           >
@@ -91,11 +73,43 @@ export default function UpdateNotesView({
         ) : (
           <button
             type="button"
-            className="update-notes-btn update-notes-btn--primary"
+            className="btn btn-primary btn-lg btn-block"
             onClick={() => void openUrl(RELEASES_URL)}
           >
             {t("settings.update_open_release")}
           </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 版本摘要：一句「发现新版本」加版本号，再跟一行当前版本与发布日期。
+ *
+ * 版本号是这扇窗里唯一的读数，给它整块抬一级的面与最大字号；两个版本号不再
+ * 并排比较（读者关心的是要不要升，而不是两串数字的差），当前版本退成脚注。
+ */
+function VersionSummary({
+  t,
+  info,
+}: {
+  t: (key: string) => string;
+  info: UpdateInfo;
+}) {
+  return (
+    <div className="update-notes-summary">
+      <div className="update-notes-headline">
+        <span className="update-notes-kicker">{t("settings.update_available")}</span>
+        <span className="update-notes-version-number tabular">v{info.latestVersion}</span>
+      </div>
+      <div className="update-notes-versions">
+        <span>
+          {t("update_notes.current")} {info.currentVersion}
+        </span>
+        {info.date && (
+          // latest.json 的日期是完整 ISO 时间戳，头部只展示日期部分。
+          <span className="update-notes-date">{info.date.slice(0, 10)}</span>
         )}
       </div>
     </div>
