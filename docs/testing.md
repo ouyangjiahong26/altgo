@@ -32,6 +32,8 @@
 - `polisher`：OpenAI 兼容与 Anthropic 两种协议的请求/响应、429 与瞬时失败重试、重试耗尽。另有本地档相关的三块：`polisher::fidelity` 的四条保真校验硬规则（期望纠错放行、压缩成摘要拦、扩写拦、凭空造字拦、八种格式泄漏拦）、`polisher::prompt` 的本地短提示词（必须显著短于内置长提示词）、`polisher::local` 的缺模型与缺运行时的可操作报错
 - `sherpa`：模型/词表缺失时的报错、语言归一化（不做真实推理）
 - `prompt_store`：prompt 模板加载、base + 各档后缀组合、缺文件降级
+- `updater`：检查结果映射（有新版本、已最新）、超时与网络错误、安装时录音中拒绝、空闲时安装
+- `display_backend`：Wayland 会话与显式 `GDK_BACKEND` 的后端选择
 - `error`：错误的致命/可恢复分类与文案
 
 **可用替身**：临时目录与文件、注入的闭包与参数、mockito 本地 HTTP 假服务器（model 下载与 polisher 协议）。本层不使用语音流水线的 test_doubles。

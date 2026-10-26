@@ -2,61 +2,61 @@
 slug: /
 ---
 
+import Link from '@docusaurus/Link';
+
 # altgo 文档
 
-欢迎使用 altgo：基于 Tauri + React + Rust 的语音转文字桌面应用，同时支持 Windows 与 Linux、x86_64 与 arm64 四个组合，这样的语音转文字软件很少。Linux 侧支持 Ubuntu 22.04+（x86_64 与 aarch64），Windows 侧支持 10+（x86_64 与 arm64）。
+altgo 是桌面语音转文字工具。按住触发键（默认右 Alt）说话，松开后自动完成录音、转写与可选润色，结果写入系统剪贴板，并在屏幕底部悬浮窗中单行展示。
 
-按住触发键（默认右 Alt）说话，松开后在本地用 SenseVoice（内嵌 sherpa-onnx）转写，并可选用 OpenAI 兼容 API 或本机模型做 LLM 润色。转写成功后会尝试写入系统剪贴板，同时用悬浮窗展示结果，方便核对或在剪贴板失败时手动复制。
+转写引擎二选一。本地引擎内嵌 sherpa-onnx，可选 SenseVoice 或 FireRedASR2 CTC，离线可用。在线引擎接入云端 ASR，默认 MiMo，无需下载模型，需要 API Key。润色为可选项，支持 OpenAI 兼容 API、Anthropic Messages API 与本机模型。
 
-## 快速导航
+altgo 覆盖 Linux 与 Windows 的 x86_64 与 arm64 四个组合。Linux 支持 Ubuntu 22.04+ 的 x86_64 与 aarch64，Windows 支持 10+ 的 x86_64 与 arm64。macOS 暂不支持。
+
+## 从这里开始
 
 <div className="doc-nav-grid">
 
-<a href="/docs/quick-start" className="doc-nav-card">
-  <div className="doc-nav-icon">🚀</div>
+<Link to="/docs/quick-start" className="doc-nav-card">
   <h3>快速开始</h3>
   <p>安装、配置与首次使用指南</p>
-</a>
+</Link>
 
-<a href="/docs/configuration" className="doc-nav-card">
-  <div className="doc-nav-icon">⚙️</div>
+<Link to="/docs/configuration" className="doc-nav-card">
   <h3>配置指南</h3>
   <p>TOML 配置文件完整说明</p>
-</a>
+</Link>
 
-<a href="/docs/usage" className="doc-nav-card">
-  <div className="doc-nav-icon">📖</div>
+<Link to="/docs/usage" className="doc-nav-card">
   <h3>使用说明</h3>
   <p>录音模式、润色、输出方式详解</p>
-</a>
+</Link>
 
-<a href="/docs/architecture" className="doc-nav-card">
-  <div className="doc-nav-icon">🏗️</div>
+<Link to="/docs/architecture" className="doc-nav-card">
   <h3>架构设计</h3>
   <p>模块结构、状态机与平台策略</p>
-</a>
+</Link>
 
-<a href="/docs/faq" className="doc-nav-card">
-  <div className="doc-nav-icon">❓</div>
+<Link to="/docs/faq" className="doc-nav-card">
   <h3>常见问题</h3>
   <p>录音、按键、转写、润色排错</p>
-</a>
+</Link>
 
 <a href="https://github.com/ouyangjiahong26/altgo" className="doc-nav-card" target="_blank" rel="noopener noreferrer">
-  <div className="doc-nav-icon">💻</div>
   <h3>GitHub</h3>
   <p>源码、Issue 与 Release 下载</p>
 </a>
 
 </div>
 
-## 核心特性一览
+## 核心特性
 
 | 特性 | 说明 |
 |------|------|
-| **长按即录** | 按住右 Alt 说话，松开自动转写 |
-| **连续模式** | 双击进入连续录音，适合长篇发言 |
-| **本地 ASR** | SenseVoice 离线转写，无需 API 密钥 |
-| **LLM 润色** | 四档强度，支持多种 Provider，也可完全离线用本机模型 |
-| **剪贴板 + 悬浮窗** | 自动写入剪贴板，悬浮窗可二次复制 |
-| **平台支持** | Linux（X11 / Wayland，x86_64 / aarch64），Windows 10+（x86_64 / arm64） |
+| 长按即录 | 按住右 Alt 说话，松开自动转写 |
+| 连续模式 | 双击进入连续录音，适合长篇发言 |
+| 本地转写 | SenseVoice 或 FireRedASR2 CTC，离线可用，无需 API Key |
+| 在线转写 | MiMo 等云端 ASR，无需下载模型，需要 API Key |
+| LLM 润色 | 四档强度，支持多种 Provider，也可完全离线用本机模型 |
+| 剪贴板与悬浮窗 | 自动写入剪贴板，悬浮窗可二次复制 |
+| 本地历史 | 查看、复制、删除与重新润色，只保存文本 |
+| 平台支持 | Linux（X11 / Wayland，x86_64 / aarch64），Windows 10+（x86_64 / arm64） |

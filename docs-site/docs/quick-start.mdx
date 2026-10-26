@@ -10,7 +10,7 @@ sidebar_label: Quick Start / 快速开始
 
 altgo supports Linux (Ubuntu 22.04+) on x86_64 and aarch64, and Windows 10+ on x86_64 and arm64. Linux builds and releases are verified on Ubuntu 22.04. Other distributions may work but are not guaranteed. macOS is not supported.
 
-The transcription engine embeds sherpa-onnx (SenseVoice), so no separate binary needs to be installed.
+Transcription has two backends. The local backend embeds sherpa-onnx and offers SenseVoice or FireRedASR2 CTC, so no separate binary is needed and it works offline after the model is downloaded. The online backend sends audio to a cloud ASR endpoint, with MiMo ASR as the default, and does not download a model.
 
 ### Linux: add your user to the input group before installing
 
@@ -20,31 +20,33 @@ The current user must be added to the `input` group, otherwise `/dev/input/event
 sudo usermod -aG input "$USER"
 ```
 
-The `.deb` package declares the other desktop and audio dependencies, so the package manager pulls them in. If the installer reports a missing package, install what it lists.
-
 ### End users: finish everything in Settings
 
 #### Linux
 
-1. Download the package for your distribution from [Releases](https://github.com/ouyangjiahong26/altgo/releases): `.deb` (Ubuntu/Debian) or `.rpm` (Fedora/RHEL).
-2. Complete the `input` group step above.
+1. Download the package for your system from [Releases](https://github.com/ouyangjiahong26/altgo/releases): `.deb` (Ubuntu/Debian), `.rpm` (Fedora/RHEL), or `.AppImage`.
+2. Complete the `input` group step above. The `.deb` and `.rpm` packages declare the desktop and audio dependencies, so the package manager pulls them in. The AppImage does not resolve dependencies, so install the missing libraries reported at launch.
 3. Start the application and open Settings:
-   - Under transcription, download and enable a local model, or enter an advanced path.
+   - Under transcription, choose the local backend and download a model, or choose the online backend and fill in the API key, base URL and model name.
    - Configure polishing, appearance and the trigger key as needed (`Press to set`).
    - Save.
-4. Results are written to the clipboard and shown in a single line in the overlay window. Paste them into the target application. The full text is available in the main window history, where it can be viewed and copied.
+4. Results are written to the clipboard and shown in a single line in the overlay window. Paste them into the target application. The full text is available in the history list on the home page, where it can be viewed, copied or polished again.
 
 #### Windows
 
 1. Download the `*-setup.exe` for your architecture (x64 or arm64) from [Releases](https://github.com/ouyangjiahong26/altgo/releases). This is the NSIS installer.
 2. Run the installer, then start altgo from the Start menu.
-3. Open Settings, configure the model download, polishing and the trigger key, then save.
+3. Open Settings, choose the transcription backend and finish the model or API configuration, configure polishing and the trigger key, then save.
 
 Windows installers use free code signing provided by [SignPath Foundation](https://signpath.org/) (onboarding in progress). See the [Code signing policy](https://github.com/ouyangjiahong26/altgo#code-signing-policy) for the full policy and the [Privacy Policy](./privacy) for data handling. Until signing is enabled, Windows may show a "Windows protected your PC" prompt and treat the installer as an unrecognized app. This is the standard warning for unsigned programs and does not mean the file is unsafe. To continue, click "More info" and then "Run anyway". Windows 11 with Smart App Control blocks unsigned programs entirely and provides no per-program exception, so the feature must be turned off in Windows Security under "App & browser control".
 
 To check that the downloaded file was not modified, download `checksums.txt` from the same release and compare its SHA-256 with `certutil -hashfile <installer> SHA256`.
 
-Do not use "copy `configs/altgo.toml` and edit it by hand" as the default path, that is an advanced workflow. Regular users only need the UI.
+Do not use "copy `configs/altgo.toml` and edit it by hand" as the default path. That is an advanced workflow. Regular users only need the UI.
+
+### Start
+
+Run `altgo` or the executable in the installation directory. Hold the right Alt key to speak, release it and check the result in the overlay window. The trigger key can be changed in Settings.
 
 ### Offline installation (Windows x64)
 
@@ -60,6 +62,10 @@ The models and runtime take about 650 MB in `%APPDATA%\altgo`. During the transf
 
 To check that the zip was not modified, compare its SHA-256 with `certutil -hashfile <zip> SHA256` against the value on the asset release page. The script verifies each file inside the package after extraction.
 
+### Advanced: only when you edit the configuration file by hand
+
+Configuration file path: `~/.config/altgo/altgo.toml`. Field documentation is in [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml) in the main repository.
+
 ### Developers: build from source
 
 Build with `make build`, same as the main repository. Use `make build` for day-to-day verification as well.
@@ -73,19 +79,11 @@ make build
 
 To iterate on frontend UI quickly, `cargo tauri dev` can be used temporarily. The full pipeline is still verified with `make build`.
 
-### Advanced: only when you edit the configuration file by hand
-
-Configuration file path: `~/.config/altgo/altgo.toml`. Field documentation is in [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml) in the main repository.
-
-### Start
-
-Run `altgo` or the executable in the installation directory. Hold the right Alt key to speak, release it and check the result in the overlay window. The trigger key can be changed in Settings.
-
 ## 中文
 
-本软件支持 Linux（Ubuntu 22.04+）的 x86_64 与 aarch64 架构，以及 Windows 10+（x86_64 与 arm64）。Linux 构建和 Release 在 Ubuntu 22.04 上验证。其他发行版可能可用但未保证。目前不支持 macOS。
+altgo 支持 Linux（Ubuntu 22.04+）的 x86_64 与 aarch64 架构，以及 Windows 10+（x86_64 与 arm64）。Linux 构建和 Release 在 Ubuntu 22.04 上验证。其他发行版可能可用但未保证。目前不支持 macOS。
 
-转写引擎内嵌 sherpa-onnx（SenseVoice），无需单独安装任何二进制。
+转写引擎二选一。本地引擎内嵌 sherpa-onnx，提供 SenseVoice 或 FireRedASR2 CTC，无需单独安装二进制，模型下载后可断网使用。在线引擎把音频发往云端 ASR 端点，默认使用 MiMo ASR，不下载模型。
 
 ### Linux：安装前必做（input 组）
 
@@ -95,33 +93,33 @@ Run `altgo` or the executable in the installation directory. Hold the right Alt 
 sudo usermod -aG input "$USER"
 ```
 
-其余与桌面、音频相关的系统库，`.deb` 会通过依赖声明自动拉取。若安装器提示缺包，按提示补装即可，不必自行对照长清单。
-
 ### 最终用户：装好后在“设置”里完成一切
 
 #### Linux
 
-1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载对应发行版的安装包：`.deb`（Ubuntu/Debian）或 `.rpm`（Fedora/RHEL）。
-2. 完成上文 input 组。
+1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载对应系统的安装包：`.deb`（Ubuntu/Debian）、`.rpm`（Fedora/RHEL）或 `.AppImage`。
+2. 完成上文 input 组。`.deb` 与 `.rpm` 已声明桌面与音频依赖，包管理器会自动拉取。AppImage 不解析依赖，运行时提示缺库时按提示补装。
 3. 启动应用，打开设置：
-   - 在转写中下载并启用本地模型，或填写高级路径。
+   - 在转写中选择本地引擎并下载模型，或选择在线引擎并填写 API Key、服务地址与模型名。
    - 按需配置润色、外观、触发键（可用“按下以设置”）。
    - 点击保存。
-4. 识别结果会写入剪贴板并在悬浮窗中单行展示，直接到目标应用粘贴即可。全文可在主窗历史中查看、复制。
+4. 识别结果会写入剪贴板并在悬浮窗中单行展示，直接到目标应用粘贴即可。全文可在主页历史列表中查看、复制或重新润色。
 
 #### Windows
 
 1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载与设备架构（x64 或 arm64）对应的 `*-setup.exe`（NSIS 安装器）。
 2. 双击安装，在开始菜单启动 altgo。
-3. 打开设置，完成模型下载、润色、触发键等配置后点击保存。
+3. 打开设置，选择转写引擎并完成模型或 API 配置，按需配置润色与触发键，然后点击保存。
 
-安装包没有代码签名证书，双击时 Windows 会弹出“Windows 已保护你的电脑”，把它标为无法识别的应用。这是未签名程序的常规提示，不代表文件有问题。继续安装的路径是点“更多信息”，再点“仍要运行”。开启“智能应用控制”的 Windows 11 会在无法判断程序是否安全时直接阻止未签名的程序运行，也没有针对单个程序放行的入口，只能在 Windows 安全中心的“应用和浏览器控制”里关掉这个功能。
+Windows 安装包使用 SignPath Foundation 提供的免费代码签名，目前正在接入。签名政策的完整说明见 [README 的 Code signing policy](https://github.com/ouyangjiahong26/altgo#code-signing-policy) 一节，数据去向见[隐私政策](./privacy)。接入完成前，Windows 可能显示“Windows 已保护你的电脑”，把安装包标为无法识别的应用。这是未签名程序的常规提示，不代表文件有问题。继续安装的路径是点“更多信息”，再点“仍要运行”。开启“智能应用控制”的 Windows 11 会直接阻止未签名程序运行，也没有针对单个程序放行的入口，只能在 Windows 安全中心的“应用和浏览器控制”里关掉这个功能。
 
 想先确认下载的文件没被改动，可以从同一版本的 Release 页面下载 `checksums.txt`，再用 `certutil -hashfile <安装包> SHA256` 算出本文件的哈希，与其中对应行比对。
 
-Windows 安装包使用 SignPath Foundation 提供的免费代码签名（接入中），签名政策的完整说明见 [README 的 Code signing policy](https://github.com/ouyangjiahong26/altgo#code-signing-policy) 一节，数据去向见[隐私政策](./privacy)。
-
 不要把“先复制 `configs/altgo.toml` 再手改”当作默认路径，那是高级用法。日常用户只使用界面即可。
+
+### 启动
+
+运行 `altgo` 或安装目录下的可执行文件。按住右 Alt 说话，松开后在悬浮窗查看结果。触发键在设置中修改。
 
 ### 无外网环境安装（Windows x64）
 
@@ -137,9 +135,13 @@ Windows 安装包使用 SignPath Foundation 提供的免费代码签名（接入
 
 想先确认 zip 没被改动，可以用 `certutil -hashfile <zip> SHA256` 与资产 Release 页面上给出的值比对，解压后包内每个文件的校验由脚本负责。
 
+### 高级：仅当你要手改配置文件时
+
+配置文件路径：`~/.config/altgo/altgo.toml`。字段说明见主仓库 [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml)。
+
 ### 开发者：从源码构建
 
-与主仓库一致，使用 `make build` 打包。日常验证也建议以 `make build` 为主。
+与主仓库一致，使用 `make build` 打包。日常验证也以 `make build` 为主。
 
 ```bash
 git clone https://github.com/ouyangjiahong26/altgo.git
@@ -149,11 +151,3 @@ make build
 ```
 
 若需快速改前端 UI，可临时使用 `cargo tauri dev`。完整链路仍以 `make build` 为准。
-
-### 高级：仅当你要手改配置文件时
-
-配置文件路径：`~/.config/altgo/altgo.toml`。字段说明见主仓库 [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml)。
-
-### 启动
-
-运行 `altgo` 或安装目录下的可执行文件。按住右 Alt 说话，松开后在悬浮窗查看结果。触发键在设置中修改。
