@@ -56,17 +56,26 @@ min_press_duration = 200
 ### 能录音但没有转写结果
 
 1. 确认录音结束后悬浮窗是否进入“处理中”。
-2. 确认已在设置页下载本地模型（SenseVoice）。
+2. 本地引擎确认已在设置页下载模型。在线引擎确认 API Key、服务地址与模型名正确。
 3. 查看日志：`RUST_LOG=altgo=debug altgo`，检查 `transcription failed`、模型路径与润色服务请求失败信息。
 
 ### 中文识别效果不好
 
-1. 确认 `language = "zh"` 设置正确
-2. 确认模型文件完整下载（`model.int8.onnx` 与 `tokens.txt` 均存在）
+1. 确认 `language = "zh"` 设置正确。
+2. 本地引擎确认模型文件完整下载（`model.int8.onnx` 与 `tokens.txt` 均存在）。
+3. 在线引擎确认所选模型支持中文，并在服务商控制台检查请求是否被截断或限流。
+
+### 在线转写失败怎么办
+
+在线转写不回退本地，失败时直接报错。依次检查 `[transcriber] backend` 是否为 `"online"`，`[transcriber.online] protocol` 是否为 `mimo_chat`、`chat_input_audio` 或 `transcriptions`，API Key、服务地址与模型名是否有效，网络能否到达服务商。日志里搜索 `transcription failed`。
+
+### 在线转写需要联网吗
+
+需要。本地转写下载模型后可以断网使用，在线转写每次请求都要到达服务商。
 
 ### 本地模型在哪里下载？
 
-在设置页的“本地模型”中点击下载即可（SenseVoice int8，约 230 MB，中/英/日/韩/粤自动检测）。也可从 Hugging Face 仓库 `csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17` 手动下载 `model.int8.onnx` 与 `tokens.txt` 放入模型目录。
+在设置页的“转写”分区下载。可选 SenseVoice（约 230 MB，中英日韩粤自动检测）、SenseVoice 粤语增强（约 237 MB）与 FireRedASR2 CTC（约 740 MB，中英混说更强）。也可以从模型清单对应的 Hugging Face 仓库手动下载 `model.int8.onnx` 与 `tokens.txt` 放入模型目录。
 
 ## 润色相关
 
@@ -102,7 +111,7 @@ system_prompt = "只修正标点和错别字，不要改变原文的意思和语
 
 1. 安装 `xclip`、`xsel` 或 `wl-copy` 之一，并确保在图形会话内运行 altgo。
 2. 若其他程序锁定了剪贴板，稍后重试即可。
-3. 在历史页使用复制按钮（WebView 手势复制有时比后端剪贴板更稳）。悬浮窗只作展示，结果已自动写入剪贴板。
+3. 在主页历史列表使用复制按钮（WebView 手势复制有时比后端剪贴板更稳）。悬浮窗只作展示，结果已自动写入剪贴板。
 4. 调试：`RUST_LOG=altgo=debug altgo` 查看是否有 clipboard 相关错误。
 
 ## 通用

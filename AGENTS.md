@@ -103,8 +103,8 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 - `resources/prompts/` 未随安装包分发（`tauri.conf.json` 无 `bundle.resources`）。打包安装后 PromptStore 不加载，走 `system_prompt` 或内置回退。从仓库根运行开发版才会命中 `./resources/prompts`。
 - `make install` 装到 `/etc/altgo/altgo.toml` 的模板不被应用读取，应用只读 `~/.config/altgo/altgo.toml`。
-- 仓库没有 `tests/` 目录（`CONTRIBUTING.md` 的集成测试约定暂无实例）。`docs/testing.md` 模块清单漏 `updater.rs`、`display_backend.rs`。
-- Node 下界三处不一（CONTRIBUTING 18+、`docs-site` engines 至 20、CI 22）。Rust MSRV 未在 `Cargo.toml` 强制（CI 用 stable）。
+- 仓库没有 `tests/` 目录（`CONTRIBUTING.md` 的集成测试约定暂无实例）。
+- Node 下界：`CONTRIBUTING.md` 与 `docs-site` engines 声明 20+，CI 用 22。Rust MSRV 未在 `Cargo.toml` 强制，Tauri 2.12 要求 1.90，CI 用 stable。
 - 文档统一写仓库全名 `ouyangjiahong26/altgo`。原 `cislunarspace/altgo` 已改名，旧名 GitHub 自动重定向。`gh` 默认仓库已设 `ouyangjiahong26/altgo`，`git remote -v` 现查。
 - `frontend/src/styles/components/ui-primitives.css` 是跨页面复用的控件基底（`.btn`/`.field`/`.select`/`.segmented`/`.badge`/`.kbd`/`.empty-state`），各页面只做尺寸与排布，不再各自重写一套按钮皮肤。
 - `frontend/src/styles/pages/history.css` 现服务于 `frontend/src/components/HistoryPanel.tsx`（#170 把历史页并入主页后的遗留命名），`pages/` 下已无 History 页面。

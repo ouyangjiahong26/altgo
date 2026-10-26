@@ -6,7 +6,7 @@
 
 altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条语音流水线，React 前端负责主页、设置页与悬浮窗。两个收敛后的设计前提：
 
-- **转写双后端**：由 `[transcriber] backend` 选择。默认 `"local"` 走本地识别（内嵌 sherpa-onnx，模型常驻内存，按 `[transcriber] model` 在注册表命中的引擎里选：SenseVoice 多语种自动检测，FireRedASR2 CTC 中英混说更强，见 `model.rs` 的 `EngineKind`），`"online"` 走小米 MiMo 在线识别（chat/completions + `input_audio`，失败直接报错不回退），分发接缝在 `voice_pipeline/builder.rs` 的 `build_transcriber`。whisper.cpp 与 Whisper API 已随 #121 删除。
+- **转写双引擎**：由 `[transcriber] backend` 选择。默认 `"local"` 走本地识别（内嵌 sherpa-onnx，模型常驻内存，按 `[transcriber] model` 在注册表命中的引擎里选：SenseVoice 多语种自动检测，FireRedASR2 CTC 中英混说更强，见 `model.rs` 的 `EngineKind`），`"online"` 走在线识别（按协议家族接入云端 ASR，默认小米 MiMo，chat/completions + `input_audio`，失败直接报错不回退），分发接缝在 `voice_pipeline/builder.rs` 的 `build_transcriber`。whisper.cpp 与 Whisper API 已随 #121 删除。
 - **润色双引擎**：由 `[polisher] backend` 选择。默认 `"remote"` 走远端 API（OpenAI 兼容或 Anthropic 协议），`"local"` 走本机的润色运行时（llama.cpp 的 llama-server 子进程，模型与运行时都按需下载，见 ADR-0010）。本地引擎的输出还要过保真校验，越界即回退转写原文（见 ADR-0011）。
 - 平台为 Linux（Ubuntu 22.04+，x86_64/aarch64）与 Windows 10+（x86_64/arm64）。旧的 PowerShell 式 Windows 适配曾随 #121 删除，现行实现（`windows.rs`）为原生 API 重写：WH_KEYBOARD_LL 钩子监听按键、cpal/WASAPI 录音、arboard 剪贴板 + SendInput 文本注入（由 `[output] inject_text` 配置控制，默认关闭，ADR 0005）。
 
@@ -28,7 +28,7 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 +-----------------------------+
 |     voice_pipeline          |  组合根：builder + context + handlers
 |  ┌───────────────────────┐  |
-|  |   PipelineContext     |  |  tokio::select! 三分支主循环
+|  |   PipelineContext     |  |  tokio::select! 五路主循环
 |  |  ┌─────────────────┐  |  |
 |  |  |   state_machine  |  |  |  5 态同步状态机（crate 根部模块）
 |  |  └─────────────────┘  |  |
@@ -114,7 +114,7 @@ lib.rs
 
 1. **框架**：`PipelineSink`（状态/错误/结果回调）、`PipelineEventEmitter`（事件发射）、`TranscriptionDispatch`（剪贴板 + 历史分发）、`OverlaySink`（悬浮窗）。
 2. **平台**：`Recorder`（录音）、`KeyListener`（按键）、`Output`（剪贴板），当前实现见第五节。
-3. **引擎**：`Transcriber`（转写后端），本地实现为 `sherpa.rs`（按模型注册引擎选 SenseVoice 或 FireRedASR2 CTC），在线实现为 `online_asr.rs` 的协议家族分派。
+3. **引擎**：`Transcriber`（转写引擎），本地实现为 `sherpa.rs`（按模型注册引擎选 SenseVoice 或 FireRedASR2 CTC），在线实现为 `online_asr.rs` 的协议家族分派。
 
 同 crate 内向下的模块依赖允许直接 import：`handlers` 调 `polisher` 的具体类型、各模块依赖 `config` / `error` 等底层叶子，都不需要 seam。seam 是测试注入 fake 的位置，也是未来加平台或后端时的扩展点。
 
@@ -128,12 +128,13 @@ lib.rs
 
 ### 主循环
 
-`voice_pipeline/context.rs` 的主循环是 tokio::select! 四分支：
+`voice_pipeline/context.rs` 的主循环是 tokio::select! 五路：
 
 1. **按键事件**：交给 `machine.process(ev)`。
 2. **状态机超时**：调用 `machine.poll_timeout()`（仅在 `deadline.is_some()` 时启用）。
 3. **重试请求**：取出待重试录音，走与停止录音相同的转写收尾。
-4. **停止信号**：`break`。
+4. **空闲回收节拍**：每分钟一次，本地润色引擎据此判断运行时进程是否该关掉，远端实现是空操作。
+5. **停止信号**：`break`。
 
 命令由状态机同步返回，`match cmd` 后就地调用 `handle_start_record` 或 `handle_stop_record`。状态机没有自己的“命令通道”，它只把意图交给调用方。重试请求是唯一的外部注入命令，同样在循环内串行执行。
 
@@ -173,7 +174,7 @@ lib.rs
 
 ### 本地引擎：内嵌常驻
 
-`SherpaTranscriber`（`sherpa.rs`）内嵌 sherpa-onnx 跑本地模型，引擎按模型注册表选择：SenseVoice（多语种自动检测，int8 约 230 MB）或 FireRedASR2 CTC（中英混说更强，int8 约 740 MB）。sherpa-onnx 编译进主程序，模型在管道启动时加载一次并常驻内存，之后每句话直接推理（先 `accept_waveform` 再 `decode`），没有进程启动与冷载成本。推理是 CPU 密集同步操作，经 `spawn_blocking` 放入阻塞线程池。模型文件缺失或加载失败在构造期报错（`TranscriberError::ModelLoadFailed`）。
+`SherpaTranscriber`（`sherpa.rs`）内嵌 sherpa-onnx 跑本地模型，引擎按模型注册表选择：SenseVoice（多语种自动检测或粤语增强，int8 约 230 MB 与 237 MB）或 FireRedASR2 CTC（中英混说更强，int8 约 740 MB）。sherpa-onnx 编译进主程序，模型在管道启动时加载一次并常驻内存，之后每句话直接推理（先 `accept_waveform` 再 `decode`），没有进程启动与冷载成本。推理是 CPU 密集同步操作，经 `spawn_blocking` 放入阻塞线程池。模型文件缺失或加载失败在构造期报错（`TranscriberError::ModelLoadFailed`）。
 
 ### 在线引擎：协议家族分派
 
@@ -236,7 +237,7 @@ lib.rs
 
 另有两处平台相关但不走 trait 的分支：`display_backend.rs` 在 GUI 初始化前探测 Wayland 会话并切 GDK 后端。悬浮窗的主显示器几何在 `overlay/tauri.rs` 内按平台取值：Linux 解析 `xrandr` 输出，Windows 用 Tauri `primary_monitor()`。
 
-各平台录音统一输出 16 kHz 单声道 16 位 PCM，`audio.rs` 在录音停止时编码为 WAV。这是 SenseVoice 唯一接受的输入格式。
+各平台录音统一输出 16 kHz 单声道 16 位 PCM，`audio.rs` 在录音停止时编码为 WAV。本地转写引擎统一接受这一输入格式。
 
 `Box<dyn Trait>` 用于 `PipelineContext` 字段与 builder 返回值，`Arc<dyn Trait>` 用于 Tauri 侧注入。
 
