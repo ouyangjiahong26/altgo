@@ -16,16 +16,9 @@ use std::time::Duration;
 use tauri::{LogicalSize, PhysicalPosition};
 
 use crate::overlay::activity::UserActivityClock;
-use crate::overlay::seam::{OverlayError, OverlaySink, OverlayWindow};
+use crate::overlay::seam::{OverlayError, OverlaySink, OverlayWindow, OVERLAY_SIZE};
 
 pub use crate::overlay::seam::{OverlayPhase, OverlayPosition, OverlayState};
-
-/// 悬浮窗的固定逻辑尺寸（CSS pixels）。
-///
-/// 所有相位共用同一窗口尺寸（280px 窗口容纳单行 40px 胶囊，底部 12px + 顶部 12px 余量）。
-/// 相位切换只改前端内容，不再触碰窗口几何：透明窗口 resize 时新暴露的区域
-/// 在部分 Linux WM 上会合成出黑边，且窗口变形与前端 crossfade 错位会造成跳变。
-const OVERLAY_SIZE: (f64, f64) = (280.0, 64.0);
 
 /// 距屏幕边缘的偏移（CSS pixels），底部居中与顶部居中共用。
 const EDGE_OFFSET: f64 = 80.0;
@@ -157,7 +150,10 @@ impl<W: OverlayWindow + 'static> OverlayManager<W> {
         });
     }
 
-    /// 设置窗口尺寸与位置。窗口尺寸固定，重复调用只是幂等的几何设置。
+    /// 设置窗口尺寸与位置。所有相位共用 [`OVERLAY_SIZE`]，相位切换只改前端
+    /// 内容，不触碰窗口几何：透明窗口 resize 时新暴露的区域在部分 Linux WM
+    /// 上会合成出黑边，窗口变形与前端 crossfade 错位会造成跳变。重复调用
+    /// 只是幂等的几何设置。
     fn apply_window_geometry(&self) {
         let (width, height) = OVERLAY_SIZE;
         if let Err(error) = self.window.set_size(LogicalSize::new(width, height)) {
