@@ -1,6 +1,6 @@
 [package]
 name = "altgo-tauri"
-version = "2.7.8"
+version = "2.8.1"
 edition = "2021"
 description = "altgo Tauri desktop application"
 
@@ -16,7 +16,7 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "=2.12.1", features = ["tray-icon", "test"] }
+tauri = { version = "=2.12.2", features = ["tray-icon", "test"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"

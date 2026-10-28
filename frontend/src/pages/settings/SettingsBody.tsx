@@ -83,7 +83,7 @@ function OrderedSections({ s }: { s: SettingsForm }) {
           },
         }}
         catalogPresets={s.catalogPresets} catalogLoading={s.catalogLoading}
-        catalogError={s.catalogError} onRetryCatalog={s.loadOnlineCatalog}
+        catalogError={s.catalogError} onRetryCatalog={s.loadCatalogPresets}
         testing={s.testing} testResult={s.testResult} onTestConnection={s.runTestConnection}
         clearingKey={s.clearingKey} onClearApiKey={s.clearApiKey} polishOpen={s.polishOpen}
         setPolishOpen={s.setPolishOpen} polishAdvancedOpen={s.polishAdvancedOpen}

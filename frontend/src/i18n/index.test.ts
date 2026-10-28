@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 //
 // 界面语言解析与错误码翻译的纯函数行为：resolveUiLang 的偏好直通与系统语言
-// 回退、tError 的双语字典命中、占位符插值与未知 code 回退。
+// 回退、tError 的双语字典命中、占位符插值与未知 code 回退，
+// 以及在线识别文案不绑定具体供应商的约束。
 import { describe, it, expect, beforeEach } from "vitest";
-import { resolveUiLang, tError } from "./index";
+import { resolveUiLang, tError, translateStatic } from "./index";
 
 function stubNavigatorLanguage(value: string | undefined) {
   Object.defineProperty(navigator, "language", {
@@ -61,5 +62,26 @@ describe("tError", () => {
   it("未知 code 原样返回 error.<code>", () => {
     localStorage.setItem("altgo-lang", "en");
     expect(tError("no.such_code")).toBe("error.no.such_code");
+  });
+});
+
+/** 在线识别已泛化为多供应商：引擎选项文案不得再绑定 MiMo。 */
+describe("在线识别文案不绑定具体供应商", () => {
+  it.each([
+    ["zh", "settings.transcriber_backend_online"],
+    ["en", "settings.transcriber_backend_online"],
+    ["zh", "onboarding.engine_online"],
+    ["en", "onboarding.engine_online"],
+  ])("%s/%s 不含 MiMo", (lang, key) => {
+    const text = translateStatic(lang, key);
+    expect(text).not.toMatch(/mimo/i);
+    expect(text).toBeTruthy();
+  });
+
+  it("中英文案分别为“在线识别”与 Online", () => {
+    expect(translateStatic("zh", "settings.transcriber_backend_online")).toBe("在线识别");
+    expect(translateStatic("en", "settings.transcriber_backend_online")).toBe("Online");
+    expect(translateStatic("zh", "onboarding.engine_online")).toBe("在线识别");
+    expect(translateStatic("en", "onboarding.engine_online")).toBe("Online");
   });
 });

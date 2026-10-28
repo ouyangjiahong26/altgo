@@ -16,8 +16,7 @@ import {
   usePolishModelManager,
   type UsePolishModelManagerResult,
 } from "../../hooks/usePolishModelManager";
-import { loadCatalog } from "../../config/catalog";
-import { type ProviderPreset } from "../../config/modelPresets";
+import { useCatalogLoader } from "../../hooks/useCatalogLoader";
 import { completeOnboarding } from "../../onboarding";
 
 export type Step = "welcome" | "key" | "engine" | "polish" | "done";
@@ -44,7 +43,7 @@ export function useOnboardingWizard(onDone: () => void) {
   } = form;
   const { models, downloading, getDownloadProgress } = modelMgr;
 
-  const catalog = useOnboardingCatalog();
+  const catalog = useCatalogLoader();
   const { finish } = useOnboardingFinish(saving, message, onDone, save);
   const modelActions = useOnboardingModelActions(update, setMessage, modelMgr);
   const polishActions = useOnboardingPolishActions(update, setMessage, polishMgr);
@@ -60,7 +59,10 @@ export function useOnboardingWizard(onDone: () => void) {
     models, downloading, getDownloadProgress,
     polishModels: polishMgr.models, polishDownloading: polishMgr.downloading,
     getPolishDownloadProgress: polishMgr.getDownloadProgress,
-    catalogPresets: catalog.catalogPresets, catalogError: catalog.catalogError,
+    catalogPresets: catalog.catalogPresets,
+    catalogError: catalog.catalogError,
+    catalogLoading: catalog.catalogLoading,
+    onRetryCatalog: catalog.loadCatalogPresets,
     step: nav.step, stepIndex: nav.stepIndex, onlineActive,
     stepLabel, nextLabel, goto: nav.goto, handleNext: nav.handleNext,
     applyLocalModel: modelActions.applyLocalModel,
@@ -68,20 +70,6 @@ export function useOnboardingWizard(onDone: () => void) {
     downloadLocalPolish: polishActions.downloadLocalPolish,
     startDragging,
   };
-}
-
-/** 供应商目录：向导挂载时拉取一次，失败记错误（仍可手填）。 */
-function useOnboardingCatalog() {
-  const [catalogPresets, setCatalogPresets] = useState<ProviderPreset[]>([]);
-  const [catalogError, setCatalogError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadCatalog()
-      .then(setCatalogPresets)
-      .catch((e) => setCatalogError(String(e)));
-  }, []);
-
-  return { catalogPresets, catalogError };
 }
 
 /** 收尾保存：保存成功后落引导标记并结束向导，失败留在完成步显示表单错误。 */

@@ -8,10 +8,16 @@
 端到端处理链：从按键开始，依次录音、转写、润色，最后输出。由状态机驱动，运行时由 `PipelineController` 管理。
 
 **转写引擎（Transcription Engine）**
-把 WAV 音频转成文本的后端，由 `[transcriber] backend` 选择。两个实现：本地 `SherpaTranscriber`（内嵌 sherpa-onnx 的 SenseVoice，离线可用，模型需先下载）与在线 `MimoAsr`（MiMo ASR 云服务，需配置 API Key）。
+把 WAV 音频转成文本的引擎，由 `[transcriber] backend` 选择。两个实现：本地 `SherpaTranscriber`（内嵌 sherpa-onnx，按模型注册表选 SenseVoice 或 FireRedASR2 CTC，离线可用，模型需先下载）与在线 `OnlineAsr`（按协议家族接入云端 ASR，需配置 API Key）。
+
+**在线转写协议（Online Transcription Protocol）**
+`[transcriber.online] protocol` 字段声明的云端 ASR 接入方式，取值 `mimo_chat`（缺省，MiMo 网关方言的 chat + input_audio，请求携带私有 `asr_options` 扩展）、`chat_input_audio`（不带 `asr_options` 的纯 OpenAI 形状，如百炼 qwen3-asr-flash、OpenAI audio-preview）、`transcriptions`（OpenAI `/audio/transcriptions` multipart，如 whisper、智谱 glm-asr、SiliconFlow SenseVoiceSmall 云端版）。三个协议在 `OnlineAsr`（`online_asr.rs`）同一实现内分派，不为每家厂商写独立适配器。_Avoid_: MiMo 协议（指泛化后的概念时）、ASR 后端（易与 `backend` 字段混淆）。
+
+**转写协议家族（Transcription Protocol Family）**
+请求/响应形状相同的一组云端 ASR 端点的归类。同一家族内换服务商只改 base URL、模型名与 API Key，不改协议取值；接入新家族才需要新协议值。决策记录见 ADR-0013。
 
 **提供商预设（Provider Preset）**
-预配置的 API 提供商模板，包含名称、base URL、API 格式、推荐模型与分类。当前仅用于润色设置。存放在 `frontend/src/config/modelPresets.ts`。
+预配置的 API 提供商模板，包含名称、base URL、API 格式、推荐模型与分类。用于润色设置（`frontend/src/config/modelPresets.ts`）与在线转写设置（前端静态表，选中自动填 base URL、模型与协议，字段仍可手改，不进配置结构）。
 
 **待重试录音（Pending Recording）**
 转写失败或识别结果为空时保留在内存中的录音本体（WAV 字节，单槽、只留最新一段、不落盘、不进历史）。保留的唯一目的是重新识别：主窗横幅提供“重新识别”与“放弃”，重试请求进入流水线主循环串行执行（ADR-0003）。实现为 `voice_pipeline/pending.rs` 的 `PendingRecordingStore`。_Avoid_: 失败缓存、录音备份。
@@ -40,7 +46,7 @@
 ## 配置
 
 **ConfigStore**
-在 `Mutex` 后持有内存中的活动配置，连同文件路径。暴露 `snapshot`、`snapshot_blocking`、`apply_patch`。所有配置变更都经 `apply_patch` 校验并写盘。校验失败时内存已部分应用、不落盘（非原子回滚）。位于 `config_store.rs`。
+在 `Mutex` 后持有内存中的活动配置，连同文件路径。暴露 `snapshot`、`snapshot_blocking`、`apply_patch`、`apply_patch_for_update`。所有配置变更都经 `apply_patch` 校验并写盘。校验或落盘失败时，内存回滚到更新前的状态。位于 `config_store.rs`。
 
 **ConfigPatch**
 配置的部分更新：所有字段可选，未提供的字段保持不变。`linux_evdev_code` 字段用三态反序列化器区分缺省（不修改）与 JSON `null`（清除已存代码）。这是 `save_config` 经 IPC 接受的类型。
@@ -71,7 +77,7 @@
 可选的 LLM 后处理步骤。由 `PolishLevel`（`none`/`light`/`medium`/`heavy`）控制，实际执行交给润色引擎。
 
 **润色引擎（Polish Engine）**
-执行润色的后端，由 `[polisher] backend` 选择。两个实现：远端 `LLMFormatter`（与任意 OpenAI 兼容聊天 API 或 Anthropic Messages API 通信）与本地 `LocalPolisher`（与润色运行时的回环接口通信）。_Avoid_: 润色器（指后端时）、润色服务。
+执行润色的引擎，由 `[polisher] backend` 选择。两个实现：远端 `LLMFormatter`（与任意 OpenAI 兼容聊天 API 或 Anthropic Messages API 通信）与本地 `LocalPolisher`（与润色运行时的回环接口通信）。_Avoid_: 润色器（指后端时）、润色服务。
 
 **本地润色模型（Local Polish Model）**
 本地润色引擎使用的模型权重，按需下载，不随安装包分发。当前提供 Qwen3-0.6B 与 Qwen3-1.7B 两档。_Avoid_: 本地模型（与转写模型混用）。
@@ -94,7 +100,7 @@
 ## 录音
 
 **录音输出格式（Recorder Output Format）**
-语音管道期望录音器以固定的 16 kHz、单声道、16 位 PCM WAV 字节返回音频。SenseVoice 只接受这一采样率，其他配置值会在管道启动前被拒绝。
+语音管道期望录音器以固定的 16 kHz、单声道、16 位 PCM WAV 字节返回音频。本地转写引擎统一接受这一格式，其他配置值会在管道启动前被拒绝。
 
 **音频电平（Audio Level）**
 录音期间由录音器从实时 PCM 音频块计算出的感知音量大小（范围 0.0 ~ 1.0）。录音线程在读取音频流时计算均方根（RMS）并通过非线性增益映射为感知电平，经 `PipelineSink::on_audio_level` 记录最新电平，录音期间由 Tauri `audio-level` 事件以固定 100 ms 间隔（10 次/秒）定时派发给悬浮窗，作为电平轨迹的实时采样来源。

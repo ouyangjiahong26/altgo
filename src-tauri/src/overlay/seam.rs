@@ -132,6 +132,12 @@ pub trait OverlayWindow: Send + Sync + Clone {
     fn primary_monitor_geometry(&self) -> Result<(i32, i32, i32, i32), OverlayError>;
 }
 
+/// 悬浮窗的固定逻辑尺寸（CSS pixels）。
+///
+/// 280px 宽窗口容纳单行 40px 胶囊，底部 12px 加顶部 12px 余量。manager 按它
+/// 推导屏幕定位，Tauri 层按它做显示后的尺寸校验，两处必须引用同一数值。
+pub const OVERLAY_SIZE: (f64, f64) = (280.0, 64.0);
+
 /// 悬浮窗在屏幕上的预设位置。
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum OverlayPosition {

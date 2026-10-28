@@ -2,7 +2,7 @@
   <!--
     悬浮窗相位：转写中（松开触发键后）。
     几何与配色 1:1 复刻 frontend/src/overlay.css 与 src/styles/design-tokens.css（dark 主题）：
-    悬浮条 248×40 圆角 6、旋转环 13px、进度线 158×3。改动这些值时要同步本文件。
+    悬浮条 248×40 圆角 10、旋转环 13px、进度线 158×2。改动这些值时要同步本文件。
   -->
   <style>
     .spin {
@@ -23,17 +23,17 @@
   </style>
 
   <defs>
-    <!-- 13px 旋转环：轨道 + 1/4 琥珀弧（复刻 .processing-ring） -->
+    <!-- 13px 旋转环：轨道 + 1/4 琥珀弧，复刻 .processing-ring。琥珀取 --color-amber 的夜间值。 -->
     <g id="spin-ring">
-      <circle r="6.5" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
-      <circle class="spin" r="6.5" fill="none" stroke="#d2a24c" stroke-width="2"
+      <circle r="6.5" fill="none" stroke="#4a4a4d" stroke-width="2"/>
+      <circle class="spin" r="6.5" fill="none" stroke="#fbbf24" stroke-width="2"
               stroke-linecap="round" stroke-dasharray="10 31"/>
     </g>
   </defs>
 
-  <rect x="96" y="0" width="248" height="40" rx="6" fill="#222222" stroke="#3a3a3a"/>
+  <rect x="96" y="0" width="248" height="40" rx="10" fill="#27272a" stroke="#414144"/>
   <use href="#spin-ring" x="136" y="20"/>
-  <!-- 进度线 158×3：轨道 + 滑块（复刻 .overlay-tx-progress-track / -fill） -->
-  <rect x="153" y="18.5" width="158" height="3" rx="2" fill="rgba(255,255,255,0.16)"/>
-  <rect class="slide" x="153" y="18.5" width="63" height="3" rx="2" fill="#d2a24c"/>
+  <!-- 进度线 158×2：轨道 + 滑块（复刻 .overlay-tx-progress-track / -fill） -->
+  <rect x="153" y="19" width="158" height="2" rx="1" fill="#4a4a4d"/>
+  <rect class="slide" x="153" y="19" width="63" height="2" rx="1" fill="#fbbf24"/>
 </svg>

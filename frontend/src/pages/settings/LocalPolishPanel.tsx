@@ -1,4 +1,5 @@
 import { Download, Trash2 } from "lucide-react";
+import { useId } from "react";
 import type { AppConfig } from "../../hooks/useConfigForm";
 import type { PolishModelEntry } from "../../hooks/usePolishModelManager";
 import type { PolishRuntimeStatus } from "../../hooks/usePolishRuntime";
@@ -25,8 +26,8 @@ export interface LocalPolishPanelProps {
 }
 
 /**
- * 本地润色面板：单档润色级别、本地模型卡网格与运行时安装行。
- * 与本地识别面板共用模型卡与进度条标记，本地分支下隐藏云端专属字段。
+ * 本地润色面板：单档润色级别、本地模型行与运行时安装行。
+ * 与本地识别面板共用模型行与进度条标记，本地分支下隐藏云端专属字段。
  */
 export function LocalPolishPanel({
   t, config, update, saving, models, downloading, getDownloadProgress,
@@ -62,13 +63,18 @@ function LocalPolishLevelArea({
   config,
   update,
 }: Pick<LocalPolishPanelProps, "t" | "config" | "update">) {
+  const labelId = useId();
+
   return (
     <>
       <div className="settings-field">
-        <span className="settings-field-label-text">{t("settings.polish_level")}</span>
+        <span className="settings-field-label-text" id={labelId}>
+          {t("settings.polish_level")}
+        </span>
         <div className="settings-field-control">
           <select
             className="select"
+            aria-labelledby={labelId}
             value={config.polishLevel === "none" ? "none" : "medium"}
             onChange={(e) => update("polishLevel", e.target.value)}
           >
@@ -77,9 +83,7 @@ function LocalPolishLevelArea({
           </select>
         </div>
       </div>
-      <p className="settings-hint settings-hint--polish">
-        {t("settings.polish_local_level_hint")}
-      </p>
+      <p className="settings-card-note">{t("settings.polish_local_level_hint")}</p>
     </>
   );
 }
@@ -107,7 +111,7 @@ function PolishModelCard({
       <div className="settings-model-card-head">
         <span className="settings-model-card-name">{m.name}</span>
         {isActive && (
-          <span className="settings-model-card-badge">{t("settings.in_use")}</span>
+          <span className="badge badge-accent">{t("settings.in_use")}</span>
         )}
       </div>
       <p className="settings-model-card-desc">{m.description}</p>
@@ -118,7 +122,7 @@ function PolishModelCard({
             <button
               type="button"
               className="btn btn-sm btn-secondary"
-              onClick={() => onUse(m.name)}
+              onClick={() => void onUse(m.name)}
               disabled={isActive || saving}
             >
               {isActive ? t("settings.current") : t("settings.use_model")}
@@ -126,14 +130,14 @@ function PolishModelCard({
             <button
               type="button"
               className="btn btn-sm btn-danger"
-              onClick={() => onDelete(m.name)}
+              onClick={() => void onDelete(m.name)}
             >
-              <Trash2 size={11} />
+              <Trash2 size={12} aria-hidden="true" />
               {t("settings.delete_model")}
             </button>
           </>
         ) : downloading === m.name ? (
-          <div className="model-progress" style={{ width: "100%" }}>
+          <div className="model-progress">
             <div className="progress-bar">
               <div className="progress-fill" style={{ width: `${percent}%` }} />
             </div>
@@ -146,11 +150,11 @@ function PolishModelCard({
         ) : (
           <button
             type="button"
-            className="btn btn-sm btn-primary"
-            onClick={() => onDownloadAndUse(m.name)}
+            className="btn btn-sm btn-secondary"
+            onClick={() => void onDownloadAndUse(m.name)}
             disabled={downloading !== null}
           >
-            <Download size={11} />
+            <Download size={12} aria-hidden="true" />
             {t("settings.download_and_use")}
           </button>
         )}
@@ -164,7 +168,7 @@ interface PolishRuntimeRowProps {
   runtime: LocalPolishPanelProps["runtime"];
 }
 
-/** 运行时一行：状态徽标加下载按钮，下载中显示进度条。 */
+/** 运行时一行：状态徽标加下载按钮，下载中在下一行显示进度。 */
 function PolishRuntimeRow({ t, runtime }: PolishRuntimeRowProps) {
   const { status, downloading, progress, onDownload, onRedownload } = runtime;
   const percent = progress.total > 0
@@ -177,7 +181,9 @@ function PolishRuntimeRow({ t, runtime }: PolishRuntimeRowProps) {
       <div className="settings-field">
         <span className="settings-field-label-text">{t("settings.polish_runtime")}</span>
         <div className="settings-field-control">
-          <span className="badge">{runtimeStatusText(t, status)}</span>
+          <span className={`badge ${runtimeBadgeTone(status)}`}>
+            {runtimeStatusText(t, status)}
+          </span>
           {status?.supported && (
             <button
               type="button"
@@ -193,19 +199,29 @@ function PolishRuntimeRow({ t, runtime }: PolishRuntimeRowProps) {
         </div>
       </div>
       {downloading && (
-        <div className="model-progress" style={{ width: "100%" }}>
-          <div className="progress-bar">
-            <div className="progress-fill" style={{ width: `${percent}%` }} />
+        <div className="settings-card-note">
+          <div className="model-progress">
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${percent}%` }} />
+            </div>
+            <span className="progress-text">
+              {connecting
+                ? t("settings.model_download_connecting")
+                : `${percent}%`}
+            </span>
           </div>
-          <span className="progress-text">
-            {connecting
-              ? t("settings.model_download_connecting")
-              : `${percent}%`}
-          </span>
         </div>
       )}
     </>
   );
+}
+
+/** 语义色只表达状态：运行中取成功色，待安装取警告色，其余用中性底色。 */
+function runtimeBadgeTone(status: PolishRuntimeStatus | null): string {
+  if (!status) return "";
+  if (status.running) return "badge-success";
+  if (status.supported && !status.installed) return "badge-warning";
+  return "";
 }
 
 function runtimeStatusText(

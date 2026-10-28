@@ -1,9 +1,10 @@
 import { ChevronDown, ChevronRight, Sparkles } from "lucide-react";
-import type { Dispatch, SetStateAction } from "react";
+import { useId, type Dispatch, type SetStateAction } from "react";
 import { ProviderPresetSelector } from "../../components/ProviderPresetSelector";
 import type { ModelCatalogEntry, ProviderPreset } from "../../config/modelPresets";
 import type { AppConfig } from "../../hooks/useConfigForm";
 import { LocalPolishPanel, type LocalPolishPanelProps } from "./LocalPolishPanel";
+import { CollapsibleSectionHead, sectionNote } from "./SectionHead";
 
 interface PolishingSectionProps {
   "data-settings-order"?: number;
@@ -40,23 +41,23 @@ export function PolishingSection({
   polishOpen, setPolishOpen, polishAdvancedOpen, setPolishAdvancedOpen,
 }: PolishingSectionProps) {
   const localActive = config.polishBackend === "local";
+  const bodyId = useId();
 
   return (
     <section
       data-settings-order={order}
       className="settings-section settings-section--polishing"
     >
-      <button
-        type="button"
-        className="settings-section-toggle"
-        onClick={() => setPolishOpen(!polishOpen)}
-      >
-        <Sparkles size={14} />
-        {t("settings.polishing")}
-        {polishOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-      </button>
+      <CollapsibleSectionHead
+        leading={<Sparkles size={14} aria-hidden="true" />}
+        title={t("settings.polishing")}
+        note={sectionNote(t, "settings.polishing_note")}
+        expanded={polishOpen}
+        controls={bodyId}
+        onToggle={() => setPolishOpen(!polishOpen)}
+      />
       {polishOpen && (
-        <div className="settings-section-body">
+        <div className="card settings-rows" id={bodyId}>
           <PolishEngineField
             t={t} config={config} setPolishBackend={setPolishBackend}
           />
@@ -94,12 +95,17 @@ function PolishEngineField({
   config,
   setPolishBackend,
 }: Pick<PolishingSectionProps, "t" | "config" | "setPolishBackend">) {
+  const labelId = useId();
+
   return (
     <div className="settings-field">
-      <span className="settings-field-label-text">{t("settings.polish_backend")}</span>
+      <span className="settings-field-label-text" id={labelId}>
+        {t("settings.polish_backend")}
+      </span>
       <div className="settings-field-control">
         <select
           className="select"
+          aria-labelledby={labelId}
           value={config.polishBackend === "local" ? "local" : "remote"}
           onChange={(e) => setPolishBackend(e.target.value)}
         >
@@ -136,21 +142,21 @@ function PresetCatalogArea({
         }}
       />
       {catalogLoading && catalogPresets.length === 0 && (
-        <p className="settings-hint settings-hint--polish">{t("settings.catalog_loading")}</p>
+        <p className="settings-card-note">{t("settings.catalog_loading")}</p>
       )}
       {catalogError && (
         <>
-          <p className="settings-hint settings-hint--polish settings-test-err">
-            {catalogError}
-          </p>
-          <button
-            type="button"
-            className="btn btn-sm btn-secondary"
-            onClick={() => void onRetryCatalog()}
-            disabled={catalogLoading}
-          >
-            {t("settings.catalog_retry")}
-          </button>
+          <p className="settings-card-note settings-test-err">{catalogError}</p>
+          <div className="settings-row-actions">
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => void onRetryCatalog()}
+              disabled={catalogLoading}
+            >
+              {t("settings.catalog_retry")}
+            </button>
+          </div>
         </>
       )}
     </>
@@ -162,13 +168,18 @@ function PolishLevelArea({
   config,
   update,
 }: Pick<PolishingSectionProps, "t" | "config" | "update">) {
+  const labelId = useId();
+
   return (
     <>
       <div className="settings-field">
-        <span className="settings-field-label-text">{t("settings.polish_level")}</span>
+        <span className="settings-field-label-text" id={labelId}>
+          {t("settings.polish_level")}
+        </span>
         <div className="settings-field-control">
           <select
             className="select"
+            aria-labelledby={labelId}
             value={config.polishLevel}
             onChange={(e) => update("polishLevel", e.target.value)}
           >
@@ -180,9 +191,7 @@ function PolishLevelArea({
         </div>
       </div>
       {(config.hasPolisherApiKey || config.polisherApiKey) && config.polishLevel === "none" && (
-        <p className="settings-hint settings-hint--polish">
-          {t("settings.polish_disabled_hint")}
-        </p>
+        <p className="settings-card-note">{t("settings.polish_disabled_hint")}</p>
       )}
     </>
   );
@@ -197,25 +206,33 @@ type PolishKeyAndTestAreaProps = Pick<
 function PolishKeyAndTestArea({
   t, config, update, testing, testResult, onTestConnection, clearingKey, onClearApiKey,
 }: PolishKeyAndTestAreaProps) {
+  const labelId = useId();
+
   return (
     <>
       <div className="settings-field">
-        <span className="settings-field-label-text">{t("settings.api_key")}</span>
+        <span className="settings-field-label-text" id={labelId}>
+          {t("settings.api_key")}
+        </span>
         <div className="settings-field-control">
           <input
             type="password"
             className="field"
+            aria-labelledby={labelId}
             value={config.polisherApiKey}
             onChange={(e) => update("polisherApiKey", e.target.value)}
             placeholder={config.hasPolisherApiKey ? "sk-***" : "sk-..."}
           />
         </div>
       </div>
-      <div className="settings-polish-actions">
+      <div className="settings-row-actions">
+        {testResult?.ok && (
+          <span className="badge badge-success">{t("settings.test_ok")}</span>
+        )}
         <button
           type="button"
           className="btn btn-sm btn-secondary"
-          onClick={onTestConnection}
+          onClick={() => void onTestConnection()}
           disabled={testing}
         >
           {testing ? t("settings.testing") : t("settings.test_connection")}
@@ -223,20 +240,16 @@ function PolishKeyAndTestArea({
         {config.hasPolisherApiKey && (
           <button
             type="button"
-            className="btn btn-sm btn-secondary"
-            onClick={onClearApiKey}
+            className="btn btn-sm btn-ghost"
+            onClick={() => void onClearApiKey()}
             disabled={clearingKey}
           >
             {t("settings.clear_api_key")}
           </button>
         )}
       </div>
-      {testResult && (
-        <p className={`settings-hint ${testResult.ok ? "settings-test-ok" : "settings-test-err"}`}>
-          {testResult.ok
-            ? t("settings.test_ok")
-            : testResult.error}
-        </p>
+      {testResult && !testResult.ok && (
+        <p className="settings-card-note settings-test-err">{testResult.error}</p>
       )}
     </>
   );
@@ -252,21 +265,29 @@ function PolishAdvancedBlock({
   PolishingSectionProps,
   "t" | "config" | "update" | "polishAdvancedOpen" | "setPolishAdvancedOpen"
 >) {
+  const bodyId = useId();
+
   return (
     <>
       <button
         type="button"
-        className="settings-advanced-toggle"
+        className="settings-advanced"
+        aria-expanded={polishAdvancedOpen}
+        aria-controls={polishAdvancedOpen ? bodyId : undefined}
         onClick={() => setPolishAdvancedOpen(!polishAdvancedOpen)}
       >
-        {polishAdvancedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        {polishAdvancedOpen ? (
+          <ChevronDown size={14} aria-hidden="true" />
+        ) : (
+          <ChevronRight size={14} aria-hidden="true" />
+        )}
         {t("settings.advanced_polish")}
       </button>
       {polishAdvancedOpen && (
-        <>
+        <div className="settings-advanced-body" id={bodyId}>
           <PolishProtocolAndModelFields t={t} config={config} update={update} />
           <PolishUrlAndThinkingFields t={t} config={config} update={update} />
-        </>
+        </div>
       )}
     </>
   );
@@ -277,13 +298,19 @@ function PolishProtocolAndModelFields({
   config,
   update,
 }: Pick<PolishingSectionProps, "t" | "config" | "update">) {
+  const protocolId = useId();
+  const modelId = useId();
+
   return (
     <>
       <div className="settings-field">
-        <span className="settings-field-label-text">{t("settings.api_protocol")}</span>
+        <span className="settings-field-label-text" id={protocolId}>
+          {t("settings.api_protocol")}
+        </span>
         <div className="settings-field-control">
           <select
             className="select"
+            aria-labelledby={protocolId}
             value={config.polishProtocol === "anthropic" ? "anthropic" : "openai"}
             onChange={(e) => update("polishProtocol", e.target.value)}
           >
@@ -293,11 +320,14 @@ function PolishProtocolAndModelFields({
         </div>
       </div>
       <div className="settings-field">
-        <span className="settings-field-label-text">{t("settings.model")}</span>
+        <span className="settings-field-label-text" id={modelId}>
+          {t("settings.model")}
+        </span>
         <div className="settings-field-control">
           <input
             type="text"
             className="field"
+            aria-labelledby={modelId}
             value={config.polishModel}
             onChange={(e) => update("polishModel", e.target.value)}
             placeholder="gpt-4o-mini"
@@ -313,14 +343,20 @@ function PolishUrlAndThinkingFields({
   config,
   update,
 }: Pick<PolishingSectionProps, "t" | "config" | "update">) {
+  const urlId = useId();
+  const thinkingId = useId();
+
   return (
     <>
       <div className="settings-field">
-        <span className="settings-field-label-text">{t("settings.api_url")}</span>
+        <span className="settings-field-label-text" id={urlId}>
+          {t("settings.api_url")}
+        </span>
         <div className="settings-field-control">
           <input
             type="text"
             className="field"
+            aria-labelledby={urlId}
             value={config.polishApiBaseUrl}
             onChange={(e) => update("polishApiBaseUrl", e.target.value)}
             placeholder="https://api.openai.com"
@@ -328,10 +364,13 @@ function PolishUrlAndThinkingFields({
         </div>
       </div>
       <div className="settings-field">
-        <span className="settings-field-label-text">{t("settings.thinking_level")}</span>
+        <span className="settings-field-label-text" id={thinkingId}>
+          {t("settings.thinking_level")}
+        </span>
         <div className="settings-field-control">
           <select
             className="select"
+            aria-labelledby={thinkingId}
             value={config.polishThinkingLevel}
             onChange={(e) => update("polishThinkingLevel", e.target.value)}
           >

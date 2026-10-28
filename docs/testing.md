@@ -32,6 +32,8 @@
 - `polisher`：OpenAI 兼容与 Anthropic 两种协议的请求/响应、429 与瞬时失败重试、重试耗尽。另有本地档相关的三块：`polisher::fidelity` 的四条保真校验硬规则（期望纠错放行、压缩成摘要拦、扩写拦、凭空造字拦、八种格式泄漏拦）、`polisher::prompt` 的本地短提示词（必须显著短于内置长提示词）、`polisher::local` 的缺模型与缺运行时的可操作报错
 - `sherpa`：模型/词表缺失时的报错、语言归一化（不做真实推理）
 - `prompt_store`：prompt 模板加载、base + 各档后缀组合、缺文件降级
+- `updater`：检查结果映射（有新版本、已最新）、超时与网络错误、安装时录音中拒绝、空闲时安装
+- `display_backend`：Wayland 会话与显式 `GDK_BACKEND` 的后端选择
 - `error`：错误的致命/可恢复分类与文案
 
 **可用替身**：临时目录与文件、注入的闭包与参数、mockito 本地 HTTP 假服务器（model 下载与 polisher 协议）。本层不使用语音流水线的 test_doubles。
@@ -107,7 +109,7 @@ Linux 平台接缝：
 
 ## 回归基线
 
-**产品支持范围**：Linux x86_64 与 aarch64。Windows x86_64 与 arm64（原生 API 实现：WH_KEYBOARD_LL、cpal/WASAPI、arboard/SendInput）。SenseVoice 本地转写（仅接受 16 kHz 单声道 16 位 PCM WAV）或小米 MiMo 在线转写（`[transcriber] backend = "online"`），可选 LLM 润色（远端 OpenAI 兼容或 Anthropic 协议，或本机润色运行时）。在线转写以 MiMo 后端回归，测试见 `src-tauri/src/mimo_asr.rs` 模块（mockito）。更早的云端转写实现及其测试已随 #121 删除，不要回填。
+**产品支持范围**：Linux x86_64 与 aarch64。Windows x86_64 与 arm64（原生 API 实现：WH_KEYBOARD_LL、cpal/WASAPI、arboard/SendInput）。SenseVoice 本地转写（仅接受 16 kHz 单声道 16 位 PCM WAV）或按协议家族的在线转写（`[transcriber] backend = "online"`，ADR-0013），可选 LLM 润色（远端 OpenAI 兼容或 Anthropic 协议，或本机润色运行时）。在线转写以 mockito 假服务器回归各协议的请求形状与响应解析，测试见 `src-tauri/src/online_asr.rs` 模块。更早的云端转写实现及其测试已随 #121 删除，不要回填。
 
 **CI 保护范围**：
 

@@ -5,7 +5,7 @@
 
 use tauri::{Emitter, LogicalSize, Manager, PhysicalPosition};
 
-use crate::overlay::seam::{OverlayError, OverlayState, OverlayWindow};
+use crate::overlay::seam::{OverlayError, OverlayState, OverlayWindow, OVERLAY_SIZE};
 
 const OVERLAY_WINDOW_LABEL: &str = "overlay";
 
@@ -24,6 +24,37 @@ impl TauriOverlayWindow {
         self.app
             .get_webview_window(OVERLAY_WINDOW_LABEL)
             .ok_or(OverlayError::WindowNotFound)
+    }
+
+    /// 显示后校验窗口实际尺寸达到 [`OVERLAY_SIZE`]，被窗口系统钳制时打告警。
+    ///
+    /// Linux 的 WebKitGTK 给 WebView 强制最小内容尺寸（实测高 200 逻辑像素），
+    /// 窗口创建时若被它撑大，后续 `set_size` 会静默失效且不报错；屏幕定位按
+    /// 64 高推导，窗口实际偏高时贴底布局的胶囊会整体移出屏幕底边。窗口因此
+    /// 保持 `resizable: true`（tauri.conf.json 的 overlay 配置）让 resize 生效，
+    /// 此校验负责让钳制一旦复发就在日志里可见。
+    fn warn_if_size_clamped(&self, overlay: &tauri::WebviewWindow) {
+        let Ok(actual) = overlay.outer_size() else {
+            return;
+        };
+        // Wayland 后端在窗口就绪前读到 0x0，不构成钳制证据，跳过告警。
+        if actual.width == 0 || actual.height == 0 {
+            return;
+        }
+        let Ok(scale) = overlay.scale_factor() else {
+            return;
+        };
+        let expected = (
+            (OVERLAY_SIZE.0 * scale).round() as i32,
+            (OVERLAY_SIZE.1 * scale).round() as i32,
+        );
+        if !size_within_tolerance(expected, (actual.width as i32, actual.height as i32)) {
+            tracing::warn!(
+                expected = format!("{}x{}", expected.0, expected.1),
+                actual = format!("{}x{}", actual.width, actual.height),
+                "overlay window size was clamped by the windowing system"
+            );
+        }
     }
 }
 
@@ -66,9 +97,12 @@ impl OverlayWindow for TauriOverlayWindow {
     }
 
     fn show(&self) -> Result<(), OverlayError> {
-        self.overlay()?
+        let overlay = self.overlay()?;
+        overlay
             .show()
-            .map_err(|error| OverlayError::ShowFailed(error.to_string()))
+            .map_err(|error| OverlayError::ShowFailed(error.to_string()))?;
+        self.warn_if_size_clamped(&overlay);
+        Ok(())
     }
 
     fn hide(&self) -> Result<(), OverlayError> {
@@ -178,6 +212,15 @@ fn parse_xrandr_geometry(output: &str) -> Vec<(i32, i32, i32, i32, bool)> {
     monitors
 }
 
+/// 读回校验的容差：物理像素级的舍入差不算钳制。
+const SIZE_TOLERANCE: i32 = 2;
+
+/// 判断实际物理尺寸是否在期望尺寸的容差内。
+fn size_within_tolerance(expected: (i32, i32), actual: (i32, i32)) -> bool {
+    (expected.0 - actual.0).abs() <= SIZE_TOLERANCE
+        && (expected.1 - actual.1).abs() <= SIZE_TOLERANCE
+}
+
 /// 这些用例只覆盖 Linux 的 xrandr 解析路径，Windows 路径需要 AppHandle、只能在
 /// 真实运行时验证，所以整个模块按平台门控：否则 Windows 上会留下用不到的
 /// `use super::*`，`clippy --all-targets` 会因此失败。
@@ -211,5 +254,19 @@ DP-2 connected 1920x1080+3840+0 (normal left inverted right x axis y axis) 527mm
     #[test]
     fn test_platform_primary_monitor_geometry_runs_without_panicking() {
         let _ = platform_primary_monitor_geometry();
+    }
+
+    #[test]
+    fn test_size_within_tolerance_accepts_matching_and_rounding() {
+        assert!(size_within_tolerance((560, 128), (560, 128)));
+        assert!(size_within_tolerance((560, 128), (562, 130)));
+        assert!(size_within_tolerance((560, 128), (558, 126)));
+    }
+
+    #[test]
+    fn test_size_within_tolerance_rejects_clamped_dimensions() {
+        // WebKitGTK 最小内容尺寸把高度钳到 200 逻辑（2 倍缩放即 400 物理）。
+        assert!(!size_within_tolerance((560, 128), (560, 400)));
+        assert!(!size_within_tolerance((560, 128), (560, 124)));
     }
 }

@@ -8,7 +8,20 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..', '..');
 
 /** 旧版演示图用过的值，出现即说明改样式后漏改插图。 */
-const STALE = ['stroke-dasharray="4 3"', '#f87171', '#fbbf24', '#4ade80', 'rx="20"'];
+const STALE = [
+  'stroke-dasharray="4 3"',
+  '#e06c75',
+  '#d2a24c',
+  '#67b487',
+  '#63b381',
+  '#4ade80',
+  '#c8c8c8',
+  '#222222',
+  '#3a3a3a',
+  'rgba(255,255,255,0.16)',
+  'rx="6"',
+  'rx="20"',
+];
 const PHASES = ['recording', 'transcribing', 'result'];
 
 let failed = 0;

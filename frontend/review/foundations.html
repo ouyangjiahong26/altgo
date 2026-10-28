@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>altgo 样式审查 · 基础与组件</title>
+    <title>altgo 样式审查 · 基础层</title>
+    <link rel="icon" href="../public/altgo-logo.svg" type="image/svg+xml" />
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
     <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -21,14 +22,14 @@
     <link rel="stylesheet" href="review.css" />
   </head>
   <body>
-<header class="sr-top">
+    <header class="sr-top">
       <div>
-        <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 基础与组件</div>
+        <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 基础层</div>
         <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致，可切换深浅主题与根字号（15 / 17 / 19）。</div>
       </div>
       <div class="sr-ctl" role="group" aria-label="主题">
-        <button type="button" data-theme-btn="dark" aria-pressed="true">暗色</button>
-        <button type="button" data-theme-btn="light" aria-pressed="false">亮色</button>
+        <button type="button" data-theme-btn="light" aria-pressed="true">浅色</button>
+        <button type="button" data-theme-btn="dark" aria-pressed="false">深色</button>
       </div>
       <div class="sr-ctl" role="group" aria-label="根字号">
         <button type="button" data-size-btn="15" aria-pressed="false">15px</button>
@@ -41,112 +42,198 @@
         <div class="sr-nav-group">
           <div class="sr-nav-title">设计 token <a href="tokens.html" style="margin-left: 4px">整页 ↗</a></div>
           <a href="tokens.html#colors">色彩 token</a>
+          <a href="tokens.html#semantic">语义色</a>
           <a href="tokens.html#type">排版</a>
-          <a href="tokens.html#space">间距 / 圆角 / 动效</a>
+          <a href="tokens.html#shape">间距 / 圆角 / 动效</a>
         </div>
         <div class="sr-nav-group">
-          <div class="sr-nav-title">基础与组件</div>
-          <a href="#base" style="color: var(--color-text)">基础层</a>
-          <a href="#primitives" style="color: var(--color-text)">UI Primitives</a>
-          <a href="#layout" style="color: var(--color-text)">Layout 头部</a>
+          <div class="sr-nav-title">基础层</div>
+          <a href="#base" style="color: var(--color-text)">重置与窗口圆角</a>
+          <a href="#type" style="color: var(--color-text)">排版与字重</a>
+          <a href="#focus" style="color: var(--color-text)">焦点与选中</a>
+          <a href="#scroll" style="color: var(--color-text)">滚动条</a>
         </div>
         <div class="sr-nav-group">
-          <div class="sr-nav-title">界面 <a href="screens.html" style="margin-left: 4px">整页 ↗</a></div>
-          <a href="screens.html#settings">设置页</a>
-          <a href="screens.html#onboarding">首次引导</a>
+          <div class="sr-nav-title">控件 <a href="screens.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="screens.html#buttons">按钮</a>
+          <a href="screens.html#fields">输入与下拉</a>
+          <a href="screens.html#toggles">勾选 / 开关 / 分段</a>
+          <a href="screens.html#badges">徽标 / 键位</a>
+          <a href="screens.html#cards">卡片 / 统计面 / 空态</a>
         </div>
         <div class="sr-nav-group">
           <div class="sr-nav-title">窗口 <a href="windows.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="windows.html#titlebar">标题栏与浮动底栏</a>
           <a href="windows.html#overlay">悬浮窗</a>
-          <a href="windows.html#update-notes">更新说明窗口</a>
+          <a href="windows.html#update-notes">更新说明窗</a>
         </div>
         <div class="sr-nav-group">
-          <div class="sr-nav-title">页面整体 <a href="pages.html" style="margin-left: 4px">整页 ↗</a></div>
-          <a href="pages.html#pages">页面整体</a>
+          <div class="sr-nav-title">页面 <a href="pages.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="pages.html#home">主页</a>
+          <a href="pages.html#history">历史</a>
+          <a href="pages.html#settings">设置</a>
+          <a href="pages.html#onboarding">引导向导</a>
         </div>
       </nav>
       <main>
-<section class="sr-sec" id="base">
-          <h2>基础层</h2>
-          <p class="sr-desc">全局基础规则：默认配色、重置样式、键盘焦点框与文字选中效果。</p>
+        <section class="sr-sec" id="base">
+          <h2>重置与窗口圆角</h2>
+          <p class="sr-desc">
+            基础层来自 <code>design-system.css</code>：统一盒模型、字体渲染、透明窗底、四角圆角与滚动条。
+            主窗是无边框透明窗，四角由 <code>#root</code> 的 16px 圆角着色，最大化时归零。
+            本页用 <code>.sr-frame</code> 演示圆角，框外是页面底色，看得见裁切关系。
+          </p>
           <div class="sr-pair">
-            <div class="sr-frame">
-              <div class="sr-desc">键盘 Tab 移动焦点时显示高亮框，鼠标点击不显示。</div>
-              <div class="sr-row">
-                <button class="btn-primary">主按钮</button>
-                <input class="field" style="max-width: 180px" value="输入框" />
-                <a href="#base" style="color: var(--color-accent)">链接</a>
+            <div>
+              <div class="sr-frame" style="padding: 0; width: 260px; height: 150px; border-radius: var(--radius-2xl); overflow: hidden; background: var(--color-surface-1); border-color: var(--color-border-strong)">
+                <div class="sr-desc" style="margin: 0; padding: var(--space-3)">
+                  <code>#root</code> 的 16px 圆角：窗口四角由它着色，窗口本身透明。
+                </div>
               </div>
+              <div class="sr-caption">radius-2xl = 16px（根字号 16px 时的取值）</div>
             </div>
-            <div class="sr-frame">
-              <div class="sr-desc">文字选中色与滚动条样式。</div>
-              <div style="height: 120px; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-2)">
-                <p style="font-size: var(--text-sm); color: var(--color-text-secondary)">
-                  选中这段文字可预览选中色。
-                </p>
-                <p style="font-size: var(--text-sm); color: var(--color-text-muted); height: 220px">
-                  滚动条轨道透明，thumb 悬停变 --color-text-muted。
-                </p>
+            <div>
+              <div class="sr-frame" style="padding: 0; width: 260px; height: 150px; border-radius: 0; overflow: hidden; background: var(--color-surface-1); border-color: var(--color-border-strong)">
+                <div class="sr-desc" style="margin: 0; padding: var(--space-3)">
+                  <code>#root.maximized</code>：最大化时圆角归零，四角贴合屏幕。
+                </div>
               </div>
+              <div class="sr-caption">最大化态</div>
             </div>
+          </div>
+          <div class="sr-note sr-note--info">
+            基础层不定义任何页面级间距与颜色。页面能用的色值只有
+            <code>src/styles/design-tokens.css</code> 里的变量，组件样式一律引用令牌，不写死色值。
           </div>
         </section>
 
-<section class="sr-sec" id="primitives">
-          <h2>UI Primitives</h2>
-          <div class="sr-note">
-            上一版 <code>ui-primitives.css</code> 里的 <code>.input-wrapper</code> /
-            <code>.input-label</code> / <code>.input-field</code> / <code>.select-field</code> /
-            <code>.input-error</code> 在 TSX 中已无引用，不保留在 <code>ui-primitives.css</code> 中。
-            表单控件统一收敛为 <code>ui-primitives.css</code> 的 <code>.field</code> /
-            <code>.select</code>，只有 <code>.loading-container</code> 仍被
-            <code>Settings.tsx</code> 使用。
+        <section class="sr-sec" id="type">
+          <h2>排版与字重</h2>
+          <p class="sr-desc">
+            界面文案用 Inter，中文回退系统 UI 字体。命令、键码、URL 用 JetBrains Mono。
+            标题（h1 到 h4）统一 600 字重、收紧字距、两端平衡换行。段落做避免孤字换行。
+            数据类文字（时间戳、容量、进度、键码）加 <code>.tabular</code> 走等宽数字。
+          </p>
+
+          <h3>字号与行高</h3>
+          <div class="sr-frame sr-col">
+            <p style="font-size: var(--text-2xl); font-weight: var(--font-semibold); letter-spacing: var(--tracking-tight)">一级标题 text-2xl</p>
+            <p style="font-size: var(--text-xl); font-weight: var(--font-semibold); letter-spacing: var(--tracking-tight)">窗口内标题 text-xl</p>
+            <p style="font-size: var(--text-lg); font-weight: var(--font-semibold); letter-spacing: var(--tracking-tight)">区块标题 text-lg</p>
+            <p style="font-size: var(--text-md)">强调取值 text-md：按住触发键说话</p>
+            <p style="font-size: var(--text-base)">正文 text-base：按住触发键说话，松开后自动转写并润色。</p>
+            <p style="font-size: var(--text-sm); color: var(--color-text-secondary)">次要正文 text-sm：结果写入剪贴板，历史保存在本机。</p>
+            <p style="font-size: var(--text-xs); color: var(--color-text-muted)">说明 text-xs：只改主窗观感，不影响转写与润色。</p>
+            <p style="font-size: var(--text-2xs); color: var(--color-text-muted)">标签 text-2xs：当前状态 / 转写结果</p>
           </div>
+
+          <h3>字重与等宽</h3>
           <div class="sr-pair">
             <div class="sr-frame sr-col">
-              <input class="field" placeholder=".field" />
-              <select class="select">
-                <option>.select（chevron 由 --select-chevron 内联 SVG 提供）</option>
-              </select>
+              <span style="font-weight: var(--font-regular)">400 regular：说明与正文</span>
+              <span style="font-weight: var(--font-medium)">500 medium：按钮、字段标签</span>
+              <span style="font-weight: var(--font-semibold)">600 semibold：标题与统计数值</span>
             </div>
-            <div class="sr-frame" style="height: 140px">
-              <div class="loading-container">加载中...</div>
+            <div class="sr-frame sr-col">
+              <span style="font-family: var(--font-mono); font-size: var(--text-xs)">--font-mono: Alt_R 0xA4 sk-***</span>
+              <span class="tabular" style="font-size: var(--text-sm)">等宽数字 0123456789 · 2026/10/21 18:06</span>
+              <span style="font-size: var(--text-xs); color: var(--color-text-muted)">非等宽对照 0123456789 · 2026/10/21 18:06</span>
             </div>
+          </div>
+
+          <h3>标题与段落换行</h3>
+          <div class="sr-frame sr-col" style="max-width: 420px">
+            <h3 style="margin: 0">转写结果与历史记录的分工</h3>
+            <p style="color: var(--color-text-secondary); font-size: var(--text-sm)">
+              标题用 <code>text-wrap: balance</code> 让两行长度接近，段落用 <code>text-wrap: pretty</code>
+              避免末行只剩一个词。长文本超出时用单行省略或行数夹取，不做整段缩放。
+            </p>
           </div>
         </section>
 
-<section class="sr-sec" id="layout">
-          <h2>Layout 头部</h2>
-          <p class="sr-desc">窗口标题栏：左侧 logo 与副标题，右侧导航与窗口控制按钮，有新版本时“设置”导航上出现红点。</p>
+        <section class="sr-sec" id="focus">
+          <h2>焦点与选中</h2>
+          <p class="sr-desc">
+            键盘焦点才画环：<code>:focus-visible</code> 给 2px 主色环、1px 偏移，鼠标点击不画。
+            输入类控件聚焦时同时把边框切到主色，并叠一圈 <code>--shadow-focus</code>。
+            文字选中用 <code>--color-accent-tint-border</code> 作底色。
+          </p>
           <div class="sr-pair">
-            <div class="sr-frame" style="padding: 0">
-              <header class="layout-header">
-                <div class="layout-header-left">
-                  <div class="layout-logo-wrapper">
-                    <img src="../public/altgo-logo.svg" alt="" width="28" height="28" class="layout-logo-mark" />
-                    <span class="layout-logo">altgo</span>
-                  </div>
-                  <span class="layout-subtitle">语音转文字</span>
-                </div>
-                <div class="layout-header-right">
-                  <nav class="layout-nav">
-                    <a class="layout-nav-link active" href="#layout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>主页</a>
-                    <a class="layout-nav-link" href="#layout" style="position: relative"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>设置
-                      <span style="position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--color-red)"></span>
-                    </a>
-                  </nav>
-                  <div class="window-controls">
-                    <button class="window-control-btn" aria-label="Minimize"><svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></button>
-                    <button class="window-control-btn" aria-label="Maximize"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2"/></svg></button>
-                    <button class="window-control-btn window-control-close" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-                  </div>
-                </div>
-              </header>
-            </div>
-            <div class="sr-frame">
-              <div class="layout-main" style="height: 100%">
-                <div class="sr-desc">内容区：整页滚动的容器。</div>
+            <div class="sr-frame sr-col">
+              <div class="sr-desc" style="margin: 0">
+                用 Tab 键在下列控件间移动，能看到焦点环。用鼠标点击则不出现。
               </div>
+              <div class="sr-row">
+                <button type="button" class="btn btn-primary">主按钮</button>
+                <button type="button" class="btn btn-secondary">次要按钮</button>
+                <button type="button" class="btn btn-outline">描边按钮</button>
+              </div>
+              <input class="field" placeholder=".field：聚焦切主色边框并加色环" />
+              <select class="select">
+                <option>.select 同上</option>
+              </select>
+              <a href="#focus" style="color: var(--color-accent); font-size: var(--text-sm)">链接的焦点态</a>
+            </div>
+            <div class="sr-frame sr-col">
+              <div class="sr-desc" style="margin: 0">选中下面这段文字，看高亮底色。</div>
+              <p style="font-size: var(--text-sm); color: var(--color-text)">
+                选中这段文字可以预览选中底色。深色主题下同一令牌换成近白的 34% 透明，不引入第二种彩色。
+              </p>
+              <div class="sr-row">
+                <span class="badge badge-success">成功</span>
+                <span class="badge badge-warning">进行中</span>
+                <span class="badge badge-danger">危险</span>
+              </div>
+            </div>
+          </div>
+          <div class="sr-note">
+            键盘焦点环宽度与偏移来自 <code>--focus-ring-width</code> 与 <code>--focus-ring-offset</code>。
+            不要在页面样式里另写 <code>outline</code>，否则同一窗会出现两种焦点观感。
+          </div>
+        </section>
+
+        <section class="sr-sec" id="scroll">
+          <h2>滚动条</h2>
+          <p class="sr-desc">
+            细条、无轨道、圆角 thumb：默认 <code>--color-border-strong</code>，悬停抬到
+            <code>--color-text-faint</code>。滚动条只出现在 <code>.layout-main</code> 与卡片内的滚动区。
+          </p>
+          <div class="sr-pair">
+            <div>
+              <div class="sr-frame" style="height: 180px; overflow-y: auto; padding: var(--space-3)">
+                <p style="font-size: var(--text-sm); color: var(--color-text-secondary)">
+                  这里是内容区滚动条。滚动条宽 10px，thumb 用 3px 透明边框做内缩，嵌在卡片里也不显突兀。
+                </p>
+                <p style="height: 260px; font-size: var(--text-sm); color: var(--color-text-muted)">
+                  继续往下滚，看 thumb 与轨道的对比。
+                </p>
+              </div>
+              <div class="sr-caption">内容区滚动条</div>
+            </div>
+            <div>
+              <div class="card" style="height: 180px; overflow-y: auto">
+                <div class="settings-field">
+                  <span class="settings-field-label-text">卡片内滚动</span>
+                  <div class="settings-field-control"><span class="badge">行</span></div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">第二行</span>
+                  <div class="settings-field-control"><span class="badge">行</span></div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">第三行</span>
+                  <div class="settings-field-control"><span class="badge">行</span></div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">第四行</span>
+                  <div class="settings-field-control"><span class="badge">行</span></div>
+                </div>
+                <div class="settings-field">
+                  <span class="settings-field-label-text">第五行</span>
+                  <div class="settings-field-control"><span class="badge">行</span></div>
+                </div>
+              </div>
+              <div class="sr-caption">卡片内滚动区</div>
             </div>
           </div>
         </section>

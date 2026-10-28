@@ -27,7 +27,7 @@ export default function Home(): React.JSX.Element {
       title: translate({id: 'home.feature.platform.title', message: '四个平台组合全覆盖'}),
       description: translate({
         id: 'home.feature.platform.description',
-        message: 'Windows 与 Linux、x86_64 与 arm64 同时支持，这样的语音转文字软件很少。Linux 侧兼容 X11 与 Wayland。',
+        message: 'Windows 与 Linux、x86_64 与 arm64 同时支持。Linux 侧兼容 X11 与 Wayland。',
       }),
     },
     {
@@ -48,10 +48,10 @@ export default function Home(): React.JSX.Element {
     },
     {
       icon: Brain,
-      title: translate({id: 'home.feature.local.title', message: '本地 SenseVoice 转写'}),
+      title: translate({id: 'home.feature.local.title', message: '本地与在线转写'}),
       description: translate({
         id: 'home.feature.local.description',
-        message: 'SenseVoice 本地转写完全断网可用。',
+        message: '本地 SenseVoice 或 FireRedASR2 CTC 断网可用，也可切到在线 MiMo ASR。',
       }),
     },
     {
@@ -112,13 +112,13 @@ export default function Home(): React.JSX.Element {
             <Translate
               id="home.hero.tagline.line1"
               description="hero tagline, first line">
-              同时支持 Windows 与 Linux、x86_64 与 arm64 四个组合的语音转文字软件，很少。
+              同时支持 Windows 与 Linux、x86_64 与 arm64 四个平台组合。
             </Translate>
             <br />
             <Translate
               id="home.hero.tagline.line2"
               description="hero tagline, second line">
-              按住 Alt 说话，松开后在本地用 SenseVoice 转写，可接入 LLM 润色。
+              按住 Alt 说话，松开后按所选引擎转写，可接入 LLM 润色。
             </Translate>
           </p>
           <div className={styles.buttons}>
@@ -200,7 +200,7 @@ export default function Home(): React.JSX.Element {
                 <h3><Translate id="home.steps.install.title">安装并设置</Translate></h3>
                 <p>
                   <Translate id="home.steps.install.description">
-                    下载 deb / rpm 安装包，在设置中下载 SenseVoice 模型。
+                    下载 deb / rpm / AppImage，在设置中选择本地模型或在线转写。
                   </Translate>
                 </p>
               </div>

@@ -19,7 +19,6 @@ export function OnboardingBody({ w }: { w: Wizard }) {
       {step === "key" && (
         <KeyStep
           t={t}
-          stepLabel={w.stepLabel}
           config={config}
           setConfig={w.setConfig}
           saving={w.saving}
@@ -30,7 +29,6 @@ export function OnboardingBody({ w }: { w: Wizard }) {
       {step === "engine" && (
         <EngineStep
           t={t}
-          stepLabel={w.stepLabel}
           config={config}
           update={w.update}
           saving={w.saving}
@@ -45,11 +43,12 @@ export function OnboardingBody({ w }: { w: Wizard }) {
         <PolishStep
           t={t}
           lang={w.lang}
-          stepLabel={w.stepLabel}
           config={config}
           update={w.update}
           catalogPresets={w.catalogPresets}
           catalogError={w.catalogError}
+          catalogLoading={w.catalogLoading}
+          onRetryCatalog={w.onRetryCatalog}
           polishModels={w.polishModels}
           polishDownloading={w.polishDownloading}
           getPolishDownloadProgress={w.getPolishDownloadProgress}

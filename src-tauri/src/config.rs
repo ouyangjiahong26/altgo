@@ -125,7 +125,7 @@ pub struct TranscriberConfig {
     pub language: String,
     /// 本地引擎线程数，`0` 表示按 CPU 并行度自动取满
     pub threads: u32,
-    /// 转写后端："local"（默认）或 "online"（小米 MiMo 在线识别）
+    /// 转写后端："local"（默认）或 "online"（云端在线识别，协议见 [transcriber.online]）
     pub backend: String,
     /// [transcriber.online] 在线 ASR 配置
     pub online: OnlineTranscriberConfig,
@@ -143,11 +143,15 @@ impl Default for TranscriberConfig {
     }
 }
 
-/// 在线转写后端配置（小米 MiMo）。
+/// 在线转写后端配置：按协议家族接入云端 ASR（ADR-0013）。
 /// 在线后端仅在 `[transcriber] backend = "online"` 时生效。
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 #[serde(default)]
 pub struct OnlineTranscriberConfig {
+    /// 在线转写协议：`"mimo_chat"`（缺省，MiMo 网关方言）、`"chat_input_audio"`
+    /// （纯 OpenAI chat + input_audio 形状）或 `"transcriptions"`
+    /// （OpenAI /audio/transcriptions multipart）
+    pub protocol: String,
     /// API 密钥（可通过 `ALTGO_TRANSCRIBER_API_KEY` 环境变量覆盖）
     pub api_key: String,
     /// API 基础 URL（默认小米 MiMo 网关，已含 /v1）
@@ -162,6 +166,7 @@ pub struct OnlineTranscriberConfig {
 impl Default for OnlineTranscriberConfig {
     fn default() -> Self {
         Self {
+            protocol: "mimo_chat".to_string(),
             api_key: String::new(),
             api_base_url: "https://token-plan-cn.xiaomimimo.com/v1".to_string(),
             model: "mimo-v2.5-asr".to_string(),
@@ -323,8 +328,16 @@ impl Config {
         Ok(())
     }
 
-    /// 在线转写开启时逐项校验 [transcriber.online] 必填字段。
+    /// 在线转写开启时逐项校验协议取值与 [transcriber.online] 必填字段。
     fn validate_online_transcriber(&self) -> Result<(), ConfigError> {
+        let protocol = self.transcriber.online.protocol.trim().to_lowercase();
+        if protocol != "mimo_chat" && protocol != "chat_input_audio" && protocol != "transcriptions"
+        {
+            return Err(ConfigError::ValidationFailed(format!(
+                "在线转写协议（[transcriber.online] protocol）无效：'{}'，应为 \"mimo_chat\"、\"chat_input_audio\" 或 \"transcriptions\"。",
+                self.transcriber.online.protocol
+            )));
+        }
         let mut missing: Vec<&str> = Vec::new();
         if self.transcriber.online.api_key.trim().is_empty() {
             missing.push("API 密钥（[transcriber.online] api_key）");
@@ -505,6 +518,7 @@ pub struct ConfigPatch {
     pub model: Option<String>,
     pub transcriber_backend: Option<String>,
     pub asr_api_key: Option<String>,
+    pub asr_protocol: Option<String>,
     pub asr_api_base_url: Option<String>,
     pub asr_model: Option<String>,
     pub polish_level: Option<String>,
@@ -556,6 +570,9 @@ impl ConfigPatch {
         // `Some("")` 即清除已存密钥，与 polish_api_key 行为一致。
         if let Some(v) = &self.asr_api_key {
             cfg.transcriber.online.api_key = v.clone();
+        }
+        if let Some(v) = &self.asr_protocol {
+            cfg.transcriber.online.protocol = v.clone();
         }
         if let Some(v) = &self.asr_api_base_url {
             cfg.transcriber.online.api_base_url = v.clone();
@@ -726,6 +743,24 @@ language = "zh"
         assert_eq!(cfg.transcriber.online.model, "mimo-v2.5-asr");
         assert_eq!(cfg.transcriber.online.timeout, Duration::from_secs(60));
         assert!(cfg.transcriber.online.api_key.is_empty());
+        // 协议缺省回退 mimo_chat，旧配置升级后行为不变。
+        assert_eq!(cfg.transcriber.online.protocol, "mimo_chat");
+    }
+
+    #[test]
+    fn test_validate_rejects_unknown_online_protocol() {
+        let mut cfg = Config::default();
+        cfg.transcriber.backend = "online".to_string();
+        cfg.transcriber.online.api_key = "k".to_string();
+        cfg.transcriber.online.protocol = "mimo".to_string();
+        let err = cfg.validate().unwrap_err();
+        assert!(err.to_string().contains("protocol"), "unexpected: {err}");
+
+        // 三个合法取值都应通过校验。
+        for p in ["mimo_chat", "chat_input_audio", "transcriptions"] {
+            cfg.transcriber.online.protocol = p.to_string();
+            assert!(cfg.validate().is_ok(), "protocol {p} 应合法");
+        }
     }
 
     #[test]
@@ -795,7 +830,7 @@ timeout = 30
     fn test_patch_applies_online_transcriber_fields() {
         let mut cfg = Config::default();
         let patch: ConfigPatch = serde_json::from_str(
-            r#"{"transcriberBackend":"online","asrApiKey":"kk","asrApiBaseUrl":"https://m.example/v1","asrModel":"mimo-x"}"#,
+            r#"{"transcriberBackend":"online","asrApiKey":"kk","asrApiBaseUrl":"https://m.example/v1","asrModel":"mimo-x","asrProtocol":"transcriptions"}"#,
         )
         .unwrap();
         patch.apply_to_config(&mut cfg);
@@ -803,6 +838,7 @@ timeout = 30
         assert_eq!(cfg.transcriber.online.api_key, "kk");
         assert_eq!(cfg.transcriber.online.api_base_url, "https://m.example/v1");
         assert_eq!(cfg.transcriber.online.model, "mimo-x");
+        assert_eq!(cfg.transcriber.online.protocol, "transcriptions");
 
         // 空串即清除密钥。
         let patch: ConfigPatch = serde_json::from_str(r#"{"asrApiKey":""}"#).unwrap();

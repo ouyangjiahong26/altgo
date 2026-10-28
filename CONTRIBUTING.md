@@ -2,12 +2,12 @@
 
 感谢你对 altgo 的关注！
 
-本项目支持 Linux 的 x86_64 与 aarch64 架构。CI 和 Release 在 Ubuntu 22.04 上完成 Linux 构建验证。合并前请尽量在相关架构上自测。
+本项目支持 Linux 的 x86_64 与 aarch64 架构，以及 Windows 的 x86_64 与 arm64。CI 和 Release 在 Ubuntu 22.04 上验证 Linux 构建，在 windows-latest 上验证 Windows x64，并对 Windows arm64 做交叉编译检查。合并前请尽量在相关架构上自测。
 
 ## 开发环境
 
-- Rust 1.80+（推荐最新稳定版，需满足 [Tauri 2 前置条件](https://tauri.app/start/prerequisites/)）
-- Node.js 18+（建议 20+，前端使用 npm）
+- Rust 1.90+（Tauri 2.12 的最低版本，推荐最新稳定版，需满足 [Tauri 2 前置条件](https://tauri.app/start/prerequisites/)）
+- Node.js 20+（CI 使用 22，前端与文档站均用 npm）
 - Tauri CLI：`cargo install tauri-cli --version "^2" --locked`
 - Linux（Ubuntu 22.04+）
 

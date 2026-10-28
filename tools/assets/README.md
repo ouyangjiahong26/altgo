@@ -18,7 +18,7 @@
 | `prompts.brand.json` | 品牌视觉的 GPT 出图提示词（用于出方案、对照选型） |
 | `gen.mjs` | 批量出图：调图像接口，落盘到 `out/<模型>/<id>.png` |
 | `build-icon.mjs` | 由两份图标母版生成 `src-tauri/icons/` 全套位图与 `.ico`，并输出透明标记 png |
-| `build-assets.mjs` | 由矢量母版渲染 `assets/banner.png`、`assets/og-image.png` |
+| `build-assets.mjs` | 由矢量母版渲染 `assets/banner.png`、`assets/og-image.png`，并把 `overlay-phase-*.svg` 复制到 README 引用的 `assets/` |
 | `check-overlay-phases.mjs` | 校验三张相位图的结构，并检出改样式后漏改插图的旧值残留 |
 | `serve.mjs` | 预览/核对用的静态服务器（会重写 CSS `@import` 为绝对路径） |
 | `out/` | 出图中间产物，不进版本库 |
@@ -29,7 +29,7 @@
 # 1. 由矢量母版重生成图标全套（应用图标 png + icon.ico + 透明标记 + 前端图标）
 node tools/assets/build-icon.mjs
 
-# 2. 由矢量母版重生成横幅与社交分享图
+# 2. 由矢量母版重生成横幅与社交分享图，并把悬浮窗相位图同步到 assets/
 node tools/assets/build-assets.mjs
 
 # 3. 改过 overlay.css 或 design-tokens.css 后，校验悬浮窗插图是否跟着更新

@@ -29,15 +29,17 @@ impl PipelineBuilder {
 
     /// 从配置构建转写引擎。
     ///
-    /// `backend = "online"` 走小米 MiMo 在线识别（纯网络调用，不触碰本地模型解析），
-    /// 其余（默认 `"local"`）按模型注册的引擎走 sherpa-onnx（SenseVoice 或
-    /// FireRedASR2 CTC），本地模型缺失或加载失败时返回错误。
+    /// `backend = "online"` 走在线识别（按 `[transcriber.online] protocol`
+    /// 选择协议家族，纯网络调用，不触碰本地模型解析）；其余（默认 `"local"`）
+    /// 按模型注册的引擎走 sherpa-onnx（SenseVoice 或 FireRedASR2 CTC），
+    /// 本地模型缺失或加载失败时返回错误。
     pub fn build_transcriber(&self) -> Result<Box<dyn Transcriber>, PipelineError> {
         let cfg = &self.cfg.transcriber;
 
         if cfg.backend.trim().eq_ignore_ascii_case("online") {
             let o = &cfg.online;
-            let asr = crate::mimo_asr::MimoAsr::new(
+            let asr = crate::online_asr::OnlineAsr::new(
+                &o.protocol,
                 &o.api_key,
                 &o.api_base_url,
                 &o.model,

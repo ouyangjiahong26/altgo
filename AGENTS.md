@@ -29,7 +29,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 |---|---|
 | `src-tauri/src/` | Rust 核心（crate `altgo-tauri`）：`voice_pipeline/` 业务主循环、`key_listener/`、`key_capture/`、`recorder/`、`output/`、`overlay/`（seam/manager/tauri/activity 分层）、`polisher/`（含 `local.rs` 与 `fidelity.rs`）、`polish_runtime/`（本地润色运行时与进程管理）、`polish_model.rs`、`download.rs`（共用下载内核），根文件见 “Important Files” |
 |`frontend/src/`|React 主窗（`pages/`、`components/`、`hooks/`、`i18n/`）加 `overlay.tsx` 悬浮窗。`styles/` 分层按加载顺序为 design-tokens、design-system、global、layout、components、pages|
-|`frontend/style-review.html`|样式审查页目录（`frontend/review/` 下按主题分五个分页：设计 token、基础与组件、界面、窗口、页面整体）：各分页按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*`，另加悬浮窗与更新说明窗口的 `src/overlay.css`、`src/styles/pages/update-notes.css`（这两份不在 `main.tsx` 的链上），共享 `review/review.css` 框架样式与 `review/review.js` 主题、字号切换。`frontend/preview.html` 是改样式后的唯一预览入口（一页看全各窗口，带配色切换），`review/figures.html` 按窗口真实尺寸单独渲染任一状态（`?fig=` 指定，`?probe=` 打印控件计算值），均不在 vite 构建入口内|
+|`frontend/style-review.html`|样式审查页目录（`frontend/review/` 下按主题分五个分页：设计 token、基础层、控件、窗口、页面）：各分页按 `main.tsx`/`overlay.tsx` 的顺序直接加载 `src/styles/*`，另加悬浮窗与更新说明窗口的 `src/overlay.css`、`src/styles/pages/update-notes.css`（这两份不在 `main.tsx` 的链上），共享 `review/review.css` 框架样式与 `review/review.js` 主题、字号切换。`frontend/preview.html` 是改样式后的唯一预览入口（一页看全各窗口，带配色切换），`review/figures.html` 按窗口真实尺寸单独渲染任一状态（`?fig=` 指定，`?probe=` 打印控件计算值），均不在 vite 构建入口内|
 | `tools/assets/` | 品牌资产生成：图标母版 `altgo-icon.svg`（带底方块）与 `altgo-mark.svg`（透明底裸标记）、`build-icon.mjs`，横幅与分享图母版、`build-assets.mjs`，GPT 出图 `gen.mjs`（提示词见 `prompts.brand.json`），截图用静态服务器 `serve.mjs`。用法见 `tools/assets/README.md` |
 | `configs/` | 用户 TOML 模板，应用实际读 `~/.config/altgo/altgo.toml` |
 | `resources/prompts/` | 润色 prompt：`base.txt` 加 `light/medium/heavy-suffix.txt`（`none` 档不润色） |
@@ -103,8 +103,8 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 - `resources/prompts/` 未随安装包分发（`tauri.conf.json` 无 `bundle.resources`）。打包安装后 PromptStore 不加载，走 `system_prompt` 或内置回退。从仓库根运行开发版才会命中 `./resources/prompts`。
 - `make install` 装到 `/etc/altgo/altgo.toml` 的模板不被应用读取，应用只读 `~/.config/altgo/altgo.toml`。
-- 仓库没有 `tests/` 目录（`CONTRIBUTING.md` 的集成测试约定暂无实例）。`docs/testing.md` 模块清单漏 `updater.rs`、`display_backend.rs`。
-- Node 下界三处不一（CONTRIBUTING 18+、`docs-site` engines 至 20、CI 22）。Rust MSRV 未在 `Cargo.toml` 强制（CI 用 stable）。
+- 仓库没有 `tests/` 目录（`CONTRIBUTING.md` 的集成测试约定暂无实例）。
+- Node 下界：`CONTRIBUTING.md` 与 `docs-site` engines 声明 20+，CI 用 22。Rust MSRV 未在 `Cargo.toml` 强制，Tauri 2.12 要求 1.90，CI 用 stable。
 - 文档统一写仓库全名 `ouyangjiahong26/altgo`。原 `cislunarspace/altgo` 已改名，旧名 GitHub 自动重定向。`gh` 默认仓库已设 `ouyangjiahong26/altgo`，`git remote -v` 现查。
 - `frontend/src/styles/components/ui-primitives.css` 是跨页面复用的控件基底（`.btn`/`.field`/`.select`/`.segmented`/`.badge`/`.kbd`/`.empty-state`），各页面只做尺寸与排布，不再各自重写一套按钮皮肤。
 - `frontend/src/styles/pages/history.css` 现服务于 `frontend/src/components/HistoryPanel.tsx`（#170 把历史页并入主页后的遗留命名），`pages/` 下已无 History 页面。
@@ -133,7 +133,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - 组织：每个源文件末尾 `#[cfg(test)] mod tests`（`use super::*`）。无集成测试目录。前端测试与源码同目录（vitest 加 jsdom 加 Testing Library，`*.test.ts(x)`）。
 - 替身四类：tempfile（文件 I/O）、mockito（HTTP 假服务器）、共享 `src-tauri/src/voice_pipeline/test_doubles.rs`（流水线层唯一替身来源，不自造第二套）、闭包注入（emit/download/spawn）。`tauri_sink.rs`、`overlay/manager.rs`、`updater.rs` 各有模块私有 mock。
 - 环境容忍：依赖系统工具的测试对两种环境都断言（有 `xinput` 断 Ok，无则断 Err），保证无显示服务器的 CI 与开发机一致。禁止用 `#[ignore]` 藏测试。
-- 回归基线：`cargo test --manifest-path=src-tauri/Cargo.toml --lib` 全部通过，加 `cd frontend && npm test`，无静默跳过。只有端到端层能覆盖的风险，在 PR 里写明手动验证方式。测试数量与分布现查不进文档（`cargo test … --lib -- --list`）。覆盖率未统计。在线转写（MiMo）已回归，测试在 `mimo_asr.rs`。
+- 回归基线：`cargo test --manifest-path=src-tauri/Cargo.toml --lib` 全部通过，加 `cd frontend && npm test`，无静默跳过。只有端到端层能覆盖的风险，在 PR 里写明手动验证方式。测试数量与分布现查不进文档（`cargo test … --lib -- --list`）。覆盖率未统计。在线转写（多协议家族，ADR-0013）已回归，测试在 `online_asr.rs`。
 - CI 矩阵：Linux amd64 与 arm64 全跑 `cargo test --lib`（fmt、clippy、前端测试仅 amd64 各一次）。Windows x64 跑测试，arm64 交叉编译仅 `cargo check --target`。
 
 ## 写作要求

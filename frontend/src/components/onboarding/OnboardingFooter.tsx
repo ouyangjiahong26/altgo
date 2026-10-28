@@ -1,10 +1,6 @@
-/** 底部：步骤圆点与上一步/下一步按钮。 */
-import { Sparkles } from "lucide-react";
-import type { Step } from "./useOnboardingWizard";
-
+/** 底部操作：次要的“上一步”在左，主操作在右。步骤位置已由头部进度播报，这里不再重复。 */
 interface OnboardingFooterProps {
   t: (key: string) => string;
-  steps: Step[];
   stepIndex: number;
   saving: boolean;
   nextLabel: string;
@@ -14,7 +10,6 @@ interface OnboardingFooterProps {
 
 export function OnboardingFooter({
   t,
-  steps,
   stepIndex,
   saving,
   nextLabel,
@@ -23,14 +18,10 @@ export function OnboardingFooter({
 }: OnboardingFooterProps) {
   return (
     <div className="onboarding-foot">
-      <div className="onboarding-dots">
-        {steps.map((s, i) => (
-          <span key={s} className={`onboarding-dot ${i === stepIndex ? "on" : ""}`} />
-        ))}
-      </div>
+      {/* 第一步没有“上一步”，用 visibility 隐藏而不是移除：主操作位置在换步时不左右跳。 */}
       <button
         type="button"
-        className="btn btn-secondary"
+        className="btn btn-secondary btn-lg"
         onClick={onPrev}
         disabled={saving}
         style={{ visibility: stepIndex === 0 ? "hidden" : "visible" }}
@@ -39,11 +30,10 @@ export function OnboardingFooter({
       </button>
       <button
         type="button"
-        className="btn btn-primary"
+        className="btn btn-primary btn-lg"
         onClick={onNext}
         disabled={saving}
       >
-        <Sparkles size={13} />
         {saving ? t("settings.saving") : nextLabel}
       </button>
     </div>

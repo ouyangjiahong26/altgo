@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>altgo 样式审查 · 设计 token</title>
+    <link rel="icon" href="../public/altgo-logo.svg" type="image/svg+xml" />
     <!-- 与 main.tsx 相同的样式加载顺序（review/ 子目录下加 ../ 前缀）。 -->
     <!-- 字体与产品窗口一致：index.html 由此引入 Inter，审查页若缺失会回退 system-ui，渲染与产品脱钩。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -21,14 +22,14 @@
     <link rel="stylesheet" href="review.css" />
   </head>
   <body>
-<header class="sr-top">
+    <header class="sr-top">
       <div>
         <div class="sr-title"><a href="../style-review.html" style="color: inherit; text-decoration: none">altgo 样式审查</a> · 设计 token</div>
         <div class="sr-sub">加载产品真实样式表预览，与实际软件渲染一致，可切换深浅主题与根字号（15 / 17 / 19）。</div>
       </div>
       <div class="sr-ctl" role="group" aria-label="主题">
-        <button type="button" data-theme-btn="dark" aria-pressed="true">暗色</button>
-        <button type="button" data-theme-btn="light" aria-pressed="false">亮色</button>
+        <button type="button" data-theme-btn="light" aria-pressed="true">浅色</button>
+        <button type="button" data-theme-btn="dark" aria-pressed="false">深色</button>
       </div>
       <div class="sr-ctl" role="group" aria-label="根字号">
         <button type="button" data-size-btn="15" aria-pressed="false">15px</button>
@@ -41,79 +42,128 @@
         <div class="sr-nav-group">
           <div class="sr-nav-title">设计 token</div>
           <a href="#colors" style="color: var(--color-text)">色彩 token</a>
+          <a href="#semantic" style="color: var(--color-text)">语义色</a>
           <a href="#type" style="color: var(--color-text)">排版</a>
-          <a href="#space" style="color: var(--color-text)">间距 / 圆角 / 动效</a>
+          <a href="#shape" style="color: var(--color-text)">间距 / 圆角 / 动效</a>
         </div>
         <div class="sr-nav-group">
-          <div class="sr-nav-title">基础与组件 <a href="foundations.html" style="margin-left: 4px">整页 ↗</a></div>
-          <a href="foundations.html#base">基础层</a>
-          <a href="foundations.html#primitives">UI Primitives</a>
-          <a href="foundations.html#layout">Layout 头部</a>
+          <div class="sr-nav-title">基础层 <a href="foundations.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="foundations.html#type">排版与字重</a>
+          <a href="foundations.html#focus">焦点与选中</a>
+          <a href="foundations.html#scroll">滚动条</a>
         </div>
         <div class="sr-nav-group">
-          <div class="sr-nav-title">界面 <a href="screens.html" style="margin-left: 4px">整页 ↗</a></div>
-          <a href="screens.html#settings">设置页</a>
-          <a href="screens.html#onboarding">首次引导</a>
+          <div class="sr-nav-title">控件 <a href="screens.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="screens.html#buttons">按钮</a>
+          <a href="screens.html#fields">输入与下拉</a>
+          <a href="screens.html#toggles">勾选 / 开关 / 分段</a>
+          <a href="screens.html#badges">徽标 / 键位</a>
+          <a href="screens.html#cards">卡片 / 统计面 / 空态</a>
         </div>
         <div class="sr-nav-group">
           <div class="sr-nav-title">窗口 <a href="windows.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="windows.html#titlebar">标题栏与浮动底栏</a>
           <a href="windows.html#overlay">悬浮窗</a>
-          <a href="windows.html#update-notes">更新说明窗口</a>
+          <a href="windows.html#update-notes">更新说明窗</a>
         </div>
         <div class="sr-nav-group">
-          <div class="sr-nav-title">页面整体 <a href="pages.html" style="margin-left: 4px">整页 ↗</a></div>
-          <a href="pages.html#pages">页面整体</a>
+          <div class="sr-nav-title">页面 <a href="pages.html" style="margin-left: 4px">整页 ↗</a></div>
+          <a href="pages.html#home">主页</a>
+          <a href="pages.html#history">历史</a>
+          <a href="pages.html#settings">设置</a>
+          <a href="pages.html#onboarding">引导向导</a>
         </div>
       </nav>
       <main>
-<section class="sr-sec" id="colors">
+        <section class="sr-sec" id="colors">
           <h2>色彩 token</h2>
-          <p class="sr-desc">全部设计变量一览：配色分深浅两套主题，色块底纹为透明棋盘格，便于看清半透明色。</p>
+          <p class="sr-desc">
+            全仓唯一色值来源是 <code>src/styles/design-tokens.css</code>。结构色是一套中性 zinc 灰阶：
+            面用 <code>--color-surface-*</code> 递进，文字用四级灰阶，描边是发丝线。
+            同一批令牌名在浅色与深色下各有一组取值，点页头的主题按钮即可逐项对照。
+            色块底纹是透明棋盘格，半透明色能看清。
+          </p>
+          <div class="sr-note sr-note--info">
+            主色是近黑（深色主题是近白），只用在主操作实心底、选中态与焦点环三处，界面里没有第二种彩色强调。
+            彩色一律走语义色，且只落在状态文字、徽标与小面积底色上。
+          </div>
           <div id="token-groups"></div>
         </section>
 
-<section class="sr-sec" id="type">
+        <section class="sr-sec" id="semantic">
+          <h2>语义色</h2>
+          <p class="sr-desc">
+            四个语义色各配一个 8% 到 12% 的浅底色，只表达含义，不做按钮底色，也不铺大面积。
+            徽标与状态点消费的是同一组令牌。
+          </p>
+          <div class="sr-row">
+            <span class="badge badge-success">成功</span>
+            <span class="badge badge-danger">危险</span>
+            <span class="badge badge-warning">进行中</span>
+            <span class="badge badge-info">信息</span>
+            <span class="badge">中性</span>
+            <span class="badge badge-accent">选中</span>
+          </div>
+          <div class="sr-swatches" id="semantic-swatches"></div>
+        </section>
+
+        <section class="sr-sec" id="type">
           <h2>排版</h2>
-          <p class="sr-desc">字号随根字号整体缩放，提供 15 / 17 / 19 三档，正文与等宽两套字体，此处可切换预览。</p>
+          <p class="sr-desc">
+            字号全部是 rem，随根字号整体缩放，提供 15 / 17 / 19 三档（产品默认 17px）。正文用
+            <code>--text-sm</code>，表单取值与强调用 <code>--text-base</code>，标题到
+            <code>--text-xl</code>，字重 600 并收紧字距。
+          </p>
           <div class="sr-list" id="type-scale"></div>
 
           <h3>实际用法</h3>
           <div class="sr-frame sr-col">
             <div class="layout-logo" style="font-size: var(--text-xl)">altgo</div>
-            <span class="layout-subtitle">speech to text</span>
+            <span class="layout-subtitle">语音转文字</span>
             <p style="font-size: var(--text-base); color: var(--color-text)">
               正文：按住触发键说话，松开后自动转写并润色。
             </p>
-            <p class="settings-hint">settings-hint：辅助说明文案，--text-xs + --color-text-muted。</p>
+            <p class="settings-section-head-note">区块说明：settings-section-head-note，--text-xs + --color-text-muted。</p>
+            <p class="section-label">分组标签：section-label</p>
             <p style="font-family: var(--font-mono); font-size: var(--text-sm)">
               --font-mono 0123456789 Alt_R
             </p>
+            <p class="tabular" style="font-size: var(--text-sm); color: var(--color-text-secondary)">
+              .tabular：2026/10/21 18:06 · 230 MB · 0xA4
+            </p>
           </div>
-          <div class="sr-caption">字标为实色文字，不使用渐变，中文标题不额外加字距。</div>
+          <div class="sr-caption">字标为实色文字，不使用渐变。中文标题不额外加字距。</div>
         </section>
 
-<section class="sr-sec" id="space">
+        <section class="sr-sec" id="shape">
           <h2>间距 / 圆角 / 动效</h2>
+          <p class="sr-desc">
+            间距按 2px 递进，页面级节奏用大步长。圆角分四档语义：控件 8px、面板 10 至 14px、
+            统计面 20px（<code>--radius-card</code>）、主窗 16px（<code>--radius-2xl</code>）。
+            下列像素值按当前根字号换算。
+          </p>
           <h3>间距 --space-*</h3>
           <div class="sr-list" id="space-scale"></div>
           <h3>圆角 --radius-*</h3>
           <div class="sr-row" id="radius-scale"></div>
+          <h3>控件与底栏尺寸</h3>
+          <div class="sr-list" id="size-scale"></div>
           <h3>层级 --z-*</h3>
           <div class="sr-list" id="z-scale"></div>
           <h3>阴影 --shadow-*</h3>
           <div class="sr-row" id="shadow-scale"></div>
           <h3>动效 --duration-* / --ease-*</h3>
           <div class="sr-row" id="motion-scale"></div>
-          <div class="sr-caption">系统开启“减少动态效果”时，动画与过渡全部停用。</div>
+          <div class="sr-caption">交互反馈一律不超过 200 ms。系统开启“减少动态效果”时动画与过渡全部停用。</div>
           <h3>字体 / 行高 / 字距 / 其它</h3>
           <div class="sr-list" id="misc-tokens"></div>
-          <div class="sr-caption">悬浮窗阴影刻意为无：半透明阴影在部分 Linux 环境会渲染成黑影，预览即为真实效果。</div>
+          <div class="sr-caption">悬浮窗阴影刻意为无：半透明阴影在部分 Linux 合成器上会渲染成黑影，预览即为真实效果。</div>
         </section>
       </main>
     </div>
     <script src="review.js"></script>
     <script>
-const TOKEN_GROUPS = [
+      const TOKEN_GROUPS = [
         {
           title: "背景与表面",
           tokens: [
@@ -129,43 +179,48 @@ const TOKEN_GROUPS = [
             "--color-bg-muted",
             "--color-hover-surface",
             "--color-active-surface",
+          ],
+        },
+        {
+          title: "反色控件（主操作实心）",
+          tokens: [
             "--color-fill-inverse",
             "--color-fill-inverse-hover",
             "--color-fill-inverse-active",
             "--color-content-inverse",
+            "--color-on-primary",
           ],
         },
-        { title: "文本", tokens: ["--color-text", "--color-text-secondary", "--color-text-muted", "--color-text-faint", "--color-on-primary", "--color-icon-fallback"] },
         {
-          title: "强调色",
+          title: "文本",
+          tokens: [
+            "--color-text",
+            "--color-text-secondary",
+            "--color-text-muted",
+            "--color-text-faint",
+            "--color-icon-fallback",
+          ],
+        },
+        {
+          title: "主色与强调",
           tokens: [
             "--color-primary",
             "--color-accent",
             "--color-accent-hover",
             "--color-accent-active",
-            "--color-accent-contrast",
             "--color-accent-soft",
+            "--color-accent-contrast",
             "--color-accent-tint-bg",
             "--color-accent-tint-border",
           ],
         },
         {
-          title: "语义色（成功 / 危险 / 警告）",
-          tokens: [
-            "--color-green",
-            "--color-green-bg",
-            "--color-red",
-            "--color-red-bg",
-            "--color-amber",
-            "--color-amber-bg",
-            "--danger-border",
-            "--danger-hover-bg",
-            "--color-scrim",
-          ],
-        },
-        {
           title: "描边与焦点",
           tokens: ["--color-border", "--color-border-subtle", "--color-border-strong", "--color-border-focus"],
+        },
+        {
+          title: "底部浮动栏",
+          tokens: ["--color-dock-bg"],
         },
         {
           title: "悬浮窗专用",
@@ -180,18 +235,74 @@ const TOKEN_GROUPS = [
         },
       ];
 
-      const REM_TOKENS = [
-        { group: "字号 --text-*", tokens: ["--text-2xs", "--text-xs", "--text-sm", "--text-base", "--text-md", "--text-lg", "--text-xl", "--text-2xl"] },
-        {
-          group: "间距 --space-*",
-          tokens: ["--space-1", "--space-1-5", "--space-2", "--space-2-5", "--space-3", "--space-4", "--space-5", "--space-6", "--space-8", "--space-10"],
-        },
-        { group: "圆角 --radius-*", tokens: ["--radius-xs", "--radius-sm", "--radius-md", "--radius-lg", "--radius-2xl", "--radius-full"] },
-        { group: "层级 --z-*", tokens: ["--z-raised", "--z-sticky", "--z-dialog", "--z-toast"] },
+      const SEMANTIC_TOKENS = [
+        "--color-green",
+        "--color-green-bg",
+        "--color-red",
+        "--color-red-bg",
+        "--color-amber",
+        "--color-amber-bg",
+        "--color-blue",
+        "--color-blue-bg",
+        "--danger-border",
+        "--danger-hover-bg",
+        "--color-scrim",
       ];
 
-      
-function renderTokenGroups() {
+      const REM_TOKENS = [
+        {
+          group: "字号 --text-*",
+          tokens: ["--text-2xs", "--text-xs", "--text-sm", "--text-base", "--text-md", "--text-lg", "--text-xl", "--text-2xl"],
+        },
+        {
+          group: "间距 --space-*",
+          tokens: [
+            "--space-1",
+            "--space-1-5",
+            "--space-2",
+            "--space-2-5",
+            "--space-3",
+            "--space-3-5",
+            "--space-4",
+            "--space-5",
+            "--space-6",
+            "--space-8",
+            "--space-10",
+          ],
+        },
+        {
+          group: "圆角 --radius-*",
+          tokens: [
+            "--radius-xs",
+            "--radius-sm",
+            "--radius-md",
+            "--radius-lg",
+            "--radius-xl",
+            "--radius-card",
+            "--radius-2xl",
+            "--radius-full",
+          ],
+        },
+        // 控件高度、底栏与焦点环的取值直接是 px，不走 rem 换算。
+        {
+          group: "控件与底栏",
+          tokens: [
+            "--control-height",
+            "--control-height-sm",
+            "--control-height-lg",
+            "--dock-height",
+            "--dock-inset",
+            "--focus-ring-width",
+            "--focus-ring-offset",
+          ],
+        },
+        {
+          group: "层级 --z-*",
+          tokens: ["--z-raised", "--z-sticky", "--z-dock", "--z-dialog", "--z-toast"],
+        },
+      ];
+
+      function renderTokenGroups() {
         const host = document.getElementById("token-groups");
         host.innerHTML = TOKEN_GROUPS.map(
           (group) => `
@@ -211,7 +322,19 @@ function renderTokenGroups() {
                 .join("")}
             </div>`,
         ).join("");
-        refreshValues();
+      }
+
+      function renderSemanticSwatches() {
+        document.getElementById("semantic-swatches").innerHTML = SEMANTIC_TOKENS.map(
+          (t) => `
+          <div class="sr-swatch">
+            <div class="sr-chip"><span style="background: var(${t})"></span></div>
+            <div class="sr-meta">
+              <span class="sr-name">${t}</span>
+              <span class="sr-val" data-color-value="${t}"></span>
+            </div>
+          </div>`,
+        ).join("");
       }
 
       function renderRemScales() {
@@ -227,7 +350,18 @@ function renderTokenGroups() {
           </div>`,
           )
           .join("");
-        document.getElementById("z-scale").innerHTML = REM_TOKENS[3].tokens
+        // 控件高度与底栏尺寸画成实心块，直接看得到占位大小。
+        document.getElementById("size-scale").innerHTML = REM_TOKENS[3].tokens
+          .map(
+            (t) => `
+          <div class="sr-line">
+            <code>${t}</code>
+            <b data-rem-value="${t}"></b>
+            <span class="sr-box" style="display: inline-block; width: 64px; height: var(${t}); border-radius: var(--radius-sm)"></span>
+          </div>`,
+          )
+          .join("");
+        document.getElementById("z-scale").innerHTML = REM_TOKENS[4].tokens
           .map(
             (t) => `
           <div class="sr-line sr-line--misc">
@@ -236,7 +370,6 @@ function renderTokenGroups() {
           </div>`,
           )
           .join("");
-        refreshValues();
       }
 
       function scaleRows(entry, mode) {
@@ -244,7 +377,7 @@ function renderTokenGroups() {
           .map((t) => {
             const bar =
               mode === "font-size"
-                ? `<span style="font-size: var(${t}); color: var(--color-text)">按住触发键说话 Aa 转录</span>`
+                ? `<span style="font-size: var(${t}); color: var(--color-text)">按住触发键说话 Aa 转写</span>`
                 : `<span class="sr-bar" style="width: var(${t})"></span>`;
             return `
             <div class="sr-line">
@@ -270,6 +403,7 @@ function renderTokenGroups() {
           "--duration-fast",
           "--duration-normal",
           "--duration-slow",
+          "--duration-spin",
           "--ease-out",
           "--ease-in-out",
           "--ease-spring",
@@ -284,12 +418,10 @@ function renderTokenGroups() {
           </div>`,
           )
           .join("");
-        refreshValues();
       }
 
-      
-/**
-       * 其余 token：字体族、行高、字距，以及不成体系的 overlay-shadow / select-chevron。
+      /**
+       * 其余 token：字体族、行高、字距、字重，以及不成体系的 overlay-shadow / select-chevron。
        * 这些不是尺寸也非纯色，单独一行渲染，值直接读 CSS 变量。
        */
       const MISC_TOKENS = [
@@ -318,8 +450,8 @@ function renderTokenGroups() {
           preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">tracking tight</span>`,
         },
         {
-          name: "--tracking-caps",
-          preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-xs)">TRACKING CAPS</span>`,
+          name: "--tracking-tighter",
+          preview: (t) => `<span style="letter-spacing: var(${t}); font-size: var(--text-sm)">统计数值 20</span>`,
         },
         {
           name: "--font-regular",
@@ -332,22 +464,6 @@ function renderTokenGroups() {
         {
           name: "--font-semibold",
           preview: (t) => `<span style="font-weight: var(${t}); font-size: var(--text-sm)">半粗 600</span>`,
-        },
-        {
-          name: "--control-height",
-          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: var(${t}); border-radius: var(--radius-sm)"></span>`,
-        },
-        {
-          name: "--control-height-sm",
-          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: var(${t}); border-radius: var(--radius-sm)"></span>`,
-        },
-        {
-          name: "--control-height-lg",
-          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: var(${t}); border-radius: var(--radius-sm)"></span>`,
-        },
-        {
-          name: "--focus-ring-width",
-          preview: (t) => `<span class="sr-box" style="display: inline-block; width: 64px; height: 22px; border-radius: var(--radius-sm); outline: var(--focus-ring-width) solid var(--color-accent); outline-offset: var(--focus-ring-offset)"></span>`,
         },
         {
           name: "--overlay-shadow",
@@ -368,15 +484,16 @@ function renderTokenGroups() {
             <span>${entry.preview(entry.name)}</span>
           </div>`,
         ).join("");
-        refreshValues();
       }
 
-      
       renderTokenGroups();
+      renderSemanticSwatches();
       renderRemScales();
       renderShadows();
       renderMotion();
       renderMiscTokens();
+      // 动态生成的节点上手写一次回填：review.js 的 refreshValues 只跑在切换动作里。
+      refreshValues();
     </script>
   </body>
 </html>

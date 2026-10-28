@@ -1,5 +1,5 @@
 /** 转写历史面板：主页内的历史列表，支持复制、手动润色与批量删除。 */
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ListMusic } from "lucide-react";
 import { resolveUiLang, useTranslation } from "../i18n";
 import { useHistoryPanel } from "./history/useHistoryPanel";
 import { HistoryToolbar } from "./history/HistoryToolbar";
@@ -34,7 +34,13 @@ export default function HistoryPanel() {
       {h.loading ? (
         <p className="history-muted">{t("history.loading")}</p>
       ) : h.entries.length === 0 ? (
-        <p className="history-empty">{t("history.empty")}</p>
+        // 空态给图标与一句指引，动作留给上方的状态块，避免两个入口互相抢注意力
+        <div className="empty-state history-empty">
+          <div className="empty-state-icon">
+            <ListMusic size={18} />
+          </div>
+          <p className="empty-state-hint">{t("history.empty")}</p>
+        </div>
       ) : (
         <HistoryEntryList t={t} uiLang={uiLang} h={h} />
       )}

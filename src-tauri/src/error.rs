@@ -230,6 +230,9 @@ pub enum TranscriberError {
     #[error("invalid ASR API base URL: {0}")]
     InvalidBaseUrl(String),
 
+    #[error("invalid online ASR protocol: {0}")]
+    InvalidProtocol(String),
+
     #[error("ASR API returned {status}: {body}")]
     ApiError { status: u16, body: String },
 
@@ -253,6 +256,10 @@ impl TranscriberError {
                     url
                 )
             }
+            Self::InvalidProtocol(value) => format!(
+                "在线识别协议无效：'{}'，应为 \"mimo_chat\"、\"chat_input_audio\" 或 \"transcriptions\"。",
+                value
+            ),
             Self::ApiError { status, body } => {
                 format!("在线识别 API 错误（HTTP {}）：{}", status, body)
             }
@@ -276,6 +283,9 @@ impl TranscriberError {
             }
             Self::InvalidBaseUrl(url) => {
                 UserFacingError::with("transcriber.invalid_base_url", "url", url.clone())
+            }
+            Self::InvalidProtocol(value) => {
+                UserFacingError::with("transcriber.invalid_protocol", "protocol", value.clone())
             }
             Self::ApiError { status, body } => UserFacingError {
                 code: "transcriber.api_error".into(),

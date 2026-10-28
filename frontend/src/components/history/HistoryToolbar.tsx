@@ -24,7 +24,8 @@ export function HistoryToolbar({
 }: HistoryToolbarProps) {
   return (
     <div className="history-page-header">
-      <h1 className="history-page-title">{t("history.title")}</h1>
+      {/* 面板嵌在主页里，标题用分组标签的语气，不跟页面标题抢层级 */}
+      <h1 className="section-label history-page-title">{t("history.title")}</h1>
       <div className="history-toolbar">
         <label className="history-select-all">
           <input
@@ -37,20 +38,21 @@ export function HistoryToolbar({
         </label>
         <button
           type="button"
-          className="history-btn history-btn--danger"
+          className="btn btn-sm btn-danger"
           disabled={!someSelected || loading}
           onClick={onDeleteSelected}
         >
-          <Trash2 size={16} />
+          <Trash2 size={13} />
           {t("history.delete_selected")}
         </button>
+        {/* 清空全部比删除所选重一档，用描边把它与前者分开 */}
         <button
           type="button"
-          className="history-btn history-btn--danger history-btn--outline"
+          className="btn btn-sm btn-outline btn-danger"
           disabled={!hasEntries || loading}
           onClick={onClearAll}
         >
-          <Trash2 size={16} />
+          <Trash2 size={13} />
           {t("history.clear_all")}
         </button>
       </div>

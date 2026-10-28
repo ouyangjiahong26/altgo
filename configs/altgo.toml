@@ -13,22 +13,25 @@ double_click_interval = 300         # 双击判定间隔（毫秒）
 min_press_duration = 100            # 最短按下时长（毫秒），过滤输入法抖动
 
 [recorder]
-# SenseVoice 固定使用 16 kHz 单声道输入，其他采样率会被启动校验拒绝。
+# 转写引擎固定使用 16 kHz 单声道输入，其他采样率会被启动校验拒绝。
 sample_rate = 16000
 
 [transcriber]
-model = "sense-voice"                  # 设置页下载后自动填入，也可填模型目录路径
-language = "zh"                        # 语言，如 "zh"（中文）、"en"（英文），空字符串表示自动检测
-                                        # （SenseVoice 支持中、英、日、韩、粤自动检测，在线识别空串时按 "auto" 发送）
-threads = 0                            # 本地引擎线程数，0 表示自动取满 CPU 核数
-backend = "local"                      # 转写后端："local"（本地 SenseVoice，默认）或 "online"（小米 MiMo 在线识别）
-# backend = "local" 时使用内嵌 sherpa-onnx 的 SenseVoice 模型。
+model = "sense-voice"                  # 设置页下载后自动填入；也可填模型目录路径
+language = "zh"                        # 语言，如 "zh"（中文）、"en"（英文）；空字符串表示自动检测
+                                        # （空串自动检测，支持范围取决于所选模型：SenseVoice 支持中/英/日/韩/粤；在线识别空串时由服务端自动检测）
+threads = 0                            # 本地引擎线程数；0 = 自动取满 CPU 核数
+backend = "local"                      # 转写引擎："local"（本地引擎，默认）或 "online"（云端在线识别）
+# backend = "local" 时使用内嵌 sherpa-onnx 的模型，可选 SenseVoice 或 FireRedASR2 CTC。
 # 模型在管道启动时载入一次内存，之后每句话直接推理，无进程启动与冷载开销。
 
 [transcriber.online]
-# 在线转写配置，仅当 [transcriber] backend = "online" 时生效（低配机器可免下载本地模型）。
-api_key = ""                        # API Key，也可通过 ALTGO_TRANSCRIBER_API_KEY 环境变量设置，online 时必填
-api_base_url = "https://token-plan-cn.xiaomimimo.com/v1"   # MiMo 网关地址，已含 /v1
+# 在线转写配置；仅当 [transcriber] backend = "online" 时生效（低配机器可免下载本地模型）。
+protocol = "mimo_chat"               # 协议家族："mimo_chat"（缺省，MiMo 网关方言）、
+                                     # "chat_input_audio"（OpenAI 兼容 chat + input_audio，如 qwen3-asr-flash）、
+                                     # "transcriptions"（OpenAI 兼容 /audio/transcriptions multipart，如 whisper、glm-asr-2512）
+api_key = ""                        # API Key，也可通过 ALTGO_TRANSCRIBER_API_KEY 环境变量设置；online 时必填
+api_base_url = "https://token-plan-cn.xiaomimimo.com/v1"   # 服务商地址，带不带版本路径均可
 model = "mimo-v2.5-asr"             # 在线 ASR 模型名
 timeout = 60                        # 请求超时时间（秒）
 

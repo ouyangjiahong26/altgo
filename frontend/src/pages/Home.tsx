@@ -8,7 +8,18 @@ import {
 } from "../hooks/useTauri";
 import { tError, useTranslation } from "../i18n";
 import HistoryPanel from "../components/HistoryPanel";
-import { Copy, Check, RotateCcw, Trash2, Keyboard } from "lucide-react";
+import {
+  Copy,
+  Check,
+  RotateCcw,
+  Trash2,
+  Keyboard,
+  Mic,
+  AudioLines,
+  Loader2,
+  CheckCircle2,
+  TriangleAlert,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
@@ -34,6 +45,15 @@ const statusI18n = {
 
 /** 界面上可呈现的流水线状态。`stopped` 表示监听已停，此时按键不会有任何反应。 */
 type HomeStatus = keyof typeof statusColor;
+
+/** 状态块右上角的图标：一种状态只用一个图形，与状态文字互为补充而非重复。 */
+const statusIcon = {
+  idle: Mic,
+  recording: AudioLines,
+  processing: Loader2,
+  done: CheckCircle2,
+  stopped: TriangleAlert,
+} as const;
 
 /** 触发键名的显示文案：预设键名走 i18n，其余（自定义键名、键码兜底名）原样显示。 */
 function keyDisplayName(name: string, t: (key: string) => string): string {
@@ -247,7 +267,7 @@ function ProbeCard({ probe, triggerLabel, t, onBegin, onRetry, onClose, onSettin
   const unresolved = t("main.probe_code_unresolved");
 
   return (
-    <div className="home-probe" aria-live="polite">
+    <div className="card home-probe" aria-live="polite">
       <div className="home-probe-head">
         {probe.kind === "probing" && (
           <span className="home-status-dot breathing" style={{ background: "var(--color-amber)" }} />
@@ -380,6 +400,7 @@ export default function Home() {
   };
 
   const mappedStatus = statusMap[status] || "idle";
+  const StatusIcon = statusIcon[mappedStatus];
 
   return (
     <div className="home">
@@ -405,7 +426,7 @@ export default function Home() {
           <div className="home-pending-actions">
             <button
               type="button"
-              className="btn btn-sm home-pending-retry"
+              className="btn btn-sm btn-secondary"
               onClick={handleRetryPending}
             >
               <RotateCcw size={13} />
@@ -413,7 +434,7 @@ export default function Home() {
             </button>
             <button
               type="button"
-              className="btn btn-sm btn-secondary"
+              className="btn btn-sm btn-danger"
               onClick={handleDiscardPending}
             >
               <Trash2 size={13} />
@@ -438,27 +459,70 @@ export default function Home() {
         </div>
       )}
       {!transcription ? (
-        <div className="home-idle">
-          <div className="home-status-line">
-            <span
-              className={`home-status-dot ${mappedStatus === "recording" ? "breathing" : ""}`}
-              style={{ background: statusColor[mappedStatus] }}
-            />
-            <span className="home-status-text" style={{ color: statusColor[mappedStatus] }}>
+        <section className="home-state">
+          {/* 状态块：统计面范式。标签弱、数值大、右上角一个圆底图标，
+              状态色只染图标与数值，不铺底色。 */}
+          <div className="stat-card home-state-card">
+            <div className="stat-card-head">
+              {/* 状态块是这张卡片的标题位，用一条独立短标签，不用产品副标题凑。 */}
+              <span className="stat-card-label">{t("main.status_label")}</span>
+              <span
+                className={`stat-card-icon home-state-icon${
+                  mappedStatus === "recording" ? " is-live" : ""
+                }`}
+                style={{ color: statusColor[mappedStatus] }}
+                aria-hidden="true"
+              >
+                <StatusIcon
+                  size={13}
+                  className={mappedStatus === "processing" ? "home-spin" : undefined}
+                />
+              </span>
+            </div>
+            <div
+              className="stat-card-value home-status-text"
+              style={{ color: statusColor[mappedStatus] }}
+            >
               {t(statusI18n[mappedStatus])}
-            </span>
+            </div>
+            {mappedStatus === "idle" && triggerLabel && (
+              <p className="stat-card-hint home-trigger-hint">
+                {renderTriggerPrompt(t("main.trigger_prompt"), triggerLabel)}
+              </p>
+            )}
+            {mappedStatus === "processing" && (
+              <div className="home-tx-progress-wrap">
+                <span className="home-tx-progress-phase">
+                  {txProgress?.phase === "polish"
+                    ? t("overlay.polishing")
+                    : t("overlay.transcribing")}
+                </span>
+                <div className="home-tx-progress-bar">
+                  <div
+                    className={`home-tx-progress-fill ${
+                      txProgress?.fraction == null ? "indeterminate" : ""
+                    }`}
+                    style={
+                      txProgress?.fraction != null
+                        ? {
+                            width: `${Math.min(100, Math.max(0, txProgress.fraction * 100))}%`,
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          {mappedStatus === "idle" && triggerLabel && (
-            <p className="home-trigger-hint">{renderTriggerPrompt(t("main.trigger_prompt"), triggerLabel)}</p>
-          )}
+          {/* 空态的那个动作：检测触发键是备选动作，用描边按钮，不与状态块抢视线 */}
           {mappedStatus === "idle" && triggerLabel && probe.kind === "closed" && (
             <div className="home-probe-area">
               <button
                 type="button"
-                className="btn btn-sm btn-secondary home-probe-open"
+                className="btn btn-outline"
                 onClick={() => void runProbe()}
               >
-                <Keyboard size={13} />
+                <Keyboard size={15} />
                 <span>{t("main.probe_open")}</span>
               </button>
             </div>
@@ -468,45 +532,24 @@ export default function Home() {
             <div className="home-probe-area">
               <button
                 type="button"
-                className="btn btn-sm btn-secondary home-probe-open"
+                className="btn btn-primary"
                 onClick={handleRestartListener}
               >
-                <RotateCcw size={13} />
+                <RotateCcw size={15} />
                 <span>{t("main.restart_listener")}</span>
               </button>
             </div>
           )}
-          {mappedStatus === "processing" && (
-            <div className="home-tx-progress-wrap">
-              <span className="home-tx-progress-phase">
-                {txProgress?.phase === "polish"
-                  ? t("overlay.polishing")
-                  : t("overlay.transcribing")}
-              </span>
-              <div className="home-tx-progress-bar">
-                <div
-                  className={`home-tx-progress-fill ${
-                    txProgress?.fraction == null ? "indeterminate" : ""
-                  }`}
-                  style={
-                    txProgress?.fraction != null
-                      ? {
-                          width: `${Math.min(100, Math.max(0, txProgress.fraction * 100))}%`,
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </div>
+        </section>
       ) : (
-        <div className="home-result">
-          <span className="home-result-label">{t("main.result_label")}</span>
-          <div className="home-result-card">
+        <section className="home-result">
+          <div className="card home-result-card">
+            <div className="home-result-head">
+              <span className="home-result-label">{t("main.result_label")}</span>
+              <span className="home-result-meta">{t("main.result_meta")}</span>
+            </div>
             <p className="home-result-text">{transcription}</p>
             <div className="home-result-foot">
-              <span className="home-result-meta">{t("main.result_meta")}</span>
               <button
                 className={`btn btn-sm btn-secondary home-copy-btn ${copied ? "copied" : ""}`}
                 onClick={handleCopy}
@@ -525,7 +568,7 @@ export default function Home() {
               </button>
             </div>
           </div>
-        </div>
+        </section>
       )}
       <HistoryPanel />
     </div>

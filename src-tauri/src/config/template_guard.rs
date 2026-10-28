@@ -44,6 +44,7 @@ fn test_repo_template_matches_config_fields() {
         "transcriber.online.api_base_url",
         "transcriber.online.api_key",
         "transcriber.online.model",
+        "transcriber.online.protocol",
         "transcriber.online.timeout",
         "transcriber.threads",
     ];

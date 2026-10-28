@@ -3,16 +3,24 @@
 本项目的所有显著变更都记录在此文件中。
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
-版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## Unreleased
+## v2.8.1 (2026-10-27)
+
+### Fixes
+
+- **修复 Linux 上悬浮窗不显示**：2.8.0 在 Linux（GNOME Wayland 会话走 XWayland）上按住触发键录音时悬浮窗完全看不到，转写与剪贴板输出不受影响。根因是悬浮窗窗口高度从未达到设计值：WebKitGTK 给 WebView 强制最小内容尺寸（实测高 200 逻辑像素），创建时 280x64 的请求被钳到 280x200，`resizable: false` 又让 GTK 把尺寸提示锁死在 560x400 物理，此后每次 `set_size` 都静默失效。2.7.x 时代胶囊贴窗口顶，被钳高的窗口顶部恰好可见；2.8.0 界面重做把胶囊改为贴窗口底，屏幕定位仍按 64 高推导，胶囊整体移出主显示器底边约 8 物理像素。现在 overlay 窗口改为 `resizable: true` 让 `set_size` 生效（无边框、无焦点窗口无法被用户拖拽改尺寸，无副作用），并在显示后读回实际尺寸，被窗口系统钳制时打告警，这类静默失效从此在日志里可见。（#313）
+
+## v2.8.0 (2026-10-22)
 
 ### Added
 
 - **新增离线资产包，给完全没有外网的机器用**：`offline-assets-v2.7.8` 这个 tag 的 Release 提供 Windows x64 的 zip，内含 NSIS 安装器、转写模型、润色模型、润色运行时与放置脚本，另有带 WebView2 离线安装器的变体供 Windows 10 使用（Windows 11 自带 WebView2，取不带的那份）。包内附 `SHA256SUMS` 与第三方许可证清单，放置脚本核对校验和后把三个目录复制进 `%APPDATA%\altgo`，同名文件按哈希比对，相同跳过、不同覆盖，不修改配置文件。模型与运行时仍然按需下载，安装包体积与更新路径不变。
+- **在线转写按协议家族支持多家云端 ASR（#304）**：`[transcriber.online]` 新增 `protocol` 字段，在线识别从只接小米 MiMo 泛化为按协议分派。`mimo_chat` 是 MiMo 网关方言，取缺省值，旧配置不含该字段时行为与升级前完全一致。`chat_input_audio` 覆盖 OpenAI 形状的音频输入，百炼 qwen3-asr-flash 的兼容模式与 OpenAI audio-preview 都走这一档。`transcriptions` 走 OpenAI 的 `/audio/transcriptions` 接口，whisper 系、智谱 glm-asr-2512 与 SiliconFlow 的 SenseVoice 云端版属于这一族。语言参数按协议映射，留空时不传，由服务端自动检测，多语种混说不锁死。设置页在线分区新增服务商预设下拉，覆盖 MiMo、智谱、OpenAI、Groq、SiliconFlow 与自定义，选中后自动填地址、默认模型与协议，字段仍可手改。除 MiMo 外的端点未实测（没有各家 Key），实现按 OpenAI 兼容文档与请求形状的接口测试覆盖。
 
 ### Changed
 
+- **界面重做：换用中性灰设计语言，主导航移到底部浮动底栏**：主窗、首次引导、悬浮窗与更新说明窗整体改版，参照 linux-do/cdk 的 shadcn 语言。色板换成 zinc 深浅两套，默认跟随系统，亮色不再被暗色压过。取消靛蓝强调色，主操作改近黑实心，颜色只表达成功、危险、进行中与信息。大块统计面用 20px 圆角与浅灰底，内容卡用 14px 圆角加发丝线，控件圆角 8px，色值仍只来自 `design-tokens.css`。标题栏只留品牌与窗口按钮，页面切换改为窗口底部的胶囊浮动底栏，顺带给有更新时的入口提示点。主页重排为状态块、结果卡、历史列表三层，历史行把时间与来源耗时并到首行。设置页改成“区块头加一句话说明加字段卡”的组织，布尔项换自绘开关，保存行独立成卡不再吸底。引导向导换 42px 品牌头与三段进度条，二选一改两张单选卡。悬浮窗胶囊圆角改 10px，录音波形改中性灰，红色只留录音点，并修正胶囊在窗口内偏上 12px 的错位。`DESIGN.md` 与样式审查页、`preview.html` 同步更新，三张悬浮窗相位插图改由 `build-assets.mjs` 从母版复制到 `assets/`，不再靠手工同步。
 - **winget 与 Scoop 清单更新到 2.7.8**：winget 的 `PackageVersion`、`InstallerUrl`、`InstallerSha256` 与 Scoop 的两个架构条目按本次 Release 的 `checksums.txt` 更新。
 
 ## v2.7.8 (2026-10-15)
