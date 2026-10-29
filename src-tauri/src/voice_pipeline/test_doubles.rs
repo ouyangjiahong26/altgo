@@ -329,6 +329,7 @@ pub(super) struct MockSink {
     results: Arc<Mutex<Vec<TranscriptionResult>>>,
     progress: ProgressEvents,
     pending: Arc<Mutex<Vec<Option<super::pending::PendingRecordingInfo>>>>,
+    recording_flags: Arc<Mutex<Vec<bool>>>,
 }
 
 impl MockSink {
@@ -339,6 +340,7 @@ impl MockSink {
             results: Arc::new(Mutex::new(Vec::new())),
             progress: Arc::new(Mutex::new(Vec::new())),
             pending: Arc::new(Mutex::new(Vec::new())),
+            recording_flags: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -361,6 +363,10 @@ impl MockSink {
     pub(super) fn pending_events(&self) -> Vec<Option<super::pending::PendingRecordingInfo>> {
         self.pending.lock().unwrap().clone()
     }
+
+    pub(super) fn recording_flags(&self) -> Vec<bool> {
+        self.recording_flags.lock().unwrap().clone()
+    }
 }
 
 impl PipelineSink for MockSink {
@@ -381,6 +387,9 @@ impl PipelineSink for MockSink {
     }
     fn on_pending_recording(&self, pending: Option<&super::pending::PendingRecordingInfo>) {
         self.pending.lock().unwrap().push(pending.cloned());
+    }
+    fn set_recording_active(&self, recording: bool) {
+        self.recording_flags.lock().unwrap().push(recording);
     }
 }
 

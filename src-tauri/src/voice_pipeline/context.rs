@@ -10,7 +10,7 @@ use crate::recorder::Recorder;
 use crate::state_machine::{Command, Machine};
 use crate::transcriber::Transcriber;
 
-use super::handlers::{handle_start_record, transcribe_and_dispatch};
+use super::handlers::{handle_start_record, stop_recording, transcribe_and_dispatch};
 use super::pending::PendingRecordingStore;
 use super::sink::PipelineSink;
 use crate::pipeline_controller::PipelineStatus;
@@ -65,10 +65,11 @@ struct LoopState {
     transcribe_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
-/// 转写任务最大并发数。这个上限只管住同时运行的任务数，管不住单个任务的内存：
-/// FireRedASR2 CTC 的 300 秒录音单次峰值约 8.8 GB，两个并发接近 24 GB，而十几个
-/// 短录音并发只有数 GB。长录音多的小内存机器适合 SenseVoice。
-const MAX_CONCURRENT_TRANSCRIPTIONS: usize = 2;
+/// 转写任务最大并发数。串行执行有两个原因。其一，剪贴板终稿必须落在最近
+/// 一次录音上，并发时后录的短句可能先完成、先写剪贴板，再被先录的长句覆盖。
+/// 其二，FireRedASR2 CTC 的单个 300 秒录音峰值约 8.8 GB，串行把同时推理的
+/// 任务压到一个。录音本身不受这个上限影响，转写任务排队后仍可立即开始下一段。
+const MAX_CONCURRENT_TRANSCRIPTIONS: usize = 1;
 
 impl PipelineContext {
     /// 运行流水线事件循环，直到 `stop_rx` 触发。
@@ -225,7 +226,7 @@ impl LoopState {
                     self.execute_command(cmd).await;
                 }
             }
-            Step::Retry => self.execute_retry().await,
+            Step::Retry => self.execute_retry(),
             Step::ReclaimRuntime => match self.formatter.release_idle().await {
                 Ok(true) => tracing::info!("reclaimed idle polish runtime"),
                 Ok(false) => {}
@@ -239,29 +240,20 @@ impl LoopState {
     async fn execute_command(&mut self, cmd: Command) {
         match cmd {
             Command::StartRecord => {
-                let _ = handle_start_record(&mut *self.recorder, &*self.sink);
+                // 先置录音标志再起录：起录期间到达的后台状态不该改写界面。
+                self.sink.set_recording_active(true);
+                if handle_start_record(&mut *self.recorder, &*self.sink).is_err() {
+                    self.sink.set_recording_active(false);
+                }
             }
             Command::StopRecord => {
                 // 录音停止是同步操作（停止录音线程、取回 PCM、封装 WAV），
                 // 但转写与润色是异步长操作。把后者 spawn 出去，主循环立即
                 // 恢复 select!，用户在转写进行中就能开始下一次录音。
-                let wav_data = match self.recorder.stop_recording() {
-                    Ok(data) => data,
-                    Err(e) => {
-                        tracing::error!(error = %e, "failed to stop recording");
-                        self.sink.on_status_change(PipelineStatus::Idle);
-                        return;
-                    }
-                };
-
-                if crate::voice_pipeline::handlers::audio_too_short(&wav_data) {
-                    tracing::info!(
-                        "recording below {}ms, discarding as accidental press",
-                        crate::voice_pipeline::handlers::MIN_RECORDING_DURATION_MS
-                    );
-                    self.sink.on_status_change(PipelineStatus::Idle);
+                self.sink.set_recording_active(false);
+                let Some(wav_data) = stop_recording(&*self.recorder, &*self.sink) else {
                     return;
-                }
+                };
 
                 let transcriber = Arc::clone(&self.transcriber);
                 let formatter = Arc::clone(&self.formatter);
@@ -271,7 +263,8 @@ impl LoopState {
                 let semaphore = Arc::clone(&self.transcribe_semaphore);
 
                 tokio::spawn(async move {
-                    // 信号量控制并发：超限时排队等待，不阻塞主循环。
+                    // 信号量把转写排成单列：并发会打乱剪贴板终稿的顺序，
+                    // 也把多个大段推理的峰值内存叠加在一起。
                     let _permit = semaphore.acquire().await;
                     transcribe_and_dispatch(
                         &wav_data,
@@ -287,9 +280,9 @@ impl LoopState {
         }
     }
 
-    /// 重试一次待重试录音：录音中忽略请求，空闲时取出录音本体重新转写，
+    /// 重试一次待重试录音：录音中忽略请求，空闲时取出录音本体交给后台重写，
     /// 成功后告知前端撤下待重试横幅。
-    async fn execute_retry(&mut self) {
+    fn execute_retry(&mut self) {
         if self.machine.is_recording() {
             // 录音优先：此刻转写会把录音中的悬浮窗切成转写中再隐藏，
             // 音量事件流也会被掐断。请求丢弃，用户空闲后再点即可。
@@ -298,20 +291,30 @@ impl LoopState {
             match self.pending_store.take_wav() {
                 Some(wav) => {
                     tracing::info!("retrying pending transcription");
-                    let _permit = self.transcribe_semaphore.acquire().await;
-                    let ok = transcribe_and_dispatch(
-                        &wav,
-                        &*self.transcriber,
-                        &*self.formatter,
-                        self.polish_level,
-                        &self.pending_store,
-                        Arc::clone(&self.sink),
-                    )
-                    .await;
-                    if ok {
-                        // 槽位已消费，告知前端横幅可以撤下。
-                        self.sink.on_pending_recording(None);
-                    }
+                    // 与停止录音后的转写一样交给后台：重试同样可能排在前面的
+                    // 长转写后面，留在主循环里 await 会重新堵住按键。
+                    let transcriber = Arc::clone(&self.transcriber);
+                    let formatter = Arc::clone(&self.formatter);
+                    let polish_level = self.polish_level;
+                    let pending = self.pending_store.clone();
+                    let sink = Arc::clone(&self.sink);
+                    let semaphore = Arc::clone(&self.transcribe_semaphore);
+                    tokio::spawn(async move {
+                        let _permit = semaphore.acquire().await;
+                        let ok = transcribe_and_dispatch(
+                            &wav,
+                            &*transcriber,
+                            &*formatter,
+                            polish_level,
+                            &pending,
+                            sink.clone(),
+                        )
+                        .await;
+                        if ok {
+                            // 槽位已消费，告知前端横幅可以撤下。
+                            sink.on_pending_recording(None);
+                        }
+                    });
                 }
                 None => {
                     tracing::warn!("retry requested but no pending recording");
@@ -894,10 +897,13 @@ mod tests {
         let _ = tokio::time::timeout(std::time::Duration::from_secs(2), run_handle).await;
     }
 
-    /// 模拟慢速转写：延迟指定时间后返回结果，用于验证主循环不被阻塞。
+    /// 模拟慢速转写：延迟指定时间后返回结果，用于验证主循环不被阻塞，
+    /// 并记录同时在跑的转写任务数峰值。
     struct SlowTranscriber {
         delay: std::time::Duration,
         call_count: std::sync::atomic::AtomicUsize,
+        active: std::sync::atomic::AtomicUsize,
+        max_active: std::sync::atomic::AtomicUsize,
     }
 
     impl SlowTranscriber {
@@ -905,6 +911,8 @@ mod tests {
             Self {
                 delay,
                 call_count: std::sync::atomic::AtomicUsize::new(0),
+                active: std::sync::atomic::AtomicUsize::new(0),
+                max_active: std::sync::atomic::AtomicUsize::new(0),
             }
         }
     }
@@ -932,11 +940,14 @@ mod tests {
         where
             'life1: 'life0,
         {
-            self.call_count
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            use std::sync::atomic::Ordering::SeqCst;
+            self.call_count.fetch_add(1, SeqCst);
+            let active = self.active.fetch_add(1, SeqCst) + 1;
+            self.max_active.fetch_max(active, SeqCst);
             let delay = self.delay;
             Box::pin(async move {
                 tokio::time::sleep(delay).await;
+                self.active.fetch_sub(1, SeqCst);
                 (on_progress)(1.0);
                 Ok(crate::transcriber::TranscribeResult {
                     text: "slow result".to_string(),
@@ -1001,11 +1012,16 @@ mod tests {
         let _ = tokio::time::timeout(std::time::Duration::from_secs(5), run_handle).await;
 
         assert_eq!(sink.results().len(), 2, "两次录音都应产生转写结果");
+        assert_eq!(
+            sink.recording_flags(),
+            vec![true, false, true, false],
+            "每次起录与停止都要更新录音标志"
+        );
     }
 
     #[tokio::test]
-    async fn concurrent_transcriptions_respect_semaphore_limit() {
-        // 信号量限制为 2：同时发出 3 次录音，第 3 次转写必须排队等待。
+    async fn queued_transcriptions_run_one_at_a_time() {
+        // 转写串行执行：连续发出 3 次录音，三次都要完成，同时最多只有一个转写。
         let (listener, handle) = FakeListener::new("fake");
         let recorder = Arc::new(FakeRecorder::new(make_test_wav()));
         let transcriber = Arc::new(SlowTranscriber::new(std::time::Duration::from_millis(300)));
@@ -1042,6 +1058,13 @@ mod tests {
                 .load(std::sync::atomic::Ordering::SeqCst),
             3,
             "3 次录音都应触发转写"
+        );
+        assert_eq!(
+            transcriber
+                .max_active
+                .load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "转写必须串行，同时最多一个任务"
         );
     }
 

@@ -227,9 +227,6 @@ pub enum TranscriberError {
     #[error("audio decode error: {0}")]
     WavDecodeFailed(String),
 
-    #[error("audio too long for local model: {actual_ms} ms exceeds {limit_ms} ms")]
-    AudioTooLong { limit_ms: u64, actual_ms: u64 },
-
     #[error("invalid ASR API base URL: {0}")]
     InvalidBaseUrl(String),
 
@@ -253,14 +250,6 @@ impl TranscriberError {
             Self::EmptyResponse => "在线识别返回了空内容，请重试。".to_string(),
             Self::ModelLoadFailed { reason } => format!("本地模型加载失败：{}", reason),
             Self::WavDecodeFailed(msg) => format!("音频解码失败：{}", msg),
-            Self::AudioTooLong {
-                limit_ms,
-                actual_ms,
-            } => format!(
-                "录音超过本地模型上限（{} 秒，本次 {} 秒），无法转写。录音已保留，可分段录制，或在设置中改用其他本地模型后重新识别。",
-                limit_ms / 1000,
-                actual_ms.div_ceil(1000)
-            ),
             Self::InvalidBaseUrl(url) => {
                 format!(
                     "在线识别 API 地址无效：'{}'。请填写完整 URL（如 https://token-plan-cn.xiaomimimo.com/v1）。",
@@ -292,16 +281,6 @@ impl TranscriberError {
             Self::WavDecodeFailed(msg) => {
                 UserFacingError::with("transcriber.wav_decode_failed", "reason", msg.clone())
             }
-            Self::AudioTooLong {
-                limit_ms,
-                actual_ms,
-            } => UserFacingError {
-                code: "transcriber.audio_too_long".into(),
-                params: Some(BTreeMap::from([
-                    ("limit".to_string(), (limit_ms / 1000).to_string()),
-                    ("actual".to_string(), actual_ms.div_ceil(1000).to_string()),
-                ])),
-            },
             Self::InvalidBaseUrl(url) => {
                 UserFacingError::with("transcriber.invalid_base_url", "url", url.clone())
             }

@@ -1,6 +1,6 @@
 //! 命令处理器与结果处理。
 //!
-//! `handle_start_record` / `handle_stop_record` 是按状态机命令调用的纯业务逻辑。
+//! `handle_start_record` / `stop_recording` 是按状态机命令调用的纯业务逻辑。
 //! `transcribe_and_dispatch` 是停止录音与重试待重试录音共用的转写收尾。
 //! `process_transcription_result` 处理转写完成后的剪贴板写入和历史追加。
 
@@ -38,22 +38,19 @@ pub fn handle_start_record(
     Ok(())
 }
 
-/// 处理 StopRecord 命令：停止录音，过短的误触录音就地丢弃，其余进入转写收尾。
-pub async fn handle_stop_record(
-    recorder: &mut dyn Recorder,
-    transcriber: &dyn Transcriber,
-    formatter: &dyn Polisher,
-    polish_level: PolishLevel,
-    pending: &PendingRecordingStore,
-    sink: Arc<dyn PipelineSink>,
-) {
+/// 停止录音并做误触判定。返回可转写的 WAV，停止失败或误触时返回 `None`
+/// 并向 sink 报 Idle。转写由调用方在后台执行，主循环不必等它。
+pub(crate) fn stop_recording(
+    recorder: &dyn Recorder,
+    sink: &(impl PipelineSink + ?Sized),
+) -> Option<Vec<u8>> {
     tracing::info!("recording stopped, processing...");
     let wav_data: Vec<u8> = match recorder.stop_recording() {
         Ok(data) => data,
         Err(e) => {
             tracing::error!(error = %e, "failed to stop recording");
             sink.on_status_change(PipelineStatus::Idle);
-            return;
+            return None;
         }
     };
 
@@ -63,22 +60,14 @@ pub async fn handle_stop_record(
             MIN_RECORDING_DURATION_MS
         );
         sink.on_status_change(PipelineStatus::Idle);
-        return;
+        return None;
     }
 
-    transcribe_and_dispatch(
-        &wav_data,
-        transcriber,
-        formatter,
-        polish_level,
-        pending,
-        sink,
-    )
-    .await;
+    Some(wav_data)
 }
 
 /// 误触判定：时长解析失败（非 WAV）或低于最短有效时长。
-pub(crate) fn audio_too_short(wav_data: &[u8]) -> bool {
+fn audio_too_short(wav_data: &[u8]) -> bool {
     crate::audio::wav_duration_ms(wav_data).is_none_or(|ms| ms < MIN_RECORDING_DURATION_MS)
 }
 
@@ -555,7 +544,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_stop_record_discards_degenerate_wav_without_transcribing() {
+    async fn stop_flow_discards_degenerate_wav_without_transcribing() {
         use crate::polisher::LLMFormatter;
 
         // 只有 44 字节 WAV 头、无音频数据。
@@ -574,7 +563,7 @@ mod tests {
 
         recorder.start_recording().unwrap();
 
-        handle_stop_record(
+        stop_and_transcribe(
             &mut recorder,
             &transcriber,
             &formatter,
@@ -593,7 +582,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_stop_record_discards_recording_below_min_duration() {
+    async fn stop_flow_discards_recording_below_min_duration() {
         // 299 ms < 300 ms 守卫：丢弃。恰好 300 ms：进入转写。
         for (samples, expect_transcribed) in [(4784usize, false), (4800, true)] {
             let pcm = vec![0u8; samples * 2];
@@ -607,7 +596,7 @@ mod tests {
             let sink_arc: Arc<dyn PipelineSink> = Arc::new(sink.clone());
 
             recorder.start_recording().unwrap();
-            handle_stop_record(
+            stop_and_transcribe(
                 &mut recorder,
                 &transcriber,
                 &formatter,
@@ -626,8 +615,23 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------------
-    // handle_stop_record 成功/失败路径测试辅助
+    // 停止录音与转写收尾测试辅助
     // ---------------------------------------------------------------------------
+
+    /// 复现主循环的停止流程：先停止并校验录音，再把结果交给转写收尾。
+    async fn stop_and_transcribe(
+        recorder: &mut dyn Recorder,
+        transcriber: &dyn Transcriber,
+        formatter: &dyn Polisher,
+        polish_level: PolishLevel,
+        pending: &PendingRecordingStore,
+        sink: Arc<dyn PipelineSink>,
+    ) {
+        if let Some(wav) = stop_recording(&*recorder, &*sink) {
+            transcribe_and_dispatch(&wav, transcriber, formatter, polish_level, pending, sink)
+                .await;
+        }
+    }
 
     fn make_test_wav() -> Vec<u8> {
         // 500 ms（16 kHz 单声道 16 位）：高于 300 ms 误触守卫，代表一段真实录音。
@@ -646,7 +650,7 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------------
-    // handle_stop_record 成功与失败分支测试
+    // 停止流程的成功与失败分支测试
     // ---------------------------------------------------------------------------
 
     type ProgressCallback = Arc<dyn Fn(f32) + Send + Sync>;
@@ -695,7 +699,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_stop_record_does_not_wait_for_retained_progress_callback() {
+    async fn stop_flow_does_not_wait_for_retained_progress_callback() {
         let wav = make_test_wav();
         let mut recorder = super::super::test_doubles::FakeRecorder::new(wav);
         let transcriber = RetainingProgressTranscriber::new();
@@ -708,7 +712,7 @@ mod tests {
 
         tokio::time::timeout(
             Duration::from_secs(1),
-            handle_stop_record(
+            stop_and_transcribe(
                 &mut recorder,
                 &transcriber,
                 &formatter,
@@ -735,7 +739,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_stop_record_success_chain_falls_back_to_raw_on_polish_failure() {
+    async fn stop_flow_success_chain_falls_back_to_raw_on_polish_failure() {
         let wav = make_test_wav();
         let mut recorder = super::super::test_doubles::FakeRecorder::new(wav);
         let transcriber =
@@ -747,7 +751,7 @@ mod tests {
 
         recorder.start_recording().unwrap();
 
-        handle_stop_record(
+        stop_and_transcribe(
             &mut recorder,
             &transcriber,
             &formatter,
@@ -769,7 +773,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_stop_record_transcription_failure_retains_audio_for_retry() {
+    async fn stop_flow_transcription_failure_retains_audio_for_retry() {
         let wav = make_test_wav();
         let mut recorder = super::super::test_doubles::FakeRecorder::new(wav.clone());
         let err = TranscriberError::ModelLoadFailed {
@@ -786,7 +790,7 @@ mod tests {
 
         recorder.start_recording().unwrap();
 
-        handle_stop_record(
+        stop_and_transcribe(
             &mut recorder,
             &transcriber,
             &formatter,
@@ -819,7 +823,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_stop_record_empty_text_retains_audio_for_retry() {
+    async fn stop_flow_empty_text_retains_audio_for_retry() {
         let wav = make_test_wav();
         let mut recorder = super::super::test_doubles::FakeRecorder::new(wav);
         let transcriber = super::super::test_doubles::FakeTranscriber::with_success("", "zh");
@@ -830,7 +834,7 @@ mod tests {
 
         recorder.start_recording().unwrap();
 
-        handle_stop_record(
+        stop_and_transcribe(
             &mut recorder,
             &transcriber,
             &formatter,
@@ -854,7 +858,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_stop_record_recorder_failure_returns_idle_without_transcribing() {
+    async fn stop_flow_recorder_failure_returns_idle_without_transcribing() {
         let wav = make_test_wav();
         let mut recorder = super::super::test_doubles::FakeRecorder::with_stop_error(
             RecorderError::StopFailed("device lost".to_string()),
@@ -869,7 +873,7 @@ mod tests {
 
         recorder.start_recording().unwrap();
 
-        handle_stop_record(
+        stop_and_transcribe(
             &mut recorder,
             &transcriber,
             &formatter,

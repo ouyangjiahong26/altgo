@@ -70,6 +70,13 @@ pub trait PipelineSink: Send + Sync + 'static {
     /// 待重试录音槽位变化：`Some` = 转写失败后保留了录音本体，`None` = 槽位
     /// 已清空（重试成功或用户放弃）。默认空实现，供不需要该事件的实现省略。
     fn on_pending_recording(&self, _pending: Option<&PendingRecordingInfo>) {}
+
+    /// 录音是否正在进行。主循环在起录成功与停止录音后各调用一次。
+    ///
+    /// 后台转写任务与录音并行，完成时间可能落在下一次录音的中途。实现方据此
+    /// 丢弃录音期间的后台状态与结果展示，避免转写中或 done 相位顶掉录音界面。
+    /// 默认空实现，供不关心界面相位的实现省略。
+    fn set_recording_active(&self, _recording: bool) {}
 }
 
 /// 派发结果。

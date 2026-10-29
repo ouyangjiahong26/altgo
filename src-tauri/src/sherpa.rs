@@ -90,9 +90,6 @@ const FRAME_MS: usize = 30;
 /// 一个静音点被视为可切的最短连续静音时长（毫秒）。
 const MIN_SILENCE_MS: u64 = 500;
 
-/// 一段静音切分出来的前后各保留多少毫秒，避免吞掉语音首尾。
-const SILENCE_PADDING_MS: u64 = 150;
-
 /// 引擎能安全接受的最长单段音频（毫秒）。`None` 表示没有已知的硬上限。
 fn max_audio_ms(engine: EngineKind) -> Option<u64> {
     match engine {
@@ -108,17 +105,17 @@ fn needs_segmentation(engine: EngineKind, duration_ms: u64) -> bool {
 
 /// 音频切分点（采样点下标）。`start..end` 为一个切片。
 #[derive(Debug, PartialEq)]
-pub struct SegmentRange {
-    pub start: usize,
-    pub end: usize,
+struct SegmentRange {
+    start: usize,
+    end: usize,
 }
 
-/// 按静音感知把音频切成不超过 `limit_ms` 的段。
+/// 按静音感知把音频切成不超过 `limit_ms` 的段，相邻段首尾相接、互不重叠。
 ///
 /// 流程：以 30 ms 为帧计算 RMS，找出连续超过 500 ms 的静音段，在目标段长
-/// 附近选最优静音点切分。找不到合适静音点就硬切。每段两端各留 150 ms
-/// 静音 padding，避免切到语音首尾。
-pub fn split_on_silence(samples: &[f32], sample_rate: u32, limit_ms: u64) -> Vec<SegmentRange> {
+/// 附近选最优静音点切分。切点是静音段中点，两侧都不含对方的内容。找不到
+/// 静音点就在目标段长处硬切。
+fn split_on_silence(samples: &[f32], sample_rate: u32, limit_ms: u64) -> Vec<SegmentRange> {
     let frame_size = sample_rate as usize * FRAME_MS / 1000;
     let total_ms = samples.len() as u64 * 1000 / sample_rate as u64;
     if total_ms <= limit_ms {
@@ -163,7 +160,6 @@ pub fn split_on_silence(samples: &[f32], sample_rate: u32, limit_ms: u64) -> Vec
     // 贪心切分：每次在目标段长附近找最近的静音点。
     let target_samples = sample_rate as usize * SEGMENT_TARGET_MS as usize / 1000;
     let limit_samples = sample_rate as usize * limit_ms as usize / 1000;
-    let padding = sample_rate as usize * SILENCE_PADDING_MS as usize / 1000;
 
     let mut segments = Vec::new();
     let mut pos = 0usize;
@@ -195,13 +191,13 @@ pub fn split_on_silence(samples: &[f32], sample_rate: u32, limit_ms: u64) -> Vec
             .min_by_key(|&cut| cut.abs_diff(ideal_end));
 
         let cut = best_cut.unwrap_or(ideal_end.min(max_end));
-        // 前段在切点前方留 padding，后段从切点后方 padding 开始。
-        let seg_end = cut + padding.min(samples.len() - cut);
+        // 两段在 cut 处首尾相接。留 padding 会让同一段音频进入两次推理，
+        // 硬切时直接产出重复文字。
         segments.push(SegmentRange {
             start: pos,
-            end: seg_end,
+            end: cut,
         });
-        pos = cut.saturating_sub(padding).max(pos + 1);
+        pos = cut.max(pos + 1);
     }
 
     segments
@@ -652,9 +648,17 @@ mod tests {
                 limit_samples
             );
         }
-        // 所有段覆盖完整音频。
+        // 所有段覆盖完整音频，且相邻段首尾相接、互不重叠：重叠会把同一段
+        // 语音送进两次推理，硬切时直接产出重复文字。
         assert_eq!(segs.first().unwrap().start, 0);
         assert_eq!(segs.last().unwrap().end, samples.len());
+        for pair in segs.windows(2) {
+            assert_eq!(
+                pair[0].end, pair[1].start,
+                "相邻段重叠或留缝：{:?} 与 {:?}",
+                pair[0], pair[1]
+            );
+        }
     }
 
     #[test]
