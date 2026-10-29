@@ -10,7 +10,7 @@ use crate::recorder::Recorder;
 use crate::state_machine::{Command, Machine};
 use crate::transcriber::Transcriber;
 
-use super::handlers::{handle_start_record, handle_stop_record, transcribe_and_dispatch};
+use super::handlers::{handle_start_record, stop_recording, transcribe_and_dispatch};
 use super::pending::PendingRecordingStore;
 use super::sink::PipelineSink;
 use crate::pipeline_controller::PipelineStatus;
@@ -18,8 +18,8 @@ use crate::pipeline_controller::PipelineStatus;
 /// 流水线运行期间全部组件的持有者。
 pub struct PipelineContext {
     pub(crate) recorder: Box<dyn Recorder>,
-    pub(crate) transcriber: Box<dyn Transcriber>,
-    pub(crate) formatter: Box<dyn Polisher>,
+    pub(crate) transcriber: Arc<dyn Transcriber>,
+    pub(crate) formatter: Arc<dyn Polisher>,
     pub(crate) polish_level: PolishLevel,
     pub(crate) listener: Mutex<Option<Box<dyn KeyListener>>>,
     /// 待重试录音槽位：转写失败时保留录音本体，重试请求到达时取出再识别。
@@ -51,8 +51,8 @@ struct LoopState {
     // 流水线自行退出。下划线前缀表示主循环只持有它、不读取它。
     _listener: Box<dyn KeyListener>,
     recorder: Box<dyn Recorder>,
-    transcriber: Box<dyn Transcriber>,
-    formatter: Box<dyn Polisher>,
+    transcriber: Arc<dyn Transcriber>,
+    formatter: Arc<dyn Polisher>,
     polish_level: PolishLevel,
     pending_store: PendingRecordingStore,
     retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
@@ -60,7 +60,16 @@ struct LoopState {
     machine: Machine,
     deadline: Option<tokio::time::Instant>,
     sink: Arc<dyn PipelineSink>,
+    /// 转写并发上限：控制同时运行的转写任务数，超出后排队等待。
+    /// FireRed 单段推理峰值内存数 GB，并发必须受限。
+    transcribe_semaphore: Arc<tokio::sync::Semaphore>,
 }
+
+/// 转写任务最大并发数。串行执行有两个原因。其一，剪贴板终稿必须落在最近
+/// 一次录音上，并发时后录的短句可能先完成、先写剪贴板，再被先录的长句覆盖。
+/// 其二，FireRedASR2 CTC 的单个 300 秒录音峰值约 8.8 GB，串行把同时推理的
+/// 任务压到一个。录音本身不受这个上限影响，转写任务排队后仍可立即开始下一段。
+const MAX_CONCURRENT_TRANSCRIPTIONS: usize = 1;
 
 impl PipelineContext {
     /// 运行流水线事件循环，直到 `stop_rx` 触发。
@@ -145,6 +154,9 @@ impl LoopState {
             polish_level: ctx.polish_level,
             pending_store: ctx.pending_store,
             retry_rx: ctx.retry_rx,
+            transcribe_semaphore: Arc::new(tokio::sync::Semaphore::new(
+                MAX_CONCURRENT_TRANSCRIPTIONS,
+            )),
             key_events,
             machine,
             deadline: None,
@@ -214,7 +226,7 @@ impl LoopState {
                     self.execute_command(cmd).await;
                 }
             }
-            Step::Retry => self.execute_retry().await,
+            Step::Retry => self.execute_retry(),
             Step::ReclaimRuntime => match self.formatter.release_idle().await {
                 Ok(true) => tracing::info!("reclaimed idle polish runtime"),
                 Ok(false) => {}
@@ -223,29 +235,54 @@ impl LoopState {
         }
     }
 
-    /// 执行状态机命令：StartRecord 开始录音，StopRecord 停止录音并转写分发。
+    /// 执行状态机命令：StartRecord 开始录音，StopRecord 停止录音并
+    /// 把转写任务 spawn 到后台，主循环立即恢复监听按键。
     async fn execute_command(&mut self, cmd: Command) {
         match cmd {
             Command::StartRecord => {
-                let _ = handle_start_record(&mut *self.recorder, &*self.sink);
+                // 先置录音标志再起录：起录期间到达的后台状态不该改写界面。
+                self.sink.set_recording_active(true);
+                if handle_start_record(&mut *self.recorder, &*self.sink).is_err() {
+                    self.sink.set_recording_active(false);
+                }
             }
             Command::StopRecord => {
-                handle_stop_record(
-                    &mut *self.recorder,
-                    &*self.transcriber,
-                    &*self.formatter,
-                    self.polish_level,
-                    &self.pending_store,
-                    Arc::clone(&self.sink),
-                )
-                .await;
+                // 录音停止是同步操作（停止录音线程、取回 PCM、封装 WAV），
+                // 但转写与润色是异步长操作。把后者 spawn 出去，主循环立即
+                // 恢复 select!，用户在转写进行中就能开始下一次录音。
+                self.sink.set_recording_active(false);
+                let Some(wav_data) = stop_recording(&*self.recorder, &*self.sink) else {
+                    return;
+                };
+
+                let transcriber = Arc::clone(&self.transcriber);
+                let formatter = Arc::clone(&self.formatter);
+                let polish_level = self.polish_level;
+                let pending = self.pending_store.clone();
+                let sink = Arc::clone(&self.sink);
+                let semaphore = Arc::clone(&self.transcribe_semaphore);
+
+                tokio::spawn(async move {
+                    // 信号量把转写排成单列：并发会打乱剪贴板终稿的顺序，
+                    // 也把多个大段推理的峰值内存叠加在一起。
+                    let _permit = semaphore.acquire().await;
+                    transcribe_and_dispatch(
+                        &wav_data,
+                        &*transcriber,
+                        &*formatter,
+                        polish_level,
+                        &pending,
+                        sink,
+                    )
+                    .await;
+                });
             }
         }
     }
 
-    /// 重试一次待重试录音：录音中忽略请求，空闲时取出录音本体重新转写，
+    /// 重试一次待重试录音：录音中忽略请求，空闲时取出录音本体交给后台重写，
     /// 成功后告知前端撤下待重试横幅。
-    async fn execute_retry(&mut self) {
+    fn execute_retry(&mut self) {
         if self.machine.is_recording() {
             // 录音优先：此刻转写会把录音中的悬浮窗切成转写中再隐藏，
             // 音量事件流也会被掐断。请求丢弃，用户空闲后再点即可。
@@ -254,19 +291,30 @@ impl LoopState {
             match self.pending_store.take_wav() {
                 Some(wav) => {
                     tracing::info!("retrying pending transcription");
-                    let ok = transcribe_and_dispatch(
-                        &wav,
-                        &*self.transcriber,
-                        &*self.formatter,
-                        self.polish_level,
-                        &self.pending_store,
-                        Arc::clone(&self.sink),
-                    )
-                    .await;
-                    if ok {
-                        // 槽位已消费，告知前端横幅可以撤下。
-                        self.sink.on_pending_recording(None);
-                    }
+                    // 与停止录音后的转写一样交给后台：重试同样可能排在前面的
+                    // 长转写后面，留在主循环里 await 会重新堵住按键。
+                    let transcriber = Arc::clone(&self.transcriber);
+                    let formatter = Arc::clone(&self.formatter);
+                    let polish_level = self.polish_level;
+                    let pending = self.pending_store.clone();
+                    let sink = Arc::clone(&self.sink);
+                    let semaphore = Arc::clone(&self.transcribe_semaphore);
+                    tokio::spawn(async move {
+                        let _permit = semaphore.acquire().await;
+                        let ok = transcribe_and_dispatch(
+                            &wav,
+                            &*transcriber,
+                            &*formatter,
+                            polish_level,
+                            &pending,
+                            sink.clone(),
+                        )
+                        .await;
+                        if ok {
+                            // 槽位已消费，告知前端横幅可以撤下。
+                            sink.on_pending_recording(None);
+                        }
+                    });
                 }
                 None => {
                     tracing::warn!("retry requested but no pending recording");
@@ -314,11 +362,11 @@ mod tests {
         build_test_context(
             listener,
             Box::new(PlatformRecorder::new(16000)),
-            Box::new(super::super::test_doubles::FakeTranscriber::with_success(
+            Arc::new(super::super::test_doubles::FakeTranscriber::with_success(
                 "hello", "en",
             )),
             PolishLevel::None,
-            Box::new(LLMFormatter::from_config(&test_polisher_config(), "en").unwrap()),
+            Arc::new(LLMFormatter::from_config(&test_polisher_config(), "en").unwrap()),
             std::time::Duration::from_millis(400),
             std::time::Duration::from_millis(200),
             std::time::Duration::from_millis(80),
@@ -336,7 +384,7 @@ mod tests {
     fn make_test_context(
         listener: Box<dyn KeyListener>,
         recorder: Box<dyn Recorder>,
-        transcriber: Box<dyn Transcriber>,
+        transcriber: Arc<dyn Transcriber>,
         polish_level: PolishLevel,
     ) -> PipelineContext {
         let (_retry_tx, retry_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -353,7 +401,7 @@ mod tests {
     fn make_test_context_with_retry(
         listener: Box<dyn KeyListener>,
         recorder: Box<dyn Recorder>,
-        transcriber: Box<dyn Transcriber>,
+        transcriber: Arc<dyn Transcriber>,
         polish_level: PolishLevel,
         pending_store: PendingRecordingStore,
         retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
@@ -363,7 +411,7 @@ mod tests {
             recorder,
             transcriber,
             polish_level,
-            Box::new(
+            Arc::new(
                 LLMFormatter::new(
                     "test-key".to_string(),
                     "http://127.0.0.1:1".to_string(),
@@ -384,9 +432,9 @@ mod tests {
     fn build_test_context(
         listener: Option<Box<dyn KeyListener>>,
         recorder: Box<dyn Recorder>,
-        transcriber: Box<dyn Transcriber>,
+        transcriber: Arc<dyn Transcriber>,
         polish_level: PolishLevel,
-        formatter: Box<dyn Polisher>,
+        formatter: Arc<dyn Polisher>,
         long_press_threshold: std::time::Duration,
         double_click_interval: std::time::Duration,
         min_press_duration: std::time::Duration,
@@ -452,7 +500,7 @@ mod tests {
         let ctx = make_test_context(
             Box::new(listener),
             Box::new(Arc::clone(&recorder)),
-            Box::new(Arc::clone(&transcriber)),
+            transcriber.clone() as Arc<dyn Transcriber>,
             PolishLevel::Light,
         );
         let sink = MockSink::new();
@@ -517,7 +565,7 @@ mod tests {
         let ctx = make_test_context(
             Box::new(DropClosingListener::new()),
             Box::new(Arc::new(FakeRecorder::new(make_test_wav()))),
-            Box::new(Arc::new(FakeTranscriber::with_success("raw text", "en"))),
+            Arc::new(FakeTranscriber::with_success("raw text", "en")),
             PolishLevel::None,
         );
         let sink = MockSink::new();
@@ -550,7 +598,7 @@ mod tests {
         let ctx = make_test_context(
             Box::new(listener),
             Box::new(Arc::clone(&recorder)),
-            Box::new(Arc::clone(&transcriber)),
+            transcriber.clone() as Arc<dyn Transcriber>,
             PolishLevel::None,
         );
         let sink = MockSink::new();
@@ -601,7 +649,7 @@ mod tests {
         let ctx = make_test_context(
             Box::new(listener),
             Box::new(Arc::clone(&recorder)),
-            Box::new(Arc::clone(&transcriber)),
+            transcriber.clone() as Arc<dyn Transcriber>,
             PolishLevel::None,
         );
         let sink = MockSink::new();
@@ -640,7 +688,7 @@ mod tests {
         let ctx = make_test_context(
             Box::new(listener),
             Box::new(Arc::clone(&recorder)),
-            Box::new(Arc::clone(&transcriber)),
+            transcriber.clone() as Arc<dyn Transcriber>,
             PolishLevel::None,
         );
         let sink = MockSink::new();
@@ -685,7 +733,7 @@ mod tests {
         let ctx = make_test_context_with_retry(
             Box::new(listener),
             Box::new(Arc::clone(&recorder)),
-            Box::new(Arc::clone(&transcriber)),
+            transcriber.clone() as Arc<dyn Transcriber>,
             PolishLevel::None,
             pending_store.clone(),
             tokio::sync::mpsc::unbounded_channel().1,
@@ -732,7 +780,7 @@ mod tests {
         let ctx = make_test_context_with_retry(
             Box::new(listener),
             Box::new(Arc::clone(&recorder)),
-            Box::new(Arc::clone(&transcriber)),
+            transcriber.clone() as Arc<dyn Transcriber>,
             PolishLevel::None,
             pending_store.clone(),
             retry_rx,
@@ -810,7 +858,7 @@ mod tests {
         let ctx = make_test_context_with_retry(
             Box::new(listener),
             Box::new(Arc::clone(&recorder)),
-            Box::new(Arc::clone(&transcriber)),
+            transcriber.clone() as Arc<dyn Transcriber>,
             PolishLevel::None,
             pending_store.clone(),
             retry_rx,
@@ -849,13 +897,184 @@ mod tests {
         let _ = tokio::time::timeout(std::time::Duration::from_secs(2), run_handle).await;
     }
 
+    /// 模拟慢速转写：延迟指定时间后返回结果，用于验证主循环不被阻塞，
+    /// 并记录同时在跑的转写任务数峰值。
+    struct SlowTranscriber {
+        delay: std::time::Duration,
+        call_count: std::sync::atomic::AtomicUsize,
+        active: std::sync::atomic::AtomicUsize,
+        max_active: std::sync::atomic::AtomicUsize,
+    }
+
+    impl SlowTranscriber {
+        fn new(delay: std::time::Duration) -> Self {
+            Self {
+                delay,
+                call_count: std::sync::atomic::AtomicUsize::new(0),
+                active: std::sync::atomic::AtomicUsize::new(0),
+                max_active: std::sync::atomic::AtomicUsize::new(0),
+            }
+        }
+    }
+
+    impl Transcriber for SlowTranscriber {
+        fn backend(&self) -> &'static str {
+            "local"
+        }
+
+        fn transcribe<'life0, 'life1>(
+            &'life0 self,
+            _audio: &'life1 [u8],
+            on_progress: Arc<dyn Fn(f32) + Send + Sync>,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<
+                        Output = Result<
+                            crate::transcriber::TranscribeResult,
+                            crate::error::TranscriberError,
+                        >,
+                    > + Send
+                    + 'life0,
+            >,
+        >
+        where
+            'life1: 'life0,
+        {
+            use std::sync::atomic::Ordering::SeqCst;
+            self.call_count.fetch_add(1, SeqCst);
+            let active = self.active.fetch_add(1, SeqCst) + 1;
+            self.max_active.fetch_max(active, SeqCst);
+            let delay = self.delay;
+            Box::pin(async move {
+                tokio::time::sleep(delay).await;
+                self.active.fetch_sub(1, SeqCst);
+                (on_progress)(1.0);
+                Ok(crate::transcriber::TranscribeResult {
+                    text: "slow result".to_string(),
+                    language: "en".to_string(),
+                })
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn recording_is_not_blocked_by_pending_transcription() {
+        // 核心场景：第一次转写还在进行中（模拟 500ms 延迟），
+        // 第二次按键应该能立即开始录音，不需要等转写完成。
+        let (listener, handle) = FakeListener::new("fake");
+        let recorder = Arc::new(FakeRecorder::new(make_test_wav()));
+        let transcriber = Arc::new(SlowTranscriber::new(std::time::Duration::from_millis(500)));
+        let ctx = make_test_context(
+            Box::new(listener),
+            Box::new(Arc::clone(&recorder)),
+            transcriber.clone() as Arc<dyn Transcriber>,
+            PolishLevel::None,
+        );
+        let sink = MockSink::new();
+        let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+
+        let run_handle = tokio::spawn(ctx.run(stop_rx, sink.clone()));
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+
+        // 第一次录音：按住 80ms，松开，触发转写（500ms 延迟）。
+        handle.send(KeyEvent { pressed: true });
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        handle.send(KeyEvent { pressed: false });
+
+        // 等一小段时间确保转写已开始但还没完成。
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert!(
+            transcriber
+                .call_count
+                .load(std::sync::atomic::Ordering::SeqCst)
+                >= 1,
+            "第一次转写应已开始"
+        );
+        assert!(sink.results().is_empty(), "第一次转写还未完成");
+
+        // 第二次按键：不需要等转写完成就能开始录音。
+        handle.send(KeyEvent { pressed: true });
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        handle.send(KeyEvent { pressed: false });
+
+        // 第二次录音应该完成（stop_count = 2），不需要等第一次转写结束。
+        wait_until(100, || recorder.stop_count() >= 2).await;
+        assert_eq!(
+            recorder.stop_count(),
+            2,
+            "转写进行中应能开始并完成第二次录音"
+        );
+
+        // 等两次转写都完成。
+        wait_until(200, || sink.results().len() >= 2).await;
+
+        let _ = stop_tx.send(());
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), run_handle).await;
+
+        assert_eq!(sink.results().len(), 2, "两次录音都应产生转写结果");
+        assert_eq!(
+            sink.recording_flags(),
+            vec![true, false, true, false],
+            "每次起录与停止都要更新录音标志"
+        );
+    }
+
+    #[tokio::test]
+    async fn queued_transcriptions_run_one_at_a_time() {
+        // 转写串行执行：连续发出 3 次录音，三次都要完成，同时最多只有一个转写。
+        let (listener, handle) = FakeListener::new("fake");
+        let recorder = Arc::new(FakeRecorder::new(make_test_wav()));
+        let transcriber = Arc::new(SlowTranscriber::new(std::time::Duration::from_millis(300)));
+        let ctx = make_test_context(
+            Box::new(listener),
+            Box::new(Arc::clone(&recorder)),
+            transcriber.clone() as Arc<dyn Transcriber>,
+            PolishLevel::None,
+        );
+        let sink = MockSink::new();
+        let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+
+        let run_handle = tokio::spawn(ctx.run(stop_rx, sink.clone()));
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+
+        // 连续发 3 次录音（每次间隔很短）。
+        for _ in 0..3 {
+            handle.send(KeyEvent { pressed: true });
+            tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+            handle.send(KeyEvent { pressed: false });
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+
+        // 等所有 3 次转写完成。
+        wait_until(300, || sink.results().len() >= 3).await;
+
+        let _ = stop_tx.send(());
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), run_handle).await;
+
+        assert_eq!(sink.results().len(), 3, "3 次录音都应产生转写结果");
+        assert_eq!(
+            transcriber
+                .call_count
+                .load(std::sync::atomic::Ordering::SeqCst),
+            3,
+            "3 次录音都应触发转写"
+        );
+        assert_eq!(
+            transcriber
+                .max_active
+                .load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "转写必须串行，同时最多一个任务"
+        );
+    }
+
     #[tokio::test]
     async fn stop_signal_terminates_run() {
         let (listener, _handle) = FakeListener::new("fake");
         let ctx = make_test_context(
             Box::new(listener),
             Box::new(FakeRecorder::new(vec![])),
-            Box::new(FakeTranscriber::with_success("", "en")),
+            Arc::new(FakeTranscriber::with_success("", "en")),
             PolishLevel::None,
         );
         let sink = MockSink::new();

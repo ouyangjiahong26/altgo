@@ -31,8 +31,7 @@ pub use builder::PipelineBuilder;
 pub use context::PipelineContext;
 pub use dispatcher::{TranscriptionDispatch, TranscriptionDispatcherImpl};
 pub use handlers::{
-    dispatch_history_polish, handle_start_record, handle_stop_record, process_transcription_result,
-    select_text,
+    dispatch_history_polish, handle_start_record, process_transcription_result, select_text,
 };
 pub use pending::{PendingRecordingInfo, PendingRecordingStore, RetryRequestHandle};
 pub use sink::{DispatchOutcome, PipelineSink, TranscriptionMetrics, TranscriptionResult};

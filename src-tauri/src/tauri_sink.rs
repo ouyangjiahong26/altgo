@@ -155,6 +155,15 @@ pub struct TauriPipelineSink {
     dispatch: Arc<dyn TranscriptionDispatch>,
     overlay: Arc<dyn OverlaySink>,
     audio_level: Arc<std::sync::Mutex<AudioLevelState>>,
+    /// 录音是否正在进行。后台转写任务与录音并行，完成时可能正赶上下一次
+    /// 录音，此时丢弃它的状态与结果展示，只保留已完成的剪贴板与历史写入。
+    recording: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl TauriPipelineSink {
+    fn is_recording(&self) -> bool {
+        self.recording.load(std::sync::atomic::Ordering::SeqCst)
+    }
 }
 
 impl TauriPipelineSink {
@@ -176,12 +185,19 @@ impl TauriPipelineSink {
                 latest: None,
                 ticker: None,
             })),
+            recording: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 }
 
 impl PipelineSink for TauriPipelineSink {
     fn on_status_change(&self, status: PipelineStatus) {
+        // 录音优先：后台转写任务的状态切换（Processing/Idle）可能落在下一次
+        // 录音进行中，照单执行会把悬浮窗从录音相位切成转写中或隐藏。录音期间
+        // 只接受 Recording 本身。
+        if self.is_recording() && status != PipelineStatus::Recording {
+            return;
+        }
         emit_pipeline_status(&*self.emitter, &self.pipeline_status, status);
 
         // audio-level 派发与录音状态绑定。Recording 启动定时派发任务：先 abort
@@ -227,7 +243,9 @@ impl PipelineSink for TauriPipelineSink {
 
     fn on_transcription_result(&self, output: &TranscriptionResult) {
         if output.raw_text.is_empty() {
-            emit_pipeline_status(&*self.emitter, &self.pipeline_status, PipelineStatus::Idle);
+            if !self.is_recording() {
+                emit_pipeline_status(&*self.emitter, &self.pipeline_status, PipelineStatus::Idle);
+            }
             return;
         }
 
@@ -237,9 +255,21 @@ impl PipelineSink for TauriPipelineSink {
         let prefer_polished = self.prefer_polished;
         let dispatch = Arc::clone(&self.dispatch);
         let overlay = self.overlay.clone();
+        let recording = Arc::clone(&self.recording);
 
         tauri::async_runtime::spawn(async move {
             let result = dispatch.dispatch(&output_clone, prefer_polished).await;
+
+            // 录音期间只落剪贴板与历史：用户正在录下一句，上一条结果不该把
+            // 悬浮窗切成 done，也不该改写管道状态。
+            if recording.load(std::sync::atomic::Ordering::SeqCst) {
+                if let Some(res) = result {
+                    if res.history_appended {
+                        emitter.emit_history_updated();
+                    }
+                }
+                return;
+            }
 
             match result {
                 Some(res) => {
@@ -270,6 +300,11 @@ impl PipelineSink for TauriPipelineSink {
     }
 
     fn on_progress(&self, phase: &str, fraction: Option<f32>) {
+        // 录音期间的后台进度不推进界面：录音相位的进度条只属于本次录音自己的
+        // 转写，排队任务的起步进度会把它覆盖。
+        if self.is_recording() {
+            return;
+        }
         self.emitter.emit_transcription_progress(phase, fraction);
     }
 
@@ -283,6 +318,11 @@ impl PipelineSink for TauriPipelineSink {
 
     fn on_pending_recording(&self, pending: Option<&crate::voice_pipeline::PendingRecordingInfo>) {
         self.emitter.emit_pending_recording(pending);
+    }
+
+    fn set_recording_active(&self, recording: bool) {
+        self.recording
+            .store(recording, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
@@ -554,6 +594,110 @@ mod tests {
             fx.emitter.recorded_events(),
             vec![EmittedEvent::PipelineStatus("stopped".into())]
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // 录音期间的后台事件门控
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn background_status_is_ignored_while_recording() {
+        let fx = make_fixture(true, None);
+        fx.sink.set_recording_active(true);
+        fx.sink.on_status_change(PipelineStatus::Recording);
+        let events_before = fx.emitter.recorded_events().len();
+        let overlay_before = fx.overlay.recorded_states().len();
+
+        // 后台转写任务的 Processing / Idle 不得顶掉录音状态与录音界面。
+        fx.sink.on_status_change(PipelineStatus::Processing);
+        fx.sink.on_status_change(PipelineStatus::Idle);
+
+        assert_eq!(*fx.status.read().unwrap(), PipelineStatus::Recording);
+        assert_eq!(fx.emitter.recorded_events().len(), events_before);
+        assert_eq!(fx.overlay.recorded_states().len(), overlay_before);
+    }
+
+    #[test]
+    fn status_changes_apply_again_after_recording_ends() {
+        let fx = make_fixture(true, None);
+        fx.sink.set_recording_active(true);
+        fx.sink.on_status_change(PipelineStatus::Recording);
+        fx.sink.set_recording_active(false);
+
+        fx.sink.on_status_change(PipelineStatus::Processing);
+        assert_eq!(*fx.status.read().unwrap(), PipelineStatus::Processing);
+    }
+
+    #[test]
+    fn progress_is_ignored_while_recording() {
+        let fx = make_fixture(true, None);
+        fx.sink.set_recording_active(true);
+        fx.sink.on_progress("transcribe", Some(0.5));
+        assert!(fx.emitter.recorded_events().is_empty());
+
+        fx.sink.set_recording_active(false);
+        fx.sink.on_progress("transcribe", Some(0.5));
+        assert_eq!(fx.emitter.recorded_events().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn transcription_result_during_recording_writes_history_without_displaying() {
+        let fx = make_fixture(
+            false,
+            Some(DispatchOutcome {
+                text: "previous text".into(),
+                history_appended: true,
+            }),
+        );
+        fx.sink.set_recording_active(true);
+        fx.sink.on_status_change(PipelineStatus::Recording);
+
+        fx.sink.on_transcription_result(&TranscriptionResult {
+            text: "previous text".into(),
+            raw_text: "raw text".into(),
+            polish_failed: false,
+            polish_error: None,
+            metrics: TranscriptionMetrics::default(),
+        });
+
+        // 只等历史更新事件：结果展示被门控挡下。
+        for _ in 0..100 {
+            if fx
+                .emitter
+                .recorded_events()
+                .iter()
+                .any(|e| matches!(e, EmittedEvent::HistoryUpdated))
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        let events = fx.emitter.recorded_events();
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, EmittedEvent::HistoryUpdated)),
+            "录音期间仍要写历史"
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, EmittedEvent::TranscriptionResult(_))),
+            "录音期间不发结果文本"
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, EmittedEvent::PipelineStatus(s) if s == "done")),
+            "录音期间不切 done"
+        );
+        assert_eq!(*fx.status.read().unwrap(), PipelineStatus::Recording);
+        assert!(fx
+            .overlay
+            .recorded_states()
+            .iter()
+            .all(|s| s.phase != OverlayPhase::Done));
     }
 
     // -----------------------------------------------------------------------

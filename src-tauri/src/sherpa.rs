@@ -37,6 +37,8 @@ pub struct SherpaTranscriber {
     /// 只用于加载失败的提示文案。
     model_dir: PathBuf,
     language: String,
+    /// 识别引擎：决定输入时长上限。
+    engine: EngineKind,
 }
 
 impl std::fmt::Debug for SherpaTranscriber {
@@ -65,6 +67,141 @@ const MODEL_TYPE_PATTERN: &[u8] = b"\x0a\x0amodel_type\x12";
 
 /// 元数据扫描窗口：只读文件尾部这么多字节。
 const METADATA_TAIL_BYTES: u64 = 64 * 1024;
+
+/// FireRedASR2 CTC 单段最长时长（毫秒）。
+///
+/// 该模型的 encoder 按 5000 帧导出相对位置编码，特征按 25 帧/秒产生，单段
+/// 超过 200 秒后 mhsa 的相加节点广播失败。ONNX Runtime 抛出的 C++ 异常穿过
+/// FFI 边界时 Rust 无法捕获，运行时直接终止进程。分段把每段限制在 200 秒
+/// 以内，绕过这个硬上限。
+const FIRE_RED_MAX_AUDIO_MS: u64 = 200_000;
+
+/// 分段时的目标段长（毫秒）。留 20 秒余量，避免长语音无静音可切时
+/// 强制截断后恰好顶到 200 秒上限。
+const SEGMENT_TARGET_MS: u64 = 180_000;
+
+/// 静音判定阈值：帧 RMS 低于此值视为静音。取 -45 dBFS，
+/// 高于常见底噪，低于正常语音（-20 dBFS）。
+const SILENCE_RMS: f32 = 0.005;
+
+/// 静音检测帧长（毫秒）。
+const FRAME_MS: usize = 30;
+
+/// 一个静音点被视为可切的最短连续静音时长（毫秒）。
+const MIN_SILENCE_MS: u64 = 500;
+
+/// 引擎能安全接受的最长单段音频（毫秒）。`None` 表示没有已知的硬上限。
+fn max_audio_ms(engine: EngineKind) -> Option<u64> {
+    match engine {
+        EngineKind::FireRedAsrCtc => Some(FIRE_RED_MAX_AUDIO_MS),
+        EngineKind::SenseVoice => None,
+    }
+}
+
+/// 音频是否需要分段：超过引擎单段上限才切，否则保持原始单次推理。
+fn needs_segmentation(engine: EngineKind, duration_ms: u64) -> bool {
+    max_audio_ms(engine).is_some_and(|limit| duration_ms > limit)
+}
+
+/// 音频切分点（采样点下标）。`start..end` 为一个切片。
+#[derive(Debug, PartialEq)]
+struct SegmentRange {
+    start: usize,
+    end: usize,
+}
+
+/// 按静音感知把音频切成不超过 `limit_ms` 的段，相邻段首尾相接、互不重叠。
+///
+/// 流程：以 30 ms 为帧计算 RMS，找出连续超过 500 ms 的静音段，在目标段长
+/// 附近选最优静音点切分。切点是静音段中点，两侧都不含对方的内容。找不到
+/// 静音点就在目标段长处硬切。
+fn split_on_silence(samples: &[f32], sample_rate: u32, limit_ms: u64) -> Vec<SegmentRange> {
+    let frame_size = sample_rate as usize * FRAME_MS / 1000;
+    let total_ms = samples.len() as u64 * 1000 / sample_rate as u64;
+    if total_ms <= limit_ms {
+        return vec![SegmentRange {
+            start: 0,
+            end: samples.len(),
+        }];
+    }
+
+    // 计算每帧 RMS。
+    let frames: Vec<f32> = samples
+        .chunks(frame_size)
+        .map(|chunk| {
+            let sum: f32 = chunk.iter().map(|s| s * s).sum();
+            (sum / chunk.len().max(1) as f32).sqrt()
+        })
+        .collect();
+
+    // 找出连续静音段（frame 下标区间）。
+    let silence_frames: Vec<(usize, usize)> = {
+        let mut ranges = Vec::new();
+        let mut start = None;
+        for (i, &rms) in frames.iter().enumerate() {
+            if rms < SILENCE_RMS {
+                start.get_or_insert(i);
+            } else if let Some(s) = start.take() {
+                let dur_ms = (i - s) as u64 * FRAME_MS as u64;
+                if dur_ms >= MIN_SILENCE_MS {
+                    ranges.push((s, i));
+                }
+            }
+        }
+        if let Some(s) = start {
+            let dur_ms = (frames.len() - s) as u64 * FRAME_MS as u64;
+            if dur_ms >= MIN_SILENCE_MS {
+                ranges.push((s, frames.len()));
+            }
+        }
+        ranges
+    };
+
+    // 贪心切分：每次在目标段长附近找最近的静音点。
+    let target_samples = sample_rate as usize * SEGMENT_TARGET_MS as usize / 1000;
+    let limit_samples = sample_rate as usize * limit_ms as usize / 1000;
+
+    let mut segments = Vec::new();
+    let mut pos = 0usize;
+    while pos < samples.len() {
+        let remaining = samples.len() - pos;
+        if remaining <= limit_samples {
+            segments.push(SegmentRange {
+                start: pos,
+                end: samples.len(),
+            });
+            break;
+        }
+
+        // 理想切点 = pos + target_samples。在 limit_samples 范围内找最近的静音段中点。
+        let ideal_end = pos + target_samples;
+        let max_end = pos + limit_samples;
+
+        let best_cut = silence_frames
+            .iter()
+            .filter_map(|&(s, e)| {
+                let mid_frame = (s + e) / 2;
+                let mid_sample = mid_frame * frame_size;
+                if mid_sample > pos + frame_size && mid_sample <= max_end {
+                    Some(mid_sample)
+                } else {
+                    None
+                }
+            })
+            .min_by_key(|&cut| cut.abs_diff(ideal_end));
+
+        let cut = best_cut.unwrap_or(ideal_end.min(max_end));
+        // 两段在 cut 处首尾相接。留 padding 会让同一段音频进入两次推理，
+        // 硬切时直接产出重复文字。
+        segments.push(SegmentRange {
+            start: pos,
+            end: cut,
+        });
+        pos = cut.max(pos + 1);
+    }
+
+    segments
+}
 
 /// 引擎展示名，用于错误文案。
 fn engine_label(engine: EngineKind) -> &'static str {
@@ -183,6 +320,7 @@ impl SherpaTranscriber {
             config: Arc::new(config),
             model_dir,
             language,
+            engine,
         })
     }
 
@@ -218,7 +356,13 @@ impl SherpaTranscriber {
     }
 
     /// 同步转写：WAV 解码 → 推理 → 返回文本。调用方应放入 blocking 线程池。
-    fn transcribe_blocking(&self, audio_data: &[u8]) -> Result<TranscribeResult, TranscriberError> {
+    ///
+    /// 短音频直接单次推理；超过引擎单段上限时按静音分段，逐段识别后拼接。
+    fn transcribe_blocking(
+        &self,
+        audio_data: &[u8],
+        on_progress: &(dyn Fn(f32) + Send + Sync),
+    ) -> Result<TranscribeResult, TranscriberError> {
         if audio_data.is_empty() {
             return Err(TranscriberError::EmptyAudio);
         }
@@ -226,9 +370,25 @@ impl SherpaTranscriber {
         let samples = crate::audio::decode_wav_to_f32(audio_data)
             .map_err(|e| TranscriberError::WavDecodeFailed(e.to_string()))?;
 
+        let duration_ms = samples.len() as u64 * 1000 / crate::recorder::SAMPLE_RATE as u64;
+
+        if needs_segmentation(self.engine, duration_ms) {
+            self.transcribe_segmented(&samples, on_progress)
+        } else {
+            let text = self.transcribe_single(&samples)?;
+            (on_progress)(1.0);
+            Ok(TranscribeResult {
+                text,
+                language: self.language.clone(),
+            })
+        }
+    }
+
+    /// 单段推理：把采样交给识别器，返回识别文本。
+    fn transcribe_single(&self, samples: &[f32]) -> Result<String, TranscriberError> {
         let recognizer = self.recognizer()?;
         let stream = recognizer.create_stream();
-        stream.accept_waveform(crate::recorder::SAMPLE_RATE as i32, &samples);
+        stream.accept_waveform(crate::recorder::SAMPLE_RATE as i32, samples);
         recognizer.decode(&stream);
 
         let text = stream
@@ -237,11 +397,53 @@ impl SherpaTranscriber {
             .unwrap_or_default()
             .trim()
             .to_string();
+        Ok(text)
+    }
+
+    /// 分段转写：按静音切分，逐段识别，按顺序拼接文本。
+    fn transcribe_segmented(
+        &self,
+        samples: &[f32],
+        on_progress: &(dyn Fn(f32) + Send + Sync),
+    ) -> Result<TranscribeResult, TranscriberError> {
+        let limit_ms = max_audio_ms(self.engine).unwrap_or(u64::MAX);
+        let segments = split_on_silence(samples, crate::recorder::SAMPLE_RATE, limit_ms);
+
+        tracing::info!(segments = segments.len(), "long audio split into segments");
+
+        let mut texts = Vec::with_capacity(segments.len());
+        for (i, seg) in segments.iter().enumerate() {
+            let chunk = &samples[seg.start..seg.end];
+            let text = self.transcribe_single(chunk)?;
+            if !text.is_empty() {
+                texts.push(text);
+            }
+            (on_progress)((i + 1) as f32 / segments.len() as f32);
+        }
+
+        // 中文各段直接拼接（中文无空格分词），英文段间加空格。
+        // 简单策略：如果段尾或段首是 ASCII 字母/数字，则插入空格。
+        let mut result = String::new();
+        for (i, text) in texts.iter().enumerate() {
+            if i > 0 && needs_space_between(result.chars().last(), text.chars().next()) {
+                result.push(' ');
+            }
+            result.push_str(text);
+        }
 
         Ok(TranscribeResult {
-            text,
+            text: result.trim().to_string(),
             language: self.language.clone(),
         })
+    }
+}
+
+/// 拼接两段文本时是否需要空格：前段结尾和后段开头都是 ASCII 可打印字符
+/// （字母、数字、标点）时加空格，中文之间不加。
+fn needs_space_between(prev: Option<char>, next: Option<char>) -> bool {
+    match (prev, next) {
+        (Some(p), Some(n)) => p.is_ascii() && n.is_ascii(),
+        _ => false,
     }
 }
 
@@ -260,16 +462,17 @@ impl Transcriber for SherpaTranscriber {
     {
         let this = self.clone();
         let audio = audio.to_vec();
+        let progress = Arc::clone(&on_progress);
         Box::pin(async move {
             if audio.is_empty() {
                 return Err(TranscriberError::EmptyAudio);
             }
-            let result = tokio::task::spawn_blocking(move || this.transcribe_blocking(&audio))
-                .await
-                .map_err(|e| TranscriberError::ModelLoadFailed {
-                    reason: format!("推理任务执行失败: {}", e),
-                })??;
-            (on_progress)(1.0);
+            let result =
+                tokio::task::spawn_blocking(move || this.transcribe_blocking(&audio, &*progress))
+                    .await
+                    .map_err(|e| TranscriberError::ModelLoadFailed {
+                        reason: format!("推理任务执行失败: {}", e),
+                    })??;
             Ok(result)
         })
     }
@@ -386,5 +589,98 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.message().contains("不匹配"));
+    }
+
+    #[test]
+    fn test_only_fire_red_has_length_guard() {
+        assert_eq!(max_audio_ms(EngineKind::SenseVoice), None);
+        assert_eq!(
+            max_audio_ms(EngineKind::FireRedAsrCtc),
+            Some(FIRE_RED_MAX_AUDIO_MS)
+        );
+    }
+
+    #[test]
+    fn test_needs_segmentation_only_over_limit() {
+        // 短于上限不分段，超过才分段；SenseVoice 永远不分段。
+        assert!(!needs_segmentation(EngineKind::FireRedAsrCtc, 60_000));
+        assert!(!needs_segmentation(EngineKind::FireRedAsrCtc, 200_000));
+        assert!(needs_segmentation(EngineKind::FireRedAsrCtc, 200_001));
+        assert!(!needs_segmentation(EngineKind::SenseVoice, 600_000));
+    }
+
+    #[test]
+    fn test_split_on_silence_short_audio_returns_single() {
+        let samples = vec![0.5f32; 16000 * 5]; // 5 秒
+        let segs = split_on_silence(&samples, 16000, 200_000);
+        assert_eq!(segs.len(), 1);
+        assert_eq!(segs[0].start, 0);
+        assert_eq!(segs[0].end, samples.len());
+    }
+
+    #[test]
+    fn test_split_on_silence_long_audio_with_silence_splits() {
+        // 构造：30 秒语音 + 2 秒静音 + 30 秒语音 + 2 秒静音 + ... 共 250 秒
+        let sr = 16000usize;
+        let speech = vec![0.5f32; sr * 30];
+        let silence = vec![0.0001f32; sr * 2];
+        let mut samples = Vec::new();
+        for _ in 0..8 {
+            samples.extend_from_slice(&speech);
+            samples.extend_from_slice(&silence);
+        }
+        samples.extend_from_slice(&speech); // 最后一段不要尾部静音
+
+        let segs = split_on_silence(&samples, sr as u32, 200_000);
+        assert!(
+            segs.len() >= 2,
+            "250 秒音频应切成至少 2 段，实际 {} 段",
+            segs.len()
+        );
+        // 每段不超过上限。
+        let limit_samples = sr * 200;
+        for (i, seg) in segs.iter().enumerate() {
+            assert!(
+                seg.end - seg.start <= limit_samples,
+                "段 {} 长度 {} 采样超过上限 {}",
+                i,
+                seg.end - seg.start,
+                limit_samples
+            );
+        }
+        // 所有段覆盖完整音频，且相邻段首尾相接、互不重叠：重叠会把同一段
+        // 语音送进两次推理，硬切时直接产出重复文字。
+        assert_eq!(segs.first().unwrap().start, 0);
+        assert_eq!(segs.last().unwrap().end, samples.len());
+        for pair in segs.windows(2) {
+            assert_eq!(
+                pair[0].end, pair[1].start,
+                "相邻段重叠或留缝：{:?} 与 {:?}",
+                pair[0], pair[1]
+            );
+        }
+    }
+
+    #[test]
+    fn test_split_on_silence_no_silence_forces_hard_cut() {
+        // 250 秒连续非静音，找不到静音点，硬切。
+        let samples = vec![0.5f32; 16000 * 250];
+        let segs = split_on_silence(&samples, 16000, 200_000);
+        assert!(
+            segs.len() >= 2,
+            "250 秒连续语音应硬切成至少 2 段，实际 {} 段",
+            segs.len()
+        );
+    }
+
+    #[test]
+    fn test_needs_space_between() {
+        assert!(needs_space_between(Some('a'), Some('b')));
+        assert!(needs_space_between(Some('1'), Some('2')));
+        assert!(!needs_space_between(Some('中'), Some('文')));
+        assert!(!needs_space_between(Some('a'), Some('中')));
+        assert!(!needs_space_between(Some('中'), Some('a')));
+        assert!(!needs_space_between(None, Some('a')));
+        assert!(!needs_space_between(Some('a'), None));
     }
 }
