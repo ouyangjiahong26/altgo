@@ -24,60 +24,60 @@ export default function Home(): React.JSX.Element {
   const features = [
     {
       icon: Monitor,
-      title: translate({id: 'home.feature.platform.title', message: '四个平台组合全覆盖'}),
+      title: translate({id: 'home.feature.platform.title', message: 'Four platform combinations'}),
       description: translate({
         id: 'home.feature.platform.description',
-        message: 'Windows 与 Linux、x86_64 与 arm64 同时支持。Linux 侧兼容 X11 与 Wayland。',
+        message: 'Windows and Linux on x86_64 and arm64. The Linux side supports both X11 and Wayland.',
       }),
     },
     {
       icon: Mic,
-      title: translate({id: 'home.feature.hold.title', message: '长按即录'}),
+      title: translate({id: 'home.feature.hold.title', message: 'Hold to record'}),
       description: translate({
         id: 'home.feature.hold.description',
-        message: '按住右 Alt 说话，松开即转写。无需切换窗口，不打断工作流。',
+        message: 'Hold right Alt to speak and release to transcribe. No window switching, no interruption.',
       }),
     },
     {
       icon: Infinity,
-      title: translate({id: 'home.feature.continuous.title', message: '连续模式'}),
+      title: translate({id: 'home.feature.continuous.title', message: 'Continuous mode'}),
       description: translate({
         id: 'home.feature.continuous.description',
-        message: '双击进入连续录音，适合长篇发言或会议记录。单击停止。',
+        message: 'Double-press to start continuous recording for long speech or meetings. Single-press to stop.',
       }),
     },
     {
       icon: Brain,
-      title: translate({id: 'home.feature.local.title', message: '本地与在线转写'}),
+      title: translate({id: 'home.feature.local.title', message: 'Local and online transcription'}),
       description: translate({
         id: 'home.feature.local.description',
-        message: '本地 SenseVoice 或 FireRedASR2 CTC 断网可用，也可切到在线 MiMo ASR。',
+        message: 'SenseVoice or FireRedASR2 CTC locally, even offline, or switch to online MiMo ASR.',
       }),
     },
     {
       icon: Sparkles,
-      title: translate({id: 'home.feature.polish.title', message: 'LLM 润色'}),
+      title: translate({id: 'home.feature.polish.title', message: 'LLM polishing'}),
       description: translate({
         id: 'home.feature.polish.description',
-        message: '四档润色强度，支持 OpenAI / DeepSeek / Anthropic / Ollama。',
+        message: 'Four polishing levels, with support for OpenAI, DeepSeek, Anthropic and Ollama.',
       }),
     },
     {
       icon: ClipboardCopy,
-      title: translate({id: 'home.feature.clipboard.title', message: '剪贴板 + 悬浮窗'}),
+      title: translate({id: 'home.feature.clipboard.title', message: 'Clipboard and overlay'}),
       description: translate({
         id: 'home.feature.clipboard.description',
-        message: '转写成功后写入剪贴板并弹出悬浮窗。全文可在主窗历史中查看、复制。',
+        message: 'The result goes to the clipboard and appears in the overlay. The full text stays available in history.',
       }),
     },
   ];
 
   const screenshots = [
-    {src: '/altgo/img/screenshot-main.png', alt: translate({id: 'home.screenshot.main', message: '主界面'})},
-    {src: '/altgo/img/screenshot-home.png', alt: translate({id: 'home.screenshot.home', message: '首页转写中'})},
-    {src: '/altgo/img/screenshot-overlay.png', alt: translate({id: 'home.screenshot.overlay', message: '悬浮窗'})},
-    {src: '/altgo/img/screenshot-settings.png', alt: translate({id: 'home.screenshot.settings', message: '设置页面'})},
-    {src: '/altgo/img/screenshot-history.png', alt: translate({id: 'home.screenshot.history', message: '转录历史'})},
+    {src: '/altgo/img/screenshot-main.png', alt: translate({id: 'home.screenshot.main', message: 'Main window'})},
+    {src: '/altgo/img/screenshot-home.png', alt: translate({id: 'home.screenshot.home', message: 'Home while transcribing'})},
+    {src: '/altgo/img/screenshot-overlay.png', alt: translate({id: 'home.screenshot.overlay', message: 'Overlay'})},
+    {src: '/altgo/img/screenshot-settings.png', alt: translate({id: 'home.screenshot.settings', message: 'Settings'})},
+    {src: '/altgo/img/screenshot-history.png', alt: translate({id: 'home.screenshot.history', message: 'Transcription history'})},
   ];
 
   React.useEffect(() => {
@@ -90,7 +90,7 @@ export default function Home(): React.JSX.Element {
   return (
     <Layout
       title={siteConfig.title}
-      description={translate({id: 'home.meta.description', message: '无需打字，言出法随'})}
+      description={translate({id: 'home.meta.description', message: 'Speech to text, without typing'})}
     >
       {/* ─── 首屏 ─── */}
       <header className={styles.heroBanner}>
@@ -99,26 +99,26 @@ export default function Home(): React.JSX.Element {
         <div className={clsx('container', styles.heroInner)}>
           <div className={styles.heroBadge}>
             <span className={styles.heroBadgeDot} />
-            <Translate id="home.hero.badge">Windows 与 Linux，x86_64 与 arm64</Translate>
+            <Translate id="home.hero.badge">Windows and Linux, x86_64 and arm64</Translate>
           </div>
           <h1 className={styles.heroTitle}>
-            <Translate id="home.hero.title.line1">无需打字</Translate>
+            <Translate id="home.hero.title.line1">No typing</Translate>
             <br />
             <span className={styles.heroTitleAccent}>
-              <Translate id="home.hero.title.line2">言出法随</Translate>
+              <Translate id="home.hero.title.line2">Just speaking</Translate>
             </span>
           </h1>
           <p className={styles.heroTagline}>
             <Translate
               id="home.hero.tagline.line1"
               description="hero tagline, first line">
-              同时支持 Windows 与 Linux、x86_64 与 arm64 四个平台组合。
+              Windows and Linux, x86_64 and arm64: four platform combinations.
             </Translate>
             <br />
             <Translate
               id="home.hero.tagline.line2"
               description="hero tagline, second line">
-              按住 Alt 说话，松开后按所选引擎转写，可接入 LLM 润色。
+              Hold Alt to speak. On release, altgo transcribes with the engine you choose and can polish the text with an LLM.
             </Translate>
           </p>
           <div className={styles.buttons}>
@@ -127,14 +127,14 @@ export default function Home(): React.JSX.Element {
               to="/docs/quick-start"
             >
               <Download size={18} />
-              <Translate id="home.cta.quickStart">快速开始</Translate>
+              <Translate id="home.cta.quickStart">Quick Start</Translate>
             </Link>
             <Link
               className={clsx('button', styles.btnSecondary)}
               to="/docs/usage"
             >
               <BookOpen size={18} />
-              <Translate id="home.cta.usage">使用说明</Translate>
+              <Translate id="home.cta.usage">Usage</Translate>
             </Link>
             <Link
               className={clsx('button', styles.btnGhost)}
@@ -174,7 +174,7 @@ export default function Home(): React.JSX.Element {
                   )}
                   onClick={() => setActiveShot(i)}
                   aria-label={translate(
-                    {id: 'home.screenshot.viewN', message: '查看截图 {n}'},
+                    {id: 'home.screenshot.viewN', message: 'View screenshot {n}'},
                     {n: i + 1},
                   )}
                 />
@@ -189,38 +189,38 @@ export default function Home(): React.JSX.Element {
         <section className={styles.howItWorks}>
           <div className="container">
             <p className={styles.sectionKicker}>
-              <Translate id="home.steps.kicker">三步上手</Translate>
+              <Translate id="home.steps.kicker">Three steps</Translate>
             </p>
             <h2 className={styles.sectionTitle}>
-              <Translate id="home.steps.title">简单到不需要教程</Translate>
+              <Translate id="home.steps.title">Simple enough to skip the tutorial</Translate>
             </h2>
             <div className={styles.steps}>
               <div className={styles.step}>
                 <div className={styles.stepNum}>1</div>
-                <h3><Translate id="home.steps.install.title">安装并设置</Translate></h3>
+                <h3><Translate id="home.steps.install.title">Install and configure</Translate></h3>
                 <p>
                   <Translate id="home.steps.install.description">
-                    下载 deb / rpm / AppImage，在设置中选择本地模型或在线转写。
+                    Download the deb, rpm or AppImage, then choose a local model or online transcription in Settings.
                   </Translate>
                 </p>
               </div>
               <ArrowRight className={styles.stepArrow} size={24} />
               <div className={styles.step}>
                 <div className={styles.stepNum}>2</div>
-                <h3><Translate id="home.steps.speak.title">按住 Alt 说话</Translate></h3>
+                <h3><Translate id="home.steps.speak.title">Hold Alt and speak</Translate></h3>
                 <p>
                   <Translate id="home.steps.speak.description">
-                    长按右 Alt 开始录音，松开自动转写。双击进入连续模式。
+                    Hold right Alt to record and release to transcribe. Double-press for continuous mode.
                   </Translate>
                 </p>
               </div>
               <ArrowRight className={styles.stepArrow} size={24} />
               <div className={styles.step}>
                 <div className={styles.stepNum}>3</div>
-                <h3><Translate id="home.steps.paste.title">粘贴使用</Translate></h3>
+                <h3><Translate id="home.steps.paste.title">Paste anywhere</Translate></h3>
                 <p>
                   <Translate id="home.steps.paste.description">
-                    转写结果自动写入剪贴板，悬浮窗单行展示确认，直接粘贴使用。
+                    The result is already on the clipboard. Confirm it in the overlay and paste it.
                   </Translate>
                 </p>
               </div>
@@ -232,10 +232,10 @@ export default function Home(): React.JSX.Element {
         <section className={styles.features}>
           <div className="container">
             <p className={styles.sectionKicker}>
-              <Translate id="home.features.kicker">功能特点</Translate>
+              <Translate id="home.features.kicker">Features</Translate>
             </p>
             <h2 className={styles.sectionTitle}>
-              <Translate id="home.features.title">为你设计的细节体验</Translate>
+              <Translate id="home.features.title">Details designed for daily use</Translate>
             </h2>
             <div className={styles.featureGrid}>
               {features.map((f) => {
@@ -259,11 +259,11 @@ export default function Home(): React.JSX.Element {
           <div className="container">
             <div className={styles.ctaBox}>
               <h2 className={styles.ctaTitle}>
-                <Translate id="home.cta.finalTitle">准备好提升输入效率了吗？</Translate>
+                <Translate id="home.cta.finalTitle">Ready to speed up your typing?</Translate>
               </h2>
               <p className={styles.ctaSubtitle}>
                 <Translate id="home.cta.finalSubtitle">
-                  30 秒安装，永久改变你的输入方式
+                  Install in 30 seconds and change how you type
                 </Translate>
               </p>
               <div className={styles.buttons}>
@@ -271,14 +271,14 @@ export default function Home(): React.JSX.Element {
                   className={clsx('button', styles.btnPrimary)}
                   to="/docs/quick-start"
                 >
-                  <Translate id="home.cta.quickStart">快速开始</Translate>{' '}
+                  <Translate id="home.cta.quickStart">Quick Start</Translate>{' '}
                   <ArrowRight size={18} />
                 </Link>
                 <Link
                   className={clsx('button', styles.btnGhost)}
                   href="https://github.com/ouyangjiahong26/altgo/releases"
                 >
-                  <Translate id="home.cta.download">下载最新版</Translate>
+                  <Translate id="home.cta.download">Download latest</Translate>
                 </Link>
               </div>
             </div>

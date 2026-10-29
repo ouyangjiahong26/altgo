@@ -1,0 +1,224 @@
+---
+sidebar_position: 2
+title: 配置指南
+description: altgo TOML 配置文件的完整说明，包括转写、润色、按键、输出与环境变量覆盖。
+---
+
+# 配置指南
+
+altgo 使用 TOML 格式的配置文件，所有字段都有默认值，只需修改你需要的部分。日常使用优先走设置页，配置文件用于界面没有暴露的字段，或需要批量修改的场景。
+
+## 配置文件位置
+
+`~/.config/altgo/altgo.toml`
+
+## 转写配置
+
+转写引擎由 `[transcriber] backend` 选择。默认 `local`，本地运行。改为 `online` 后使用云端 ASR。
+
+```toml
+[transcriber]
+backend = "local"        # "local"（默认）或 "online"
+language = "zh"          # 空字符串表示自动检测，能力取决于所选模型
+threads = 0              # 本地引擎线程数，0 = 按 CPU 并行度自动取满
+```
+
+### 本地引擎
+
+```toml
+[transcriber]
+model = "sense-voice"    # 设置页下载后自动填入，也可填模型目录路径
+```
+
+可选模型：
+
+| 模型名 | 说明 | 下载体积 |
+|--------|------|---------|
+| `sense-voice` | SenseVoice，中英日韩粤自动检测，速度快 | 约 230 MB |
+| `sense-voice-yue` | SenseVoice 粤语增强，粤语更准 | 约 237 MB |
+| `fire-red-asr2-ctc` | FireRedASR2 CTC，中英混说更强 | 约 740 MB |
+
+本地引擎内嵌 sherpa-onnx，模型在管道启动时加载一次并常驻内存。模型文件缺失或加载失败会在启动时直接报错。
+
+### 在线引擎
+
+```toml
+[transcriber]
+backend = "online"
+
+[transcriber.online]
+protocol = "mimo_chat"   # mimo_chat、chat_input_audio 或 transcriptions
+api_key = "sk-your-key"
+api_base_url = "https://token-plan-cn.xiaomimimo.com/v1"
+model = "mimo-v2.5-asr"
+timeout = 60             # 请求超时时间（秒）
+```
+
+三种协议的区别：
+
+| 协议 | 请求形状 | 适用服务 |
+|------|---------|---------|
+| `mimo_chat` | `chat/completions`，WAV 以 base64 放进单个 `input_audio` 块，携带 `asr_options` | 小米 MiMo 网关，默认值 |
+| `chat_input_audio` | 同 chat 形状，不带 `asr_options`，语言非空时作为顶层字段 | OpenAI 形状的 `input_audio` 端点 |
+| `transcriptions` | OpenAI `/audio/transcriptions` multipart | whisper、智谱 glm-asr、SiliconFlow SenseVoiceSmall 云端版等 |
+
+在线转写失败会直接报错，不回退本地引擎。密钥也可通过 `ALTGO_TRANSCRIBER_API_KEY` 环境变量设置。
+
+## 润色配置
+
+润色是可选步骤。级别为 `none` 时完全跳过，不调用任何模型。级别不为 `none` 时，由 `[polisher] backend` 选择远端 API 或本机模型。
+
+### 引擎选择
+
+```toml
+[polisher]
+backend = "remote"           # "remote"（默认）或 "local"
+local_model = "qwen3-0.6b"   # 本地档使用："qwen3-0.6b"、"qwen3-1.7b"，或自定义 GGUF 路径
+```
+
+本地档需要的运行时与模型都在设置页的“润色”分区按需下载，不随安装包分发。运行时是 llama.cpp 的 llama-server，Windows x64 的压缩包约 19.5 MB，解包后约 47 MiB。模型 Qwen3-0.6B 约 397 MB，Qwen3-1.7B 约 1.1 GB。也可以把 `local_model` 直接指向自己的 GGUF 文件，此时不下载权重，只装运行时。
+
+本地档的参数按实测固定：温度 0，输出上限 192 token，线程数取物理核数（上限 16）。本地档只提供一档，档位选择相当于开关，`none` 关闭，其余档位开启。整理后的文本还要过一道保真校验，数字、网址或路径被改动，结果被压缩成摘要，凭空多出内容，出现格式标记，都会判定失败并回退转写原文。
+
+本地档的延迟：首次调用要等运行时启动与模型加载，本机实测约 1.3 到 2.7 秒。之后每次约 0.15 到 0.3 秒。运行时空闲十分钟后自动退出释放内存，下次使用时重新拉起。
+
+### 润色级别
+
+| 级别 | 效果 | 远端档需要 API 密钥 |
+|------|------|:---:|
+| `none` | 不润色，直接输出转写文本 | 否 |
+| `light` | 修正标点和错别字 | 是 |
+| `medium` | 修正语法、改善语序通顺度 | 是 |
+| `heavy` | 结构化重写，适合正式文档 | 是 |
+
+### 远端配置
+
+```toml
+[polisher]
+level = "medium"
+protocol = "openai"          # "openai" 或 "anthropic"
+api_key = "sk-your-key"
+api_base_url = "https://api.deepseek.com"
+model = "deepseek-v4-flash"
+max_tokens = 1024
+timeout = 60
+temperature = 0.3
+```
+
+`level = "none"` 时不需要密钥、地址与模型名。级别不为 `none` 时，这三项都是必填。
+
+`api_base_url` 支持三种写法，应用会自动拼出正确的请求地址：
+
+- 不带版本路径：如 `https://api.deepseek.com`、`https://api.anthropic.com`，自动补 `/v1/chat/completions` 或 `/v1/messages`。
+- 带版本路径：如 `https://api.moonshot.cn/v1`、`https://open.bigmodel.cn/api/paas/v4`、`https://dashscope.aliyuncs.com/compatible-mode/v1`，只在后面接 `/chat/completions` 或 `/messages`。
+- 完整 endpoint：以 `/chat/completions` 或 `/messages` 结尾，原样使用。
+
+设置页的“润色”分区有测试连接按钮。选好供应商预设、填入密钥后点击，会立即发一次最小请求并给出可读的结果（密钥无效、地址不对、超时等），无需先保存或实际录音验证。
+
+### 常见供应商
+
+下表列出常见服务的配置值，所有组合都写在 `[polisher]` 段内。
+
+| 供应商 | protocol | api_base_url | 示例 model |
+|--------|----------|--------------|------------|
+| OpenAI | `openai` | `https://api.openai.com` | `gpt-3.5-turbo` |
+| DeepSeek | `openai` | `https://api.deepseek.com` | `deepseek-v4-flash` |
+| Anthropic | `anthropic` | `https://api.anthropic.com` | `claude-sonnet-4-20250514` |
+| 火山方舟（豆包） | `openai` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-1.6-flash-250828` |
+| 百度千帆 | `openai` | `https://qianfan.baidubce.com/v2` | `ernie-4.5-turbo-128k` |
+| MiniMax | `openai` | `https://api.minimaxi.com/v1` | `MiniMax-M3` |
+| OpenRouter | `openai` | `https://openrouter.ai/api/v1` | `deepseek/deepseek-v4-flash` |
+| Google Gemini（OpenAI 兼容端点） | `openai` | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash-lite` |
+| 本地 Ollama | `openai` | `http://localhost:11434` | `qwen2.5:7b` |
+
+本地 Ollama 的 `api_key` 可填任意非空值，例如 `ollama`。
+
+设置页内置约百家供应商预设（原生 13 家，另有迁移自 [cc-switch](https://github.com/farion1231/cc-switch) 的 86 家）。选中后自动填入地址与协议，只需补上密钥。带 `(Anthropic)` 或 `(OpenAI)` 后缀的是同一供应商的不同协议端点。
+
+### 思考层级（默认关闭）
+
+语音润色是轻量文本任务。推理模型先思考再回答，会多出数秒延迟和 token 花费。默认 `thinking_level = "off"`，对支持关闭思考的服务商自动附带关闭参数：
+
+| 服务商 | 自动附带的参数 |
+|--------|----------------|
+| 通义（dashscope）、SiliconFlow（.cn 与 .com） | `enable_thinking: false` |
+| 智谱（bigmodel.cn 与 z.ai）、火山方舟、MiniMax、DeepSeek、Moonshot、Kimi、小米 MiMo | `thinking: {"type": "disabled"}` |
+| OpenRouter | `reasoning: {"enabled": false}` |
+| Anthropic 协议加上述默认思考的服务商（DeepSeek、小米 MiMo 等） | `thinking: {"type": "disabled"}` |
+
+需要思考时把 `thinking_level` 设为 `"low"`、`"medium"` 或 `"high"`，设置页有同名下拉框。请求按各家参数方言开启：
+
+| 服务商 | 层级开启时附带 |
+|--------|----------------|
+| 通义、SiliconFlow | `enable_thinking: true`（仅开关，不分档） |
+| 智谱、火山方舟、MiniMax、DeepSeek、Moonshot、Kimi、小米 MiMo | `thinking: {"type": "enabled"}`（仅开关，不分档） |
+| OpenRouter | `reasoning: {"effort": "low"}`、`"medium"` 或 `"high"` |
+| 其他服务商（含 OpenAI 官方） | `reasoning_effort: "low"`、`"medium"` 或 `"high"` |
+| Anthropic 协议 | `thinking: {"type": "enabled", "budget_tokens": 1024}`、`4096` 或 `16384`，同时抬高 `max_tokens` 且不发送 `temperature` |
+
+未命中上表的中转端点会在出口剥掉响应中混入的 `<think>` 思维链残渣。Anthropic 协议取第一个文本块。Anthropic 官方与未知端点不发送关闭参数，因为官方思考是选择加入，新模型对 `disabled` 直接报 400。
+
+默认思考的服务商收不到关闭参数时，思考与回答共享 `max_tokens`。预算被思考吃光后可见文本为空，表现为润色失败。个别强制思考的模型（如智谱 GLM-5.3）不接受关闭参数，选择预设推荐的模型即可避开。模型不支持所选层级时会收到服务商报错。
+
+环境变量覆盖密钥：
+
+```bash
+export ALTGO_POLISHER_API_KEY="sk-your-key"
+```
+
+## 按键配置
+
+默认触发键为右 Alt。若在设置页使用“按下以设置”，Linux 会写入 `linux_evdev_code` 字段，Windows 会写入 `windows_vk_code` 字段。
+
+```toml
+[key_listener]
+key_name = "Alt_R"                 # 触发键，示例为右 Alt，左 Alt 用 Alt_L
+long_press_threshold = 200         # 长按判定阈值（毫秒）
+double_click_interval = 300        # 双击判定间隔（毫秒）
+min_press_duration = 100           # 最短按下时长，过滤输入法抖动
+```
+
+## 录音配置
+
+```toml
+[recorder]
+sample_rate = 16000                # 转写引擎固定使用 16 kHz 单声道输入，其他值会被拒绝
+```
+
+## 输出配置
+
+```toml
+[output]
+prefer_polished = true             # 剪贴板与注入优先使用润色成功且非空的文本
+inject_text = false                # 转写完成后自动输入到当前焦点窗口，仅 Windows
+```
+
+Linux 需要可用的 `xclip`、`xsel` 或 `wl-copy` 之一，否则自动写剪贴板会失败。此时仍可在悬浮窗内点击复制，或使用主页历史列表里的复制按钮。
+
+## 界面配置
+
+```toml
+[gui]
+language = ""                      # "zh"、"en" 或空串（自动检测，跟随系统语言）
+overlay_position = "bottom_center" # "bottom_center" 或 "top_center"
+auto_check_update = true           # 启动时是否自动检查更新
+```
+
+## 日志
+
+日志级别不进配置文件，通过环境变量控制：
+
+```bash
+RUST_LOG=altgo=debug altgo
+```
+
+## 优先级
+
+环境变量 > 配置文件 > 代码默认值
+
+| 环境变量 | 覆盖字段 |
+|---------|---------|
+| `ALTGO_POLISHER_API_KEY` | `polisher.api_key` |
+| `ALTGO_TRANSCRIBER_API_KEY` | `transcriber.online.api_key` |
+| `ALTGO_MODEL_BASE_URL` | 转写模型下载镜像（非配置字段） |
+| `ALTGO_POLISH_MODEL_BASE_URL` | 润色模型下载镜像（非配置字段） |

@@ -1,116 +1,117 @@
 ---
 sidebar_position: 4
-title: 架构设计
+title: Architecture
+description: "How altgo is put together: the pipeline, the key state machine, modules, transcription and polishing engines and the platform strategy."
 ---
 
-# 架构设计
+# Architecture
 
-本文面向想了解实现结构的用户与贡献者。更细的模块职责、依赖方向与错误模型见仓库内的 [`docs/architecture.md`](https://github.com/ouyangjiahong26/altgo/blob/master/docs/architecture.md)。
+This page is for users and contributors who want to understand the implementation. Module responsibilities, dependency direction and the error model in more detail are in [`docs/architecture.md`](https://github.com/ouyangjiahong26/altgo/blob/master/docs/architecture.md) in the repository.
 
-## 整体流水线
+## Pipeline
 
-altgo 的语音处理是一条由按键事件驱动的线性流水线：
+altgo's voice processing is a linear pipeline driven by key events:
 
 ```text
-按键监听 → 状态机 → 录音 → 转写 → 润色（可选）→ 剪贴板 + 悬浮窗 + 历史
+Key listener → state machine → recorder → transcriber → polisher (optional) → clipboard + overlay + history
 ```
 
-整条流水线跑在独立的 OS 线程上，内部是一个独立的 `current_thread` tokio 运行时，与 Tauri 主运行时隔离。主循环用 `tokio::select!` 同时等待五类事件：按键、状态机超时、待重试录音、空闲回收节拍、停止信号。转写与润色在主循环内串行完成，保证单次转写互斥，详见 [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md)。
+The whole pipeline runs on a dedicated OS thread with its own `current_thread` tokio runtime, isolated from Tauri's main runtime. The main loop waits on five kinds of events with `tokio::select!`: key events, state machine timeouts, recordings waiting for retry, the idle reclaim tick and the stop signal. Transcription and polishing run sequentially inside the main loop, which keeps a single transcription in flight. See [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md).
 
-转写历史只保存文本，原始转写记为 `rawText`，当前展示文本记为 `text`，不保存音频。数据文件为 `~/.config/altgo/history.json`。转写成功后写入一条记录并广播 `history-updated` 事件，主页历史列表据此刷新。
+History stores text only, with the raw transcript recorded as `rawText` and the currently displayed text as `text`. Audio is never stored. The data file is `~/.config/altgo/history.json`. A successful transcription appends one record and broadcasts a `history-updated` event, which refreshes the history list on the home page.
 
-## 按键状态机
+## Key state machine
 
-状态机是一个纯同步模块，只返回 `StartRecord` 或 `StopRecord` 命令，由主循环执行副作用。
+The state machine is a pure synchronous module. It only returns `StartRecord` or `StopRecord` commands, and the main loop performs the side effects.
 
-| 状态 | 进入条件 | 离开条件 |
-|------|---------|---------|
-| `Idle` | 空闲 | 按下进入 `PotentialPress` |
-| `PotentialPress` | 按下 | 达到长按阈值进入 `Recording`，提前松开进入 `WaitSecondClick` |
-| `Recording` | 长按触发 | 松开停止，回到 `Idle` |
-| `WaitSecondClick` | 短按松开 | 双击间隔内再次按下进入 `ContinuousRecording`，超时回到 `Idle` |
-| `ContinuousRecording` | 双击触发 | 再按一次停止，回到 `Idle` |
+| State | Entered when | Left when |
+|-------|--------------|-----------|
+| `Idle` | Idle | A press moves to `PotentialPress` |
+| `PotentialPress` | The key is pressed | The long press threshold moves to `Recording`, an early release moves to `WaitSecondClick` |
+| `Recording` | Long press triggered | Release stops and returns to `Idle` |
+| `WaitSecondClick` | Short press released | A second press inside the double press interval moves to `ContinuousRecording`, a timeout returns to `Idle` |
+| `ContinuousRecording` | Double press triggered | Another press stops and returns to `Idle` |
 
-长按阈值默认 200 ms，双击间隔默认 300 ms，最短按下时长默认 100 ms。按下时长低于最短值视为输入法抖动，直接丢弃。
+The long press threshold defaults to 200 ms, the double press interval to 300 ms and the minimum press duration to 100 ms. A press shorter than the minimum counts as IME chatter and is dropped.
 
-## 模块结构
+## Modules
 
-Tauri 核心目录 `src-tauri/src/` 的主要模块：
+Main modules under the Tauri core directory `src-tauri/src/`:
 
 ```text
 src-tauri/src/
-├── main.rs                 # 薄入口，调用 lib::run()
-├── lib.rs                  # Tauri 装配层，managed state 与流水线线程
-├── cmd.rs                  # IPC 命令
-├── config.rs               # TOML 配置加载与校验
-├── config_store.rs         # 活动配置与补丁
-├── history.rs              # 历史 JSON
-├── state_machine.rs        # 按键状态机
-├── pipeline_controller.rs  # 管道生命周期
-├── voice_pipeline/         # 主循环、编排、分发与 sink
+├── main.rs                 # thin entry point, calls lib::run()
+├── lib.rs                  # Tauri assembly, managed state and pipeline thread
+├── cmd.rs                  # IPC commands
+├── config.rs               # TOML config loading and validation
+├── config_store.rs         # active config and patches
+├── history.rs              # history JSON
+├── state_machine.rs        # key state machine
+├── pipeline_controller.rs  # pipeline lifecycle
+├── voice_pipeline/         # main loop, orchestration, dispatch and sink
 ├── transcriber.rs          # Transcriber trait
-├── sherpa.rs               # 本地 sherpa-onnx 引擎
-├── online_asr.rs           # 在线 ASR，按协议家族分派
-├── polisher.rs             # Polisher trait 与远端实现
-├── polisher/               # 本地润色、保真校验、prompt 与协议细节
-├── polish_runtime/         # llama-server 子进程生命周期
-├── polish_model.rs         # 本地润色模型清单
-├── model.rs                # 转写模型清单与校验
-├── download.rs             # 共用下载内核
-├── prompt_store.rs         # 润色 prompt 模板
-├── key_listener/           # 按键监听
-├── key_capture/            # 设置页按键捕获
-├── recorder/               # 录音
-├── output/                 # 剪贴板与文本注入
-├── overlay/                # 悬浮窗窗口管理与相位数
-├── tauri_sink.rs           # 流水线事件到前端
-├── updater.rs              # 自动更新
-├── display_backend.rs      # Wayland 会话的 XWayland 切换
+├── sherpa.rs               # local sherpa-onnx engine
+├── online_asr.rs           # online ASR, dispatched by protocol family
+├── polisher.rs             # Polisher trait and remote implementation
+├── polisher/               # local polishing, fidelity check, prompts and protocol details
+├── polish_runtime/         # llama-server child process lifecycle
+├── polish_model.rs         # local polishing model catalog
+├── model.rs                # transcription model catalog and validation
+├── download.rs             # shared download core
+├── prompt_store.rs         # polishing prompt templates
+├── key_listener/           # key listening
+├── key_capture/            # key capture for Settings
+├── recorder/               # recording
+├── output/                 # clipboard and text injection
+├── overlay/                # overlay window management and phases
+├── tauri_sink.rs           # pipeline events to the frontend
+├── updater.rs              # automatic updates
+├── display_backend.rs      # XWayland switch for Wayland sessions
 └── audio.rs / error.rs / resource.rs
 ```
 
-## 转写引擎
+## Transcription engine
 
-转写由 `Transcriber` trait 抽象，设置页的 `[transcriber] backend` 决定使用哪个实现。
+Transcription is abstracted behind the `Transcriber` trait, and `[transcriber] backend` decides which implementation runs.
 
-本地实现是 `SherpaTranscriber`，内嵌 sherpa-onnx，模型在管道启动时加载一次并常驻内存。模型注册表提供 SenseVoice、SenseVoice 粤语增强与 FireRedASR2 CTC。推理是 CPU 密集的同步操作，经 `spawn_blocking` 放入阻塞线程池。
+The local implementation is `SherpaTranscriber`, which embeds sherpa-onnx. The model loads once when the pipeline starts and stays in memory. The model registry provides SenseVoice, SenseVoice Cantonese-enhanced and FireRedASR2 CTC. Inference is CPU-bound and synchronous, and runs on the blocking thread pool through `spawn_blocking`.
 
-在线实现是 `OnlineAsr`，按 `[transcriber.online] protocol` 在三个协议家族间分派：
+The online implementation is `OnlineAsr`, which dispatches between three protocol families according to `[transcriber.online] protocol`:
 
-| 协议 | 请求形状 | 文本来源 |
-|------|---------|---------|
-| `mimo_chat` | `chat/completions`，WAV 以 base64 放进单个 `input_audio` 块，携带 `asr_options` | `choices[0].message.content` |
-| `chat_input_audio` | 同 chat 形状，不带 `asr_options`，语言非空时作为顶层字段 | `choices[0].message.content` |
-| `transcriptions` | OpenAI `/audio/transcriptions` multipart | 顶层 `text` 字段 |
+| Protocol | Request shape | Text source |
+|----------|---------------|-------------|
+| `mimo_chat` | `chat/completions` with the WAV as base64 in a single `input_audio` block and `asr_options` | `choices[0].message.content` |
+| `chat_input_audio` | Same chat shape without `asr_options`, with the language as a top-level field when set | `choices[0].message.content` |
+| `transcriptions` | OpenAI `/audio/transcriptions` multipart | the top-level `text` field |
 
-在线转写不做重试，失败直接报错，不回退本地。决策记录见 [ADR-0013](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0013-online-asr-protocol-families.md)。
+Online transcription does not retry. A failure is reported directly and never falls back to local. See [ADR-0013](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0013-online-asr-protocol-families.md).
 
-两种后端都接受 16 kHz、单声道、16 位 PCM 的 WAV 字节。录音器统一输出这一格式。
+Both backends accept WAV bytes at 16 kHz, mono, 16-bit PCM. The recorder always produces this format.
 
-## 润色引擎
+## Polishing engine
 
-润色由 `Polisher` trait 抽象，默认关闭。级别不为 `none` 时，`[polisher] backend` 选择远端或本地实现。
+Polishing is abstracted behind the `Polisher` trait and is off by default. When the level is not `none`, `[polisher] backend` selects the remote or local implementation.
 
-远端实现 `LLMFormatter` 支持 OpenAI 兼容 chat API 与 Anthropic Messages API，带指数退避重试。本地实现 `LocalPolisher` 与 llama-server 子进程通信，运行时与模型按需下载，惰性启动，空闲十分钟后回收。
+The remote implementation `LLMFormatter` supports the OpenAI-compatible chat API and the Anthropic Messages API, with exponential backoff retries. The local implementation `LocalPolisher` talks to a llama-server child process. The runtime and models are downloaded on demand, started lazily and reclaimed after ten idle minutes.
 
-本地引擎的输出在下发前要过保真校验。数字、网址或路径被改动，结果被压缩成摘要，凭空多出内容，出现格式标记，都会判定失败并回退转写原文。详见 [ADR-0011](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0011-fidelity-guard-and-fallback.md)。
+Local output passes a fidelity check before it is used. Numbers, URLs or paths changed, the text reduced to a summary, content added, or formatting markers introduced all count as failures and fall back to the raw transcript. See [ADR-0011](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0011-fidelity-guard-and-fallback.md).
 
-## 平台策略
+## Platform strategy
 
-Linux 通过子进程调用系统工具：`xinput` 或 `evtest` 监听按键，`parecord` 录音，`xclip`、`xsel` 或 `wl-copy` 写剪贴板。Wayland 会话在 GUI 初始化前切到 XWayland，否则悬浮窗无法定位。
+Linux calls system tools as child processes: `xinput` or `evtest` for key listening, `parecord` for recording, and `xclip`, `xsel` or `wl-copy` for the clipboard. Wayland sessions switch to XWayland before the GUI initialises, otherwise the overlay cannot be positioned.
 
-Windows 走原生 API：`WH_KEYBOARD_LL` 低级键盘钩子监听按键，cpal/WASAPI 录音，arboard 写剪贴板，SendInput 可选地把文本注入当前焦点窗口。文本注入默认关闭。
+Windows uses native APIs: a `WH_KEYBOARD_LL` low-level keyboard hook for key listening, cpal/WASAPI for recording, arboard for the clipboard and SendInput to optionally inject text into the focused window. Text injection is off by default.
 
-平台能力都收在 trait 后面，各模块的实现文件按平台命名为 `linux.rs` 或 `windows.rs`。流水线只消费 `Box<dyn Trait>`，与平台解耦。
+Platform capabilities sit behind traits, and each module implements them in files named `linux.rs` or `windows.rs`. The pipeline only consumes `Box<dyn Trait>` and stays independent of the platform.
 
-## 前端与 IPC
+## Frontend and IPC
 
-前端是 React 应用，包含三个窗口：主窗、悬浮窗、更新说明窗口。主窗负责主页与设置，悬浮窗只显示录音、处理与结果相位，更新说明窗口展示新版本的分类变更。
+The frontend is a React application with three windows: the main window, the overlay and the update notes window. The main window hosts the home and settings pages, the overlay shows only the recording, processing and result phases, and the update notes window displays categorised changes for a new version.
 
-前后端经 Tauri IPC 通信。IPC 与 `history.json` 使用 camelCase，`altgo.toml` 使用 snake_case，边界上由 serde 转换。前端通过事件接收管道状态、转写结果、润色失败、历史更新、下载进度等变化。
+The frontend and backend communicate over Tauri IPC. IPC and `history.json` use camelCase, while `altgo.toml` uses snake_case, and serde converts at the boundary. The frontend receives pipeline status, transcription results, polishing failures, history updates, download progress and other changes as events.
 
-## 延伸阅读
+## Further reading
 
-- [`docs/architecture.md`](https://github.com/ouyangjiahong26/altgo/blob/master/docs/architecture.md)：模块职责、依赖方向、错误模型与 IPC 契约
-- [`docs/testing.md`](https://github.com/ouyangjiahong26/altgo/blob/master/docs/testing.md)：测试分层、替身与 CI 覆盖
-- [`docs/adr/`](https://github.com/ouyangjiahong26/altgo/tree/master/docs/adr)：架构决策记录
+- [`docs/architecture.md`](https://github.com/ouyangjiahong26/altgo/blob/master/docs/architecture.md): module responsibilities, dependency direction, error model and IPC contract
+- [`docs/testing.md`](https://github.com/ouyangjiahong26/altgo/blob/master/docs/testing.md): test layers, test doubles and CI coverage
+- [`docs/adr/`](https://github.com/ouyangjiahong26/altgo/tree/master/docs/adr): architecture decision records

@@ -1,10 +1,9 @@
 ---
-title: Privacy Policy / 隐私政策
+title: Privacy Policy
+description: What altgo stores on this device, when it accesses the network and which third-party services receive data.
 ---
 
-# Privacy Policy / 隐私政策
-
-## English
+# Privacy Policy
 
 altgo is a local-first desktop application. The project does not collect telemetry, analytics or usage statistics, and it does not operate any servers that receive user data. You decide in the settings which features access the network and what they send.
 
@@ -49,49 +48,3 @@ Recordings are processed in memory on this device and discarded after transcript
 ### Changes
 
 This policy is updated with application releases. Significant changes are noted in the release notes.
-
-## 中文版
-
-altgo 是本地优先的桌面应用。项目不收集遥测、分析数据或使用统计，也不运营接收用户数据的服务器。哪些功能联网、发送什么，由你在设置里决定。
-
-### 保存在本机的内容
-
-- 转写历史只保存文本，不保存音频。文件是配置目录下的 `history.json`，Linux 为 `~/.config/altgo/history.json`，Windows 为 `%APPDATA%\altgo\history.json`。Unix 上该文件权限为 0o600。
-- 配置文件是同一目录下的 `altgo.toml`，保存各项设置与你填写的 API 密钥。密钥以明文保存在本机，只会作为认证信息发给你配置的服务地址。
-- 转写结果会写入系统剪贴板，内容随后由系统与目标应用管理。
-
-### 会联网的场景
-
-除下面这些场景，应用不会发起网络请求。
-
-#### 在线转写（MiMo ASR）
-
-当 `[transcriber] backend = "online"` 时，录音会编码为 WAV 后发送到你配置的 `api_base_url`，默认是 `https://token-plan-cn.xiaomimimo.com/v1`。请求由小米的 MiMo 服务处理，适用其隐私政策。音频在请求结束后不保留在本机。
-
-#### 远程润色
-
-润色引擎选择远程服务时，转写文本与内置的润色提示词会发送到你配置的 `api_base_url`，协议可以是 OpenAI 兼容或 Anthropic Messages。数据由该服务商处理，适用其隐私政策。选择本地润色或关闭润色时不联网。
-
-#### 模型与运行时下载
-
-本地转写模型、本地润色模型与润色运行时按需下载。模型来自 Hugging Face（`huggingface.co`）或其镜像（`hf-mirror.com`），运行时来自 GitHub 的 llama.cpp Releases。请求只包含文件与校验信息，不包含转写内容。可用 `ALTGO_MODEL_BASE_URL` 与 `ALTGO_POLISH_MODEL_BASE_URL` 指定其他来源。
-
-#### 自动更新
-
-应用启动时与手动检查更新时，会向 `https://github.com/ouyangjiahong26/altgo/releases/latest/download/latest.json` 查询新版本，请求由 GitHub 处理，不包含转写内容或密钥。
-
-#### 外部链接
-
-文档站、Releases 页面与其他外部链接在你的浏览器中打开，由对应站点处理。
-
-### 第三方服务
-
-在线转写由小米的 MiMo 服务提供。远程润色由你配置的服务商提供。模型与运行时来自 Hugging Face、GitHub 与 llama.cpp 项目。它们各自的数据处理规则以对应服务商的隐私政策为准，altgo 不代理也不中转这些请求。
-
-### 不保存音频
-
-录音只在本机内存里处理，转写完成后丢弃，不会写成音频文件。
-
-### 变更
-
-本政策随应用版本更新，重要变更会写进 Release 说明。

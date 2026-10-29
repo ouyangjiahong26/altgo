@@ -1,0 +1,22 @@
+{
+  "version.label": {
+    "message": "当前",
+    "description": "The label for version current"
+  },
+  "sidebar.docsSidebar.category.Getting Started": {
+    "message": "开始使用",
+    "description": "The label for category 'Getting Started' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Internals": {
+    "message": "深入",
+    "description": "The label for category 'Internals' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.doc.Introduction": {
+    "message": "简介",
+    "description": "The label for the doc item 'Introduction' in sidebar 'docsSidebar', linking to the doc intro"
+  },
+  "sidebar.docsSidebar.doc.Privacy Policy": {
+    "message": "隐私政策",
+    "description": "The label for the doc item 'Privacy Policy' in sidebar 'docsSidebar', linking to the doc privacy"
+  }
+}

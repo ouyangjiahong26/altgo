@@ -34,7 +34,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 | `configs/` | 用户 TOML 模板，应用实际读 `~/.config/altgo/altgo.toml` |
 | `resources/prompts/` | 润色 prompt：`base.txt` 加 `light/medium/heavy-suffix.txt`（`none` 档不润色） |
 | `docs/` | 维护者文档：`architecture.md`、`testing.md`、`adr/`（ADR-0003 至 0009）、`agents/`（agent 工作约定） |
-| `docs-site/` | Docusaurus 用户文档站，与应用构建无关 |
+| `docs-site/` | Docusaurus 用户文档站：英文为默认语言（`docs/`），中文译文在 `i18n/zh-Hans/`，与应用构建无关 |
 | `packaging/` | 发版脚本 `scripts/`、AUR/Scoop/winget 清单 |
 | `.github/` | `ci.yml`/`release.yml`/`deploy-docs.yml`/`warm-apt-cache.yml` 与复合 action `setup-linux-build` |
 

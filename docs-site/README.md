@@ -1,6 +1,6 @@
 # altgo 文档站（Docusaurus）
 
-面向最终用户的说明文档站点，主体为简体中文（`zh-Hans`）。SignPath 申请所需的隐私政策与快速开始页面提供英文版本，英文在前、中文在后。生产环境部署在 GitHub Pages：
+面向最终用户的说明文档站点，提供英文与简体中文两个语言版本。英文为默认语言，位于 `/`；简体中文位于 `/zh-Hans/`。生产环境部署在 GitHub Pages：
 
 [https://ouyangjiahong26.github.io/altgo/](https://ouyangjiahong26.github.io/altgo/)
 
@@ -14,7 +14,7 @@ npm install
 npm start
 ```
 
-浏览器默认打开开发服务器，文档变更会热更新。
+浏览器默认打开开发服务器，文档变更会热更新。`npm start -- --locale zh-Hans` 直接查看中文站。
 
 ## 构建
 
@@ -22,7 +22,30 @@ npm start
 npm run build
 ```
 
-产物在 `build/` 目录，可用任意静态文件服务托管。
+`npm run build` 依次构建所有 locale，默认语言产物在 `build/`，简体中文在 `build/zh-Hans/`，可用任意静态文件服务托管。
+
+## 翻译结构
+
+英文正文是唯一源文件，放在 `docs/` 与 `src/`。中文是译文，放在 `i18n/zh-Hans/`：
+
+```text
+i18n/zh-Hans/
+├── code.json                                  # 首页与站点级文案
+├── docusaurus-plugin-content-docs/
+│   ├── current/                               # 中文文档页，文件名与 docs/ 一一对应
+│   └── current.json                           # 侧边栏分类与条目标签
+└── docusaurus-theme-classic/
+    ├── navbar.json                            # 导航栏标签
+    └── footer.json                            # 页脚标签
+```
+
+修改英文文案后运行以下命令补齐新增的翻译键，再在生成的文件里填中文：
+
+```bash
+npx docusaurus write-translations --locale zh-Hans
+```
+
+缺少中文文件时对应页面回退到英文，构建不会失败。新增文档页需要同时在 `docs/` 与 `i18n/zh-Hans/docusaurus-plugin-content-docs/current/` 放同名文件，并在 [`sidebars.ts`](sidebars.ts) 中登记。
 
 ## 依赖覆盖
 
@@ -41,8 +64,6 @@ npm run build
 
 ## 内容与侧边栏
 
-- 文档页面：`docs/*.mdx`（侧边栏由 [`sidebars.ts`](sidebars.ts) 配置）
-- 营销首页：`src/pages/index.tsx`（与文档首页 `docs/intro.mdx` 不同：前者为站点落地页，后者为文档模块入口）
+- 英文文档页面：`docs/*.mdx`，中文页面：`i18n/zh-Hans/docusaurus-plugin-content-docs/current/*.mdx`（侧边栏由 [`sidebars.ts`](sidebars.ts) 配置，标签译文在 `i18n/zh-Hans/docusaurus-plugin-content-docs/current.json`）
+- 营销首页：`src/pages/index.tsx`，文案通过 `translate()` 的 id 提取到 `i18n/zh-Hans/code.json`（与文档首页 `docs/intro.mdx` 不同：前者为站点落地页，后者为文档模块入口）
 - 仓库根目录另有维护者用的 [`docs/`](../docs/)（设计/计划归档），请勿与本文档目录混淆
-
-站点只维护简体中文，不提供英文版本：`docusaurus.config.ts` 的 `locales` 仅含 `zh-Hans`，导航栏也不再有语言切换（原 `i18n/en/` 英文站已移除）。
