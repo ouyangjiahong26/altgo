@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 40" width="440" height="40" font-family="system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif">
+  <!--
+    悬浮窗相位：结果（转写完成、已写入剪贴板），英文 README 用，结果文案为英文。
+    几何与配色 1:1 复刻 frontend/src/overlay.css 与 src/styles/design-tokens.css（dark 主题）：
+    悬浮条 248×40 圆角 10、完成圆盘 16px、结果单行省略。改动这些值时要同步本文件。
+  -->
+  <style>
+    .close-x {
+      animation: close-fade 2.4s ease-in-out infinite;
+    }
+    @keyframes close-fade {
+      0%, 45%  { opacity: 0; }
+      55%, 78% { opacity: 1; }
+      100%     { opacity: 0; }
+    }
+  </style>
+
+  <rect x="96" y="0" width="248" height="40" rx="10" fill="#27272a" stroke="#414144"/>
+  <!-- ✓ 圆盘 16px（复刻 .done-indicator：color-green 变量的 12% 底加 30% 描边） -->
+  <circle cx="119" cy="20" r="8" fill="#283c37" stroke="#2b5b4b"/>
+  <path d="M 115.5 20 L 118 22.5 L 123 17" fill="none" stroke="#34d399"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="135" y="24.5" font-size="13" fill="#d4d4d8">Move the 2 pm call to 4…</text>
+  <!-- ×：悬停悬浮条时淡入（复刻 .btn-close，取 overlay-muted 变量的夜间值） -->
+  <g class="close-x" stroke="#a1a1aa" stroke-width="1.75" stroke-linecap="round">
+    <line x1="316" y1="14" x2="328" y2="26"/>
+    <line x1="328" y1="14" x2="316" y2="26"/>
+  </g>
+</svg>

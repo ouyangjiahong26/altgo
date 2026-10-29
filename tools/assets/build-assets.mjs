@@ -35,6 +35,6 @@ async function copySvg(svgRel, outRel) {
 await renderTo('tools/assets/banner.svg', 'assets/banner.png', 1536);
 await renderTo('tools/assets/og-image.svg', 'assets/og-image.png', 1536);
 
-for (const phase of ['recording', 'transcribing', 'result']) {
+for (const phase of ['recording', 'transcribing', 'result', 'result-en']) {
   await copySvg(`tools/assets/overlay-phase-${phase}.svg`, `assets/overlay-phase-${phase}.svg`);
 }
