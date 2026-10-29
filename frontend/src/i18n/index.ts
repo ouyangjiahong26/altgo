@@ -260,6 +260,8 @@ const translations: Record<string, Record<string, string>> = {
     "error.transcriber.empty_response": "在线识别返回了空内容，请重试。",
     "error.transcriber.model_load_failed": "本地模型加载失败：{reason}",
     "error.transcriber.wav_decode_failed": "音频解码失败：{reason}",
+    "error.transcriber.audio_too_long":
+      "录音超过本地模型上限（{limit} 秒，本次 {actual} 秒），无法转写。录音已保留，可分段录制，或在设置中改用其他本地模型后重新识别。",
     "error.transcriber.invalid_base_url":
       "在线识别 API 地址无效：“{url}”。请填写完整 URL（如 https://token-plan-cn.xiaomimimo.com/v1）。",
     "error.transcriber.invalid_protocol":
@@ -540,6 +542,8 @@ const translations: Record<string, Record<string, string>> = {
     "error.transcriber.empty_response": "ASR returned empty content, please try again.",
     "error.transcriber.model_load_failed": "Failed to load local model: {reason}",
     "error.transcriber.wav_decode_failed": "Failed to decode audio: {reason}",
+    "error.transcriber.audio_too_long":
+      "The recording exceeds the local model limit ({limit} s, this one was {actual} s), so it cannot be transcribed. The audio is kept; record shorter segments, or switch to another local model in Settings and retry.",
     "error.transcriber.invalid_base_url":
       "Invalid ASR API base URL: '{url}'. Enter a full URL (e.g. https://token-plan-cn.xiaomimimo.com/v1).",
     "error.transcriber.invalid_protocol":

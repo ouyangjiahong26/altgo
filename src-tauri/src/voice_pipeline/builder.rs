@@ -33,7 +33,7 @@ impl PipelineBuilder {
     /// 选择协议家族，纯网络调用，不触碰本地模型解析）；其余（默认 `"local"`）
     /// 按模型注册的引擎走 sherpa-onnx（SenseVoice 或 FireRedASR2 CTC），
     /// 本地模型缺失或加载失败时返回错误。
-    pub fn build_transcriber(&self) -> Result<Box<dyn Transcriber>, PipelineError> {
+    pub fn build_transcriber(&self) -> Result<Arc<dyn Transcriber>, PipelineError> {
         let cfg = &self.cfg.transcriber;
 
         if cfg.backend.trim().eq_ignore_ascii_case("online") {
@@ -47,7 +47,7 @@ impl PipelineBuilder {
                 o.timeout,
             )
             .map_err(PipelineError::fatal_transcriber)?;
-            return Ok(Box::new(asr));
+            return Ok(Arc::new(asr));
         }
 
         let model_dir = match crate::model::resolve_model_dir(&cfg.model) {
@@ -77,15 +77,17 @@ impl PipelineBuilder {
             .name("model-warm-up".into())
             .spawn(move || warm_up.warm_up());
 
-        Ok(Box::new(transcriber))
+        Ok(Arc::new(transcriber))
     }
 
     /// 按配置构建润色引擎：`[polisher] backend` 决定远端 API 还是本地运行时。
     ///
     /// 两种实现都经 `crate::polisher::build_polisher` 构造，确保与 IPC handler
     /// （`cmd::polish_history_entry`）用的是同一个后端与同一份 prompt source chain。
-    pub fn build_polisher(&self) -> Result<Box<dyn Polisher>, PipelineError> {
-        crate::polisher::build_polisher(&self.cfg).map_err(PipelineError::fatal_polisher)
+    pub fn build_polisher(&self) -> Result<Arc<dyn Polisher>, PipelineError> {
+        crate::polisher::build_polisher(&self.cfg)
+            .map(Arc::from)
+            .map_err(PipelineError::fatal_polisher)
     }
 
     /// 从配置构建按键监听器。

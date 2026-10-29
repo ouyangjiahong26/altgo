@@ -78,7 +78,7 @@ pub async fn handle_stop_record(
 }
 
 /// 误触判定：时长解析失败（非 WAV）或低于最短有效时长。
-fn audio_too_short(wav_data: &[u8]) -> bool {
+pub(crate) fn audio_too_short(wav_data: &[u8]) -> bool {
     crate::audio::wav_duration_ms(wav_data).is_none_or(|ms| ms < MIN_RECORDING_DURATION_MS)
 }
 

@@ -147,7 +147,7 @@ const MODELS: &[ModelInfo] = &[
         name: "fire-red-asr2-ctc",
         repo_path: "csukuangfj2/sherpa-onnx-fire-red-asr2-ctc-zh_en-int8-2026-02-25",
         files: Cow::Borrowed(FIRE_RED_ASR2_CTC_FILES),
-        description: "FireRedASR2 CTC（中英混说更准，下载约 740 MB）",
+        description: "FireRedASR2 CTC（中英混说更准，下载约 740 MB，超长自动分段）",
         engine: EngineKind::FireRedAsrCtc,
     },
 ];
