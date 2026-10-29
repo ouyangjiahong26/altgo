@@ -203,6 +203,34 @@ fn split_on_silence(samples: &[f32], sample_rate: u32, limit_ms: u64) -> Vec<Seg
     segments
 }
 
+/// 会话配置文件里关闭 CPU 内存 arena 的开关。
+///
+/// ONNX Runtime 的 CPU arena 会把每次推理的工作集留在进程里，不归还系统。实测
+/// 741 MB 的 FireRedASR2 CTC 在 180 秒段上，默认配置驻留内存从 8.0 GB 涨到
+/// 16.2 GB 后一直保持，长录音分段转写会在闲置时继续占着十几 GB。关掉 arena 后
+/// 每次推理结束回落到模型基线（约 1.1 GB），代价是长音频每段慢约 23%，十秒级
+/// 短语音实测无差别。见 k2-fsa/sherpa-onnx#4138。
+const SESSION_CONFIG: &str = "EnableCpuMemArena=0\n";
+
+/// 把会话配置文件写进模型目录，返回带该文件的 provider 字符串。
+///
+/// sherpa-onnx 只在 `provider` 字符串的 `provider_name:config_path` 形式里读取
+/// 这些会话选项，C API 没有对应字段。写入失败（自定义模型目录只读等）时返回
+/// `None`，退回默认 provider，内存行为与升级前一致，不影响推理。
+fn session_provider(model_dir: &std::path::Path) -> Option<String> {
+    let dir = std::fs::canonicalize(model_dir).ok()?;
+    let path = dir.join("session.conf");
+    if let Err(e) = std::fs::write(&path, SESSION_CONFIG) {
+        tracing::warn!(
+            error = %e,
+            path = %path.display(),
+            "failed to write sherpa-onnx session config, using defaults"
+        );
+        return None;
+    }
+    Some(format!("cpu:{}", path.display()))
+}
+
 /// 引擎展示名，用于错误文案。
 fn engine_label(engine: EngineKind) -> &'static str {
     match engine {
@@ -314,6 +342,7 @@ impl SherpaTranscriber {
         }
         config.model_config.tokens = Some(tokens_path.to_string_lossy().to_string());
         config.model_config.num_threads = effective_threads(threads) as i32;
+        config.model_config.provider = session_provider(&model_dir);
 
         Ok(Self {
             recognizer: Arc::new(OnceLock::new()),
@@ -517,6 +546,34 @@ mod tests {
         .unwrap_err();
         assert!(matches!(err, TranscriberError::ModelLoadFailed { .. }));
         assert!(err.message().contains("词表不存在"));
+    }
+
+    #[test]
+    fn test_new_writes_session_config_disabling_cpu_mem_arena() {
+        // CPU arena 不归还工作集，长录音分段转写会长期占着十几 GB。
+        // 会话选项只能经 provider 字符串里的配置文件传入。
+        let dir = tempfile::tempdir().unwrap();
+        write_fake_model(dir.path(), "sense_voice_ctc");
+        let transcriber = SherpaTranscriber::new(
+            dir.path().to_path_buf(),
+            String::new(),
+            0,
+            EngineKind::SenseVoice,
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("session.conf")).unwrap();
+        assert!(content.contains("EnableCpuMemArena=0"));
+        assert!(
+            transcriber
+                .config
+                .model_config
+                .provider
+                .as_deref()
+                .is_some_and(|p| p.starts_with("cpu:")),
+            "provider 应指向会话配置文件，实际为 {:?}",
+            transcriber.config.model_config.provider
+        );
     }
 
     /// 按真实 onnx 的字节布局拼一个只含 `model_type` 元数据的假模型文件。
