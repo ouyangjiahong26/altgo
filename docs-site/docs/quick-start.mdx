@@ -11,7 +11,7 @@ altgo supports Linux (Ubuntu 22.04+) on x86_64 and aarch64, and Windows 10+ on x
 
 Transcription has two backends. The local backend embeds sherpa-onnx and offers SenseVoice or FireRedASR2 CTC, so no separate binary is needed and it works offline after the model is downloaded. The online backend sends audio to a cloud ASR endpoint, with MiMo ASR as the default, and does not download a model.
 
-### Linux: add your user to the input group before installing
+## Linux: add your user to the input group before installing
 
 The current user must be added to the `input` group, otherwise `/dev/input/event*` cannot be read and key listening fails. Log out and back in after running:
 
@@ -19,9 +19,9 @@ The current user must be added to the `input` group, otherwise `/dev/input/event
 sudo usermod -aG input "$USER"
 ```
 
-### End users: finish everything in Settings
+## End users: finish everything in Settings
 
-#### Linux
+### Linux
 
 1. Download the package for your system from [Releases](https://github.com/ouyangjiahong26/altgo/releases): `.deb` (Ubuntu/Debian), `.rpm` (Fedora/RHEL), or `.AppImage`.
 2. Complete the `input` group step above. The `.deb` and `.rpm` packages declare the desktop and audio dependencies, so the package manager pulls them in. The AppImage does not resolve dependencies, so install the missing libraries reported at launch.
@@ -31,7 +31,7 @@ sudo usermod -aG input "$USER"
    - Save.
 4. Results are written to the clipboard and shown in a single line in the overlay window. Paste them into the target application. The full text is available in the history list on the home page, where it can be viewed, copied or polished again.
 
-#### Windows
+### Windows
 
 1. Download the `*-setup.exe` for your architecture (x64 or arm64) from [Releases](https://github.com/ouyangjiahong26/altgo/releases). This is the NSIS installer.
 2. Run the installer, then start altgo from the Start menu.
@@ -43,11 +43,11 @@ To check that the downloaded file was not modified, download `checksums.txt` fro
 
 Do not use "copy `configs/altgo.toml` and edit it by hand" as the default path. That is an advanced workflow. Regular users only need the UI.
 
-### Start
+## Start
 
 Run `altgo` or the executable in the installation directory. Hold the right Alt key to speak, release it and check the result in the overlay window. The trigger key can be changed in Settings.
 
-### Offline installation (Windows x64)
+## Offline installation (Windows x64)
 
 When the target machine has no internet access, both the installer and the models must be moved over. Download a zip from the [offline asset release](https://github.com/ouyangjiahong26/altgo/releases/tag/offline-assets-v2.7.8): use `altgo-2.7.8-offline-win-x64.zip` for Windows 11, or `altgo-2.7.8-offline-win-x64-with-webview2.zip` for Windows 10 or when you are not sure whether WebView2 is installed.
 
@@ -61,11 +61,11 @@ The models and runtime take about 650 MB in `%APPDATA%\altgo`. During the transf
 
 To check that the zip was not modified, compare its SHA-256 with `certutil -hashfile <zip> SHA256` against the value on the asset release page. The script verifies each file inside the package after extraction.
 
-### Advanced: only when you edit the configuration file by hand
+## Advanced: only when you edit the configuration file by hand
 
 Configuration file path: `~/.config/altgo/altgo.toml`. Field documentation is in [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml) in the main repository.
 
-### Developers: build from source
+## Developers: build from source
 
 Build with `make build`, same as the main repository. Use `make build` for day-to-day verification as well.
 

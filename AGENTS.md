@@ -33,7 +33,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 | `tools/assets/` | 品牌资产生成：图标母版 `altgo-icon.svg`（带底方块）与 `altgo-mark.svg`（透明底裸标记）、`build-icon.mjs`，横幅与分享图母版、`build-assets.mjs`，GPT 出图 `gen.mjs`（提示词见 `prompts.brand.json`），截图用静态服务器 `serve.mjs`。用法见 `tools/assets/README.md` |
 | `configs/` | 用户 TOML 模板，应用实际读 `~/.config/altgo/altgo.toml` |
 | `resources/prompts/` | 润色 prompt：`base.txt` 加 `light/medium/heavy-suffix.txt`（`none` 档不润色） |
-| `docs/` | 维护者文档：`architecture.md`、`testing.md`、`adr/`（ADR-0003 至 0009）、`agents/`（agent 工作约定） |
+| `docs/` | 维护者文档：`architecture.md`、`testing.md`、`adr/`（ADR-0003 至 0014）、`agents/`（agent 工作约定） |
 | `docs-site/` | Docusaurus 用户文档站：英文为默认语言（`docs/`），中文译文在 `i18n/zh-Hans/`，与应用构建无关 |
 | `packaging/` | 发版脚本 `scripts/`、AUR/Scoop/winget 清单 |
 | `.github/` | `ci.yml`/`release.yml`/`deploy-docs.yml`/`warm-apt-cache.yml` 与复合 action `setup-linux-build` |

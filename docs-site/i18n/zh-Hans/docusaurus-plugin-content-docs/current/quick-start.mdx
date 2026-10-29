@@ -11,7 +11,7 @@ altgo 支持 Linux（Ubuntu 22.04+）的 x86_64 与 aarch64 架构，以及 Wind
 
 转写引擎二选一。本地引擎内嵌 sherpa-onnx，提供 SenseVoice 或 FireRedASR2 CTC，无需单独安装二进制，模型下载后可断网使用。在线引擎把音频发往云端 ASR 端点，默认使用 MiMo ASR，不下载模型。
 
-### Linux：安装前必做（input 组）
+## Linux：安装前必做（input 组）
 
 必须将当前用户加入 `input` 组，否则无法读取 `/dev/input/event*`，按键监听会失败。执行后须重新登录：
 
@@ -19,9 +19,9 @@ altgo 支持 Linux（Ubuntu 22.04+）的 x86_64 与 aarch64 架构，以及 Wind
 sudo usermod -aG input "$USER"
 ```
 
-### 最终用户：装好后在“设置”里完成一切
+## 最终用户：装好后在“设置”里完成一切
 
-#### Linux
+### Linux
 
 1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载对应系统的安装包：`.deb`（Ubuntu/Debian）、`.rpm`（Fedora/RHEL）或 `.AppImage`。
 2. 完成上文 input 组。`.deb` 与 `.rpm` 已声明桌面与音频依赖，包管理器会自动拉取。AppImage 不解析依赖，运行时提示缺库时按提示补装。
@@ -31,7 +31,7 @@ sudo usermod -aG input "$USER"
    - 点击保存。
 4. 识别结果会写入剪贴板并在悬浮窗中单行展示，直接到目标应用粘贴即可。全文可在主页历史列表中查看、复制或重新润色。
 
-#### Windows
+### Windows
 
 1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载与设备架构（x64 或 arm64）对应的 `*-setup.exe`（NSIS 安装器）。
 2. 双击安装，在开始菜单启动 altgo。
@@ -43,11 +43,11 @@ Windows 安装包使用 SignPath Foundation 提供的免费代码签名，目前
 
 不要把“先复制 `configs/altgo.toml` 再手改”当作默认路径，那是高级用法。日常用户只使用界面即可。
 
-### 启动
+## 启动
 
 运行 `altgo` 或安装目录下的可执行文件。按住右 Alt 说话，松开后在悬浮窗查看结果。触发键在设置中修改。
 
-### 无外网环境安装（Windows x64）
+## 无外网环境安装（Windows x64）
 
 目标机器完全没有外网时，安装器与模型都要靠搬运。到 [离线资产包](https://github.com/ouyangjiahong26/altgo/releases/tag/offline-assets-v2.7.8) 下载一个 zip：Windows 11 用 `altgo-2.7.8-offline-win-x64.zip`，Windows 10 或不确定是否装了 WebView2 用 `altgo-2.7.8-offline-win-x64-with-webview2.zip`。
 
@@ -61,11 +61,11 @@ Windows 安装包使用 SignPath Foundation 提供的免费代码签名，目前
 
 想先确认 zip 没被改动，可以用 `certutil -hashfile <zip> SHA256` 与资产 Release 页面上给出的值比对，解压后包内每个文件的校验由脚本负责。
 
-### 高级：仅当你要手改配置文件时
+## 高级：仅当你要手改配置文件时
 
 配置文件路径：`~/.config/altgo/altgo.toml`。字段说明见主仓库 [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml)。
 
-### 开发者：从源码构建
+## 开发者：从源码构建
 
 与主仓库一致，使用 `make build` 打包。日常验证也以 `make build` 为主。
 

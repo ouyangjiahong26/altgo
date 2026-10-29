@@ -20,7 +20,7 @@
 | `gen.mjs` | 批量出图：调图像接口，落盘到 `out/<模型>/<id>.png` |
 | `build-icon.mjs` | 由两份图标母版生成 `src-tauri/icons/` 全套位图与 `.ico`，并输出透明标记 png |
 | `build-assets.mjs` | 由矢量母版渲染 `assets/banner.png`、`assets/og-image.png`，并把 `overlay-phase-*.svg` 复制到 README 引用的 `assets/` |
-| `check-overlay-phases.mjs` | 校验四张相位图的结构，并检出改样式后漏改插图的旧值残留 |
+| `check-overlay-phases.mjs` | 校验四张相位图的结构、注释合法性与母版副本一致性，并检出改样式后漏改插图的旧值残留 |
 | `serve.mjs` | 预览/核对用的静态服务器（会重写 CSS `@import` 为绝对路径） |
 | `out/` | 出图中间产物，不进版本库 |
 

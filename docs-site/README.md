@@ -1,6 +1,6 @@
 # altgo 文档站（Docusaurus）
 
-面向最终用户的说明文档站点，提供英文与简体中文两个语言版本。英文为默认语言，位于 `/`；简体中文位于 `/zh-Hans/`。生产环境部署在 GitHub Pages：
+面向最终用户的说明文档站点，提供英文与简体中文两个语言版本。英文为默认语言，位于 `/`，简体中文位于 `/zh-Hans/`。生产环境部署在 GitHub Pages：
 
 [https://ouyangjiahong26.github.io/altgo/](https://ouyangjiahong26.github.io/altgo/)
 

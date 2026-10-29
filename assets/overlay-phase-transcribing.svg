@@ -23,7 +23,7 @@
   </style>
 
   <defs>
-    <!-- 13px 旋转环：轨道 + 1/4 琥珀弧，复刻 .processing-ring。琥珀取 color-amber 变量的夜间值。 -->
+    <!-- 13px 旋转环：轨道 + 1/4 琥珀弧，复刻 .processing-ring。颜色取琥珀色的夜间值。 -->
     <g id="spin-ring">
       <circle r="6.5" fill="none" stroke="#4a4a4d" stroke-width="2"/>
       <circle class="spin" r="6.5" fill="none" stroke="#fbbf24" stroke-width="2"
