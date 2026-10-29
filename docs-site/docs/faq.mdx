@@ -1,134 +1,135 @@
 ---
 sidebar_position: 5
-title: 常见问题
+title: FAQ
+description: Troubleshooting for recording, trigger keys, transcription, polishing, clipboard output and logging.
 ---
 
-# 常见问题
+# FAQ
 
-## 录音相关
+## Recording
 
-### 录音没有声音 / 转写结果为空
+### The recording has no sound, or the transcription is empty
 
-1. 检查麦克风是否被系统识别
-2. 确认录音工具已安装（`parecord`）
-3. 查看日志输出：`RUST_LOG=altgo=debug altgo`
+1. Check that the system recognises the microphone.
+2. Confirm that the recording tool is installed (`parecord`).
+3. Check the log output: `RUST_LOG=altgo=debug altgo`.
 
-### 录音启动慢
+### Recording starts slowly
 
-首次启动录音时设备初始化可能需要几秒，后续会更快。
+The first recording may take a few seconds to initialise the device. Later ones are faster.
 
-## 按键相关
+## Trigger key
 
-### 按右 Alt 没有反应
+### Pressing right Alt does nothing
 
-先在主页空态点“检测触发键”。它会等你按一次键，把抓到的键名与键码和当前配置的触发键对照。按键照常录音，所以按下去就能顺手验证转写。按结果分几种情况：
+First click Check trigger key in the empty state on the home page. It waits for one press, then compares the captured key name and code with the configured trigger key. The press records normally, so the same press also verifies transcription. The result falls into one of these cases:
 
-- **提示“触发键可用”**：按键能到达 altgo，问题在录音或转写环节，按“录音相关”与“转写相关”两节排查。
-- **显示你按下的是另一个键**：收到的键与配置不一致，记下界面上的两个键码，到设置页用“按下以设置”把触发键改成实际按下的那个。
-- **显示抓到的键是其他程序注入的**（仅 Windows）：按键到达了 altgo，但带着“由其他程序合成”的标记，这类事件一律被忽略，所以不会起录。改键工具、键盘厂商驱动与部分输入法都会这样注入按键，停掉或改掉它们的映射即可。
-- **提示没有收到任何按键**：按键没有到达 altgo，按下面的清单排查。
+- **The trigger key works**: the key reaches altgo, so the problem is in recording or transcription. Follow the Recording and Transcription sections.
+- **It shows a different key**: the captured key and the configuration do not match. Note the two key codes shown, then use Press to set in Settings to change the trigger key to the key you actually press.
+- **It shows the captured key was injected by another program** (Windows only): the key reaches altgo with a marker that another program synthesised it. altgo ignores these events, so no recording starts. Remapping tools, keyboard vendor drivers and some input methods inject keys this way. Stop them or change their mapping.
+- **It reports that no key was received**: the key never reaches altgo. Work through the list below.
 
-**Linux：**
+**Linux:**
 
-1. 用户是否在 `input` 组并已重新登录？无法读取 `/dev/input/event*` 时，按键监听会失败：`sudo usermod -aG input "$USER"` 后注销/重启再试。
-2. 确认 `xinput` 可用：`which xinput`（X11 路径）。
-3. 检查 Alt 绑定：`xmodmap -pke | grep Alt`。配置里默认 `key_name = "Alt_R"`，与设置页“按下以设置”一致即可。
-4. **Wayland**：仍依赖能访问 evdev。若仅用 XWayland 且无权限，现象与未加 `input` 组类似。剪贴板在 Wayland 上建议安装 `wl-copy`（或 `xclip`/`xsel` 经 XWayland）。
-5. 若使用 IME，可适当增大 `min_press_duration` 减轻误触。
+1. Is the user in the `input` group, and did you log out and back in? Key listening fails when `/dev/input/event*` cannot be read: run `sudo usermod -aG input "$USER"`, then log out or restart and try again.
+2. Confirm that `xinput` is available: `which xinput` (the X11 path).
+3. Check the Alt binding: `xmodmap -pke | grep Alt`. The configuration defaults to `key_name = "Alt_R"`, which should match Press to set in Settings.
+4. **Wayland**: key listening still needs evdev access. With only XWayland and no permission, the symptom is the same as a missing `input` group. For the clipboard on Wayland, install `wl-copy` (or use `xclip`/`xsel` through XWayland).
+5. If you use an IME, increase `min_press_duration` to reduce accidental triggers.
 
-**Windows：**
+**Windows:**
 
-altgo 在 Windows 上用的是全局低级键盘钩子，其他程序注册同一个热键不会让钩子收不到按键，所以“被别的软件占用”通常不是原因。钩子本身失灵集中在三种情况：`SetWindowsHookExW` 失败、回调超时被系统摘钩、键位重映射工具在更底层把按键换掉。用 `RUST_LOG=altgo=debug altgo` 启动，日志里应当出现带 `key` 与 `vk` 字段的 `Windows keyboard hook installed`。要报问题时把这段日志与检测卡上的原始键码一并附上，键码只在与配置的触发键不一致时显示在诊断行里。
+altgo uses a global low-level keyboard hook on Windows. Another program registering the same hotkey does not stop the hook from receiving keys, so "another application owns it" is usually not the cause. Hook failures fall into three cases: `SetWindowsHookExW` fails, a callback times out and the system removes the hook, or a key remapping tool replaces the key at a lower level. Start with `RUST_LOG=altgo=debug altgo`; the log should contain `Windows keyboard hook installed` with `key` and `vk` fields. When reporting a problem, include this log section and the raw key code from the probe card. The key code appears on the diagnostic line only when it differs from the configured trigger key.
 
-设置页的“按下以设置”在监听器正常运行时直接读监听器的按键，altgo 窗口有焦点也能捕获。如果管道没在跑（例如当前键名解析不出，监听器启动失败），捕获会退回临时钩子。Windows 上这个临时钩子挂得晚，窗口有焦点时可能收不到按键，此时先把焦点切到其他窗口再按一次，界面上的失败提示也会说明这一点。Linux 的回退是自起 `evtest` 子进程，不受焦点影响，失败提示说的是设备读权限。
+Press to set in Settings reads keys from the listener while the listener is running, and it captures keys even when the altgo window has focus. If the pipeline is not running (for example the key name cannot be resolved and the listener failed to start), capture falls back to a temporary hook. On Windows this temporary hook is installed late and may miss keys while the window has focus. In that case, focus another window and press again. The failure message in the interface says this as well. On Linux the fallback starts its own `evtest` process, which is not affected by focus, and the failure message mentions device read permission.
 
-### 误触发 / IME 冲突
+### Accidental triggers or IME conflicts
 
-增加 `min_press_duration` 的值（默认 100 ms）来过滤短按抖动：
+Increase `min_press_duration` (default 100 ms) to filter short press chatter:
 
 ```toml
 [key_listener]
 min_press_duration = 200
 ```
 
-## 转写相关
+## Transcription
 
-### 能录音但没有转写结果
+### Recording works but there is no transcription
 
-1. 确认录音结束后悬浮窗是否进入“处理中”。
-2. 本地引擎确认已在设置页下载模型。在线引擎确认 API Key、服务地址与模型名正确。
-3. 查看日志：`RUST_LOG=altgo=debug altgo`，检查 `transcription failed`、模型路径与润色服务请求失败信息。
+1. Check whether the overlay enters the processing phase after recording stops.
+2. For the local engine, confirm that a model has been downloaded in Settings. For the online engine, confirm that the API key, base URL and model name are correct.
+3. Check the log: `RUST_LOG=altgo=debug altgo`. Look for `transcription failed`, model paths and polishing service request failures.
 
-### 中文识别效果不好
+### Chinese recognition is poor
 
-1. 确认 `language = "zh"` 设置正确。
-2. 本地引擎确认模型文件完整下载（`model.int8.onnx` 与 `tokens.txt` 均存在）。
-3. 在线引擎确认所选模型支持中文，并在服务商控制台检查请求是否被截断或限流。
+1. Confirm that `language = "zh"` is set correctly.
+2. For the local engine, confirm that the model files downloaded completely (both `model.int8.onnx` and `tokens.txt` exist).
+3. For the online engine, confirm that the selected model supports Chinese, and check in the provider console whether requests are truncated or rate limited.
 
-### 在线转写失败怎么办
+### What should I do when online transcription fails
 
-在线转写不回退本地，失败时直接报错。依次检查 `[transcriber] backend` 是否为 `"online"`，`[transcriber.online] protocol` 是否为 `mimo_chat`、`chat_input_audio` 或 `transcriptions`，API Key、服务地址与模型名是否有效，网络能否到达服务商。日志里搜索 `transcription failed`。
+Online transcription does not fall back to local and reports the failure directly. Check in order whether `[transcriber] backend` is `"online"`, whether `[transcriber.online] protocol` is `mimo_chat`, `chat_input_audio` or `transcriptions`, whether the API key, base URL and model name are valid, and whether the network can reach the provider. Search the log for `transcription failed`.
 
-### 在线转写需要联网吗
+### Does online transcription need a network connection
 
-需要。本地转写下载模型后可以断网使用，在线转写每次请求都要到达服务商。
+Yes. Local transcription works offline after the model is downloaded, and online transcription must reach the provider on every request.
 
-### 本地模型在哪里下载？
+### Where do I download local models
 
-在设置页的“转写”分区下载。可选 SenseVoice（约 230 MB，中英日韩粤自动检测）、SenseVoice 粤语增强（约 237 MB）与 FireRedASR2 CTC（约 740 MB，中英混说更强）。也可以从模型清单对应的 Hugging Face 仓库手动下载 `model.int8.onnx` 与 `tokens.txt` 放入模型目录。
+Download them from the transcription section in Settings. The choices are SenseVoice (about 230 MB, automatic detection of Chinese, English, Japanese, Korean and Cantonese), SenseVoice Cantonese-enhanced (about 237 MB) and FireRedASR2 CTC (about 740 MB, stronger on mixed Chinese and English speech). You can also download `model.int8.onnx` and `tokens.txt` manually from the Hugging Face repository listed in the model catalog and place them in the model directory.
 
-## 润色相关
+## Polishing
 
-### 润色太慢
+### Polishing is too slow
 
-1. 降低润色级别（`heavy`、`medium`、`light` 逐级降低）
-2. 使用更快的模型，或切到本地润色（设置页把“润色引擎”改为本地）。本地档首次调用要等运行时启动与模型加载，之后每句约 0.15 到 0.3 秒
-3. 设置 `level = "none"` 关闭润色
+1. Lower the polishing level (`heavy`, then `medium`, then `light`).
+2. Use a faster model, or switch to local polishing (change the polishing engine to local in Settings). The first local call waits for the runtime to start and the model to load, and later sentences take about 0.15 to 0.3 seconds.
+3. Set `level = "none"` to turn polishing off.
 
-### 润色改变了原意
+### Polishing changed the meaning
 
-使用 `light` 级别，只修正标点和错别字，不改变内容。或者使用自定义 system prompt：
+Use the `light` level, which only fixes punctuation and typos and does not change the content. Alternatively, use a custom system prompt:
 
 ```toml
 [polisher]
 level = "light"
-system_prompt = "只修正标点和错别字，不要改变原文的意思和语气"
+system_prompt = "Fix punctuation and typos only, without changing the meaning or tone of the original text"
 ```
 
-本地档另有保真校验：数字、网址与路径被改动，或结果被压缩成摘要、凭空多出内容、出现格式标记时，直接回退转写原文，不会把改坏的结果发出去。
+The local engine also has a fidelity check. When numbers, URLs or paths change, or the result is reduced to a summary, gains content, or contains formatting markers, altgo falls back to the raw transcript and never sends out a damaged result.
 
-### 本地润色需要联网吗
+### Does local polishing need a network connection
 
-不需要。运行时与模型下载完之后，本地润色全程在本机进行，转写文本不会离开这台机器。只有可选的远端润色引擎才需要联网。
+No. After the runtime and model are downloaded, local polishing runs entirely on this machine and the transcript never leaves it. Only the optional remote polishing engine needs the network.
 
-### 本地润色要占多少磁盘和内存
+### How much disk and memory does local polishing use
 
-运行时约占 47 MiB（Windows x64 解包后），模型 Qwen3-0.6B 约 397 MB、Qwen3-1.7B 约 1.1 GB。运行时提交内存约 1 GB（0.6B）或 1.5 GB（1.7B），进程工作集峰值实测约 1.3 GB 与 2.5 GB，空闲十分钟后会自动退出释放内存。
+The runtime takes about 47 MiB (unpacked on Windows x64). The Qwen3-0.6B model is about 397 MB and Qwen3-1.7B about 1.1 GB. The runtime commits about 1 GB (0.6B) or 1.5 GB (1.7B) of memory, with measured peak working sets of about 1.3 GB and 2.5 GB. It exits after ten idle minutes to release memory.
 
-## 剪贴板与悬浮窗
+## Clipboard and overlay
 
-### 提示成功但粘贴出来是旧内容 / 剪贴板失败
+### It reports success but pasting gives old content, or the clipboard fails
 
-1. 安装 `xclip`、`xsel` 或 `wl-copy` 之一，并确保在图形会话内运行 altgo。
-2. 若其他程序锁定了剪贴板，稍后重试即可。
-3. 在主页历史列表使用复制按钮（WebView 手势复制有时比后端剪贴板更稳）。悬浮窗只作展示，结果已自动写入剪贴板。
-4. 调试：`RUST_LOG=altgo=debug altgo` 查看是否有 clipboard 相关错误。
+1. Install `xclip`, `xsel` or `wl-copy`, and make sure altgo runs inside the graphical session.
+2. If another program holds the clipboard, try again later.
+3. Use the copy button in the history list on the home page (WebView gesture copying is sometimes more reliable than the backend clipboard). The overlay only displays the result, which is already on the clipboard.
+4. For debugging, run `RUST_LOG=altgo=debug altgo` and look for clipboard errors.
 
-## 通用
+## General
 
-### 如何后台运行？
+### How do I run altgo in the background
 
 ```bash
 # Linux
 nohup altgo &
-# 或使用 systemd user service
+# or use a systemd user service
 ```
 
-### 如何查看日志？
+### How do I view the log
 
 ```bash
 # Linux
 RUST_LOG=altgo=debug altgo
 ```
 
-可用的日志级别：`debug`、`info`、`warn`、`error`
+Available log levels: `debug`, `info`, `warn`, `error`

@@ -1,62 +1,64 @@
 ---
 slug: /
+title: altgo documentation
+description: altgo is a desktop speech-to-text tool. Hold a key, speak, release, and the result is on your clipboard.
 ---
 
 import Link from '@docusaurus/Link';
 
-# altgo 文档
+# altgo documentation
 
-altgo 是桌面语音转文字工具。按住触发键（默认右 Alt）说话，松开后自动完成录音、转写与可选润色，结果写入系统剪贴板，并在屏幕底部悬浮窗中单行展示。
+altgo is a desktop speech-to-text tool. Hold the trigger key (right Alt by default), speak, and release. altgo records, transcribes and optionally polishes your speech, writes the result to the system clipboard and shows it on a single line in an overlay at the bottom of the screen.
 
-转写引擎二选一。本地引擎内嵌 sherpa-onnx，可选 SenseVoice 或 FireRedASR2 CTC，离线可用。在线引擎接入云端 ASR，默认 MiMo，无需下载模型，需要 API Key。润色为可选项，支持 OpenAI 兼容 API、Anthropic Messages API 与本机模型。
+Transcription uses one of two backends. The local backend embeds sherpa-onnx and offers SenseVoice or FireRedASR2 CTC, and works offline. The online backend calls a cloud ASR service, MiMo by default, needs no model download and requires an API key. Polishing is optional and supports the OpenAI-compatible API, the Anthropic Messages API and local models.
 
-altgo 覆盖 Linux 与 Windows 的 x86_64 与 arm64 四个组合。Linux 支持 Ubuntu 22.04+ 的 x86_64 与 aarch64，Windows 支持 10+ 的 x86_64 与 arm64。macOS 暂不支持。
+altgo covers four combinations of Linux and Windows on x86_64 and arm64. Linux supports Ubuntu 22.04+ on x86_64 and aarch64, and Windows supports 10+ on x86_64 and arm64. macOS is not supported.
 
-## 从这里开始
+## Start here
 
 <div className="doc-nav-grid">
 
 <Link to="/docs/quick-start" className="doc-nav-card">
-  <h3>快速开始</h3>
-  <p>安装、配置与首次使用指南</p>
+  <h3>Quick Start</h3>
+  <p>Install, configure and use altgo for the first time</p>
 </Link>
 
 <Link to="/docs/configuration" className="doc-nav-card">
-  <h3>配置指南</h3>
-  <p>TOML 配置文件完整说明</p>
+  <h3>Configuration</h3>
+  <p>Complete reference for the TOML configuration file</p>
 </Link>
 
 <Link to="/docs/usage" className="doc-nav-card">
-  <h3>使用说明</h3>
-  <p>录音模式、润色、输出方式详解</p>
+  <h3>Usage</h3>
+  <p>Recording modes, polishing and output</p>
 </Link>
 
 <Link to="/docs/architecture" className="doc-nav-card">
-  <h3>架构设计</h3>
-  <p>模块结构、状态机与平台策略</p>
+  <h3>Architecture</h3>
+  <p>Module layout, state machine and platform strategy</p>
 </Link>
 
 <Link to="/docs/faq" className="doc-nav-card">
-  <h3>常见问题</h3>
-  <p>录音、按键、转写、润色排错</p>
+  <h3>FAQ</h3>
+  <p>Troubleshooting for recording, keys, transcription and polishing</p>
 </Link>
 
 <a href="https://github.com/ouyangjiahong26/altgo" className="doc-nav-card" target="_blank" rel="noopener noreferrer">
   <h3>GitHub</h3>
-  <p>源码、Issue 与 Release 下载</p>
+  <p>Source code, issues and release downloads</p>
 </a>
 
 </div>
 
-## 核心特性
+## Highlights
 
-| 特性 | 说明 |
-|------|------|
-| 长按即录 | 按住右 Alt 说话，松开自动转写 |
-| 连续模式 | 双击进入连续录音，适合长篇发言 |
-| 本地转写 | SenseVoice 或 FireRedASR2 CTC，离线可用，无需 API Key |
-| 在线转写 | MiMo 等云端 ASR，无需下载模型，需要 API Key |
-| LLM 润色 | 四档强度，支持多种 Provider，也可完全离线用本机模型 |
-| 剪贴板与悬浮窗 | 自动写入剪贴板，悬浮窗可二次复制 |
-| 本地历史 | 查看、复制、删除与重新润色，只保存文本 |
-| 平台支持 | Linux（X11 / Wayland，x86_64 / aarch64），Windows 10+（x86_64 / arm64） |
+| Feature | Description |
+|---------|-------------|
+| Hold to record | Hold right Alt to speak and release to transcribe |
+| Continuous mode | Double-press for continuous recording, suited to long speech |
+| Local transcription | SenseVoice or FireRedASR2 CTC, offline and with no API key |
+| Online transcription | Cloud ASR such as MiMo, no model download, API key required |
+| LLM polishing | Four levels, many providers, or a fully local model |
+| Clipboard and overlay | Automatic clipboard write, copy again from the overlay |
+| Local history | View, copy, delete and polish again, text only |
+| Platform support | Linux (X11 / Wayland, x86_64 / aarch64), Windows 10+ (x86_64 / arm64) |

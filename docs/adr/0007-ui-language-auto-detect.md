@@ -9,3 +9,5 @@ AppImage 目录（appimage.github.io）收录时以截图 OCR 判定界面语言
 - 识别语言（`transcriber.language`）与界面语言（`gui.language`）同名易混，术语表分立词条（CONTEXT.md “语言”一节），设置页与文档不得混用。
 - 错误码化落地时，事件协议与 `voice_pipeline` 测试替身需同步修改。`message()` 仅剩 `describe_test_error`（润色连接测试）与测试消费，事件通道不再传中文文案。
 - 自动检测依赖 `navigator.language`，三窗口各自解析（同系统结果一致）。不读 `LANG`/`LC_*`（Windows 无此环境变量，Rust 侧探测徒增平台分叉）。
+
+2026-10-29 更新：README 与用户文档改为英文为主、中文译文保留，本条中“仓库文档与 README 保持中文单语”的决策由 ADR-0014 取代，界面语言自动检测与错误文案码化的决策不变。

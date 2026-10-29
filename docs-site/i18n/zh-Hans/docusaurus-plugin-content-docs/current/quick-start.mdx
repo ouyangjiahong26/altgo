@@ -1,0 +1,79 @@
+---
+sidebar_position: 1
+title: 快速开始
+sidebar_label: 快速开始
+description: 在 Linux 或 Windows 上安装 altgo，配置转写并完成第一次录音。
+---
+
+# 快速开始
+
+altgo 支持 Linux（Ubuntu 22.04+）的 x86_64 与 aarch64 架构，以及 Windows 10+（x86_64 与 arm64）。Linux 构建和 Release 在 Ubuntu 22.04 上验证。其他发行版可能可用但未保证。目前不支持 macOS。
+
+转写引擎二选一。本地引擎内嵌 sherpa-onnx，提供 SenseVoice 或 FireRedASR2 CTC，无需单独安装二进制，模型下载后可断网使用。在线引擎把音频发往云端 ASR 端点，默认使用 MiMo ASR，不下载模型。
+
+## Linux：安装前必做（input 组）
+
+必须将当前用户加入 `input` 组，否则无法读取 `/dev/input/event*`，按键监听会失败。执行后须重新登录：
+
+```bash
+sudo usermod -aG input "$USER"
+```
+
+## 最终用户：装好后在“设置”里完成一切
+
+### Linux
+
+1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载对应系统的安装包：`.deb`（Ubuntu/Debian）、`.rpm`（Fedora/RHEL）或 `.AppImage`。
+2. 完成上文 input 组。`.deb` 与 `.rpm` 已声明桌面与音频依赖，包管理器会自动拉取。AppImage 不解析依赖，运行时提示缺库时按提示补装。
+3. 启动应用，打开设置：
+   - 在转写中选择本地引擎并下载模型，或选择在线引擎并填写 API Key、服务地址与模型名。
+   - 按需配置润色、外观、触发键（可用“按下以设置”）。
+   - 点击保存。
+4. 识别结果会写入剪贴板并在悬浮窗中单行展示，直接到目标应用粘贴即可。全文可在主页历史列表中查看、复制或重新润色。
+
+### Windows
+
+1. 从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载与设备架构（x64 或 arm64）对应的 `*-setup.exe`（NSIS 安装器）。
+2. 双击安装，在开始菜单启动 altgo。
+3. 打开设置，选择转写引擎并完成模型或 API 配置，按需配置润色与触发键，然后点击保存。
+
+Windows 安装包使用 SignPath Foundation 提供的免费代码签名，目前正在接入。签名政策的完整说明见 [README 的 Code signing policy](https://github.com/ouyangjiahong26/altgo#code-signing-policy) 一节，数据去向见[隐私政策](./privacy)。接入完成前，Windows 可能显示“Windows 已保护你的电脑”，把安装包标为无法识别的应用。这是未签名程序的常规提示，不代表文件有问题。继续安装的路径是点“更多信息”，再点“仍要运行”。开启“智能应用控制”的 Windows 11 会直接阻止未签名程序运行，也没有针对单个程序放行的入口，只能在 Windows 安全中心的“应用和浏览器控制”里关掉这个功能。
+
+想先确认下载的文件没被改动，可以从同一版本的 Release 页面下载 `checksums.txt`，再用 `certutil -hashfile <安装包> SHA256` 算出本文件的哈希，与其中对应行比对。
+
+不要把“先复制 `configs/altgo.toml` 再手改”当作默认路径，那是高级用法。日常用户只使用界面即可。
+
+## 启动
+
+运行 `altgo` 或安装目录下的可执行文件。按住右 Alt 说话，松开后在悬浮窗查看结果。触发键在设置中修改。
+
+## 无外网环境安装（Windows x64）
+
+目标机器完全没有外网时，安装器与模型都要靠搬运。到 [离线资产包](https://github.com/ouyangjiahong26/altgo/releases/tag/offline-assets-v2.7.8) 下载一个 zip：Windows 11 用 `altgo-2.7.8-offline-win-x64.zip`，Windows 10 或不确定是否装了 WebView2 用 `altgo-2.7.8-offline-win-x64-with-webview2.zip`。
+
+解压后按顺序执行：
+
+1. 在解压目录打开 PowerShell，运行 `powershell -ExecutionPolicy Bypass -File .\install-offline-assets.ps1`。脚本先核对包内 `SHA256SUMS`，再把 `models`、`polish-models`、`runtime` 三个目录复制到 `%APPDATA%\altgo`，已存在的文件按哈希比对，相同就跳过。它不修改 `altgo.toml`，不动你已有的配置。
+2. Windows 10 再运行 `webview2\MicrosoftEdgeWebView2RuntimeInstallerX64.exe`。Windows 11 自带 WebView2，跳过这一步。
+3. 运行 `altgo_2.7.8_x64-setup.exe` 安装应用，从开始菜单启动。
+
+模型与运行时放进 `%APPDATA%\altgo` 后常驻约 650 MB。搬运过程中 zip、解压出的目录与配置目录里那一份会同时存在，峰值接近 1.9 GB，装完删掉 zip 与解压目录即可。启动后在设置里把转写模型选为本地 `sense-voice`、润色引擎选本地档，模型已经在位，界面显示为已下载，不需要再联网。
+
+想先确认 zip 没被改动，可以用 `certutil -hashfile <zip> SHA256` 与资产 Release 页面上给出的值比对，解压后包内每个文件的校验由脚本负责。
+
+## 高级：仅当你要手改配置文件时
+
+配置文件路径：`~/.config/altgo/altgo.toml`。字段说明见主仓库 [`configs/altgo.toml`](https://github.com/ouyangjiahong26/altgo/blob/master/configs/altgo.toml)。
+
+## 开发者：从源码构建
+
+与主仓库一致，使用 `make build` 打包。日常验证也以 `make build` 为主。
+
+```bash
+git clone https://github.com/ouyangjiahong26/altgo.git
+cd altgo
+cd frontend && npm install && cd ..
+make build
+```
+
+若需快速改前端 UI，可临时使用 `cargo tauri dev`。完整链路仍以 `make build` 为准。

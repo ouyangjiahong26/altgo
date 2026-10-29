@@ -7,92 +7,96 @@
 [![Release](https://img.shields.io/github/v/release/ouyangjiahong26/altgo)](https://github.com/ouyangjiahong26/altgo/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-altgo 是桌面语音转文字工具。按住触发键（默认右 Alt）说话，松开后自动完成录音、转写与可选润色，结果写入系统剪贴板，并在屏幕底部悬浮窗中单行展示。
+English | [简体中文](README.zh-CN.md)
 
-转写引擎二选一。本地引擎内嵌 sherpa-onnx，可选 SenseVoice（多语种自动检测）或 FireRedASR2 CTC（中英混说更强），离线可用。在线引擎接入云端 ASR，默认 MiMo，无需下载模型，需填 API Key。
+altgo is a desktop speech-to-text tool. Hold the trigger key (right Alt by default), speak, and release. altgo records, transcribes and optionally polishes your speech, writes the result to the system clipboard and shows it on a single line in an overlay at the bottom of the screen.
 
-altgo 覆盖 Linux 与 Windows 的 x86_64 与 arm64 四个组合：Linux 支持 Ubuntu 22.04+ 的 x86_64 与 aarch64，Windows 支持 10+ 的 x86_64 与 arm64。macOS 暂不支持。
+Transcription uses one of two backends. The local backend embeds sherpa-onnx and offers SenseVoice (multilingual automatic detection) or FireRedASR2 CTC (better on mixed Chinese and English speech), and works offline. The online backend calls a cloud ASR service, MiMo by default, needs no model download and requires an API key.
 
-- [在线文档](https://ouyangjiahong26.github.io/altgo/)
-- [Releases 下载](https://github.com/ouyangjiahong26/altgo/releases)
-- [问题反馈](https://github.com/ouyangjiahong26/altgo/issues)
+altgo covers four combinations of Linux and Windows on x86_64 and arm64: Linux supports Ubuntu 22.04+ on x86_64 and aarch64, and Windows supports 10+ on x86_64 and arm64. macOS is not supported.
 
-## 功能
+- [Documentation](https://ouyangjiahong26.github.io/altgo/)
+- [Releases](https://github.com/ouyangjiahong26/altgo/releases)
+- [Issues](https://github.com/ouyangjiahong26/altgo/issues)
 
-### 录音与转写
+## Features
 
-- 按住右 Alt 说话，松开自动转写。触发键可在设置中更改。
-- 连续模式：双击触发键进入连续录音，再单击停止，适合较长发言。
-- 本地转写：内嵌 sherpa-onnx，模型常驻加载，可在设置页下载与管理。可选 SenseVoice、SenseVoice 粤语增强或 FireRedASR2 CTC。
-- 在线转写：云端 ASR，默认 MiMo，无需下载模型，需填 API Key。
+### Recording and transcription
 
-![录音时的悬浮窗：红点与实时电平轨迹](assets/overlay-phase-recording.svg)
+- Hold right Alt to speak and release to transcribe. The trigger key can be changed in Settings.
+- Continuous mode: double-press the trigger key to start continuous recording, then single-press to stop. It suits longer speech.
+- Local transcription: sherpa-onnx is embedded and models stay loaded in memory. Download and manage models in Settings, and choose SenseVoice, SenseVoice Cantonese-enhanced or FireRedASR2 CTC.
+- Online transcription: cloud ASR, MiMo by default. No model download, and an API key is required.
 
-### 润色与输出
+![Overlay while recording: a red dot and a live level trace](assets/overlay-phase-recording.svg)
 
-- LLM 润色（可选）：四档强度，支持 OpenAI 兼容协议与 Anthropic Messages API，内置多家提供商预设，也可完全离线使用本机模型。
-- 结果写入剪贴板，并在屏幕底部悬浮窗以单行展示。
-- 转写中悬浮窗显示旋转环与进度线。
+### Polishing and output
 
-![转写中的悬浮窗：旋转环与进度线](assets/overlay-phase-transcribing.svg)
+- LLM polishing (optional): four levels, support for the OpenAI-compatible protocol and the Anthropic Messages API, built-in presets for many providers and a fully offline local model.
+- The result is written to the clipboard and shown on a single line in an overlay at the bottom of the screen.
+- While transcribing, the overlay shows a spinner and a progress line.
 
-![完成后的悬浮窗：对勾与单行结果，悬停显示关闭按钮](assets/overlay-phase-result.svg)
+![Overlay while transcribing: a spinner and a progress line](assets/overlay-phase-transcribing.svg)
 
-### 历史与桌面集成
+![Overlay when done: a check mark and a one-line result, with a close button on hover](assets/overlay-phase-result-en.svg)
 
-- 本地转写历史：查看、复制、复制原文、删除、清空、重新润色。
-- 自动输入到光标位置（仅 Windows，默认关闭）。
-- 自动检查更新：启动时静默检查，设置页可手动检查并在独立窗口查看更新说明。
-- 托盘图标：显示主窗口或退出应用。
-- 外观可调：深浅配色跟随系统或手动指定，字体大小与窗口尺寸各三档。
-- 只保存文本，从不保存音频。
+### History and desktop integration
 
-## 安装
+- Local transcription history: view, copy, copy the raw text, delete, clear and polish again.
+- Automatic text injection at the cursor (Windows only, off by default).
+- Automatic update checks: silent at startup, with a manual check in Settings and release notes in a separate window.
+- Tray icon: show the main window or quit the app.
+- Adjustable appearance: light and dark themes that follow the system or a manual choice, plus three font sizes and three window sizes.
+- Text only is stored. Audio is never saved.
+
+## Installation
 
 ### Linux
 
-安装前把当前用户加入 `input` 组，否则无法读取键盘设备。随后注销重新登录：
+Add the current user to the `input` group before installing, otherwise altgo cannot read keyboard devices. Log out and back in afterwards:
 
 ```bash
 sudo usermod -aG input "$USER"
 ```
 
-从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载对应架构的 `.deb`、`.rpm` 或 `.AppImage`，然后安装或直接运行：
+Download the `.deb`, `.rpm` or `.AppImage` for your architecture from [Releases](https://github.com/ouyangjiahong26/altgo/releases), then install or run it:
 
 ```bash
 sudo apt install ./altgo_*.deb
-# 或
+# or
 sudo dnf install ./altgo-*.rpm
-# 或
+# or
 chmod +x altgo_*.AppImage && ./altgo_*.AppImage
 ```
 
-`.deb` 与 `.rpm` 已声明覆盖桌面集成、音频、剪贴板与 `evtest` 的依赖。AppImage 不自动解析依赖，缺库时按运行时的报错补装。Wayland 会话需确保已安装 `evtest`，且当前用户可读 `/dev/input/event*`。
+The `.deb` and `.rpm` packages declare dependencies for desktop integration, audio, clipboard and `evtest`. The AppImage does not resolve dependencies, so install missing libraries based on the error at launch. On Wayland sessions, make sure `evtest` is installed and the current user can read `/dev/input/event*`.
 
-重新登录后启动 altgo，在设置页完成转写配置。
+After logging back in, start altgo and finish the transcription setup in Settings.
 
 ### Windows
 
-从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载与设备架构对应的 `*-setup.exe`（NSIS 安装器），双击安装，然后从开始菜单启动 altgo，在设置页完成转写配置。x64 与 arm64 按设备架构选择对应包。
+Download the `*-setup.exe` for your device architecture (NSIS installer) from [Releases](https://github.com/ouyangjiahong26/altgo/releases), double-click to install, start altgo from the Start menu and finish the transcription setup in Settings. Choose the package that matches x64 or arm64.
 
-## 快速开始
+## Quick start
 
-启动应用后，在设置页完成：
+After starting the app, complete these steps in Settings:
 
-1. 选择转写引擎。本地引擎需先下载模型，在线转写需填 API Key。
-2. 按需设置润色档位与润色服务。
-3. 确认触发键，默认右 Alt。
-4. 点击保存。
+1. Choose a transcription backend. The local backend needs a model download first, and online transcription needs an API key.
+2. Set the polishing level and service if needed.
+3. Confirm the trigger key, right Alt by default.
+4. Click Save.
 
-按住右 Alt 开始录音。松开后依次完成转写、润色（可选）、写入剪贴板，并在悬浮窗显示结果。转写历史默认保存在 `~/.config/altgo/history.json`，只保存文本。
+Hold right Alt to start recording. On release altgo transcribes, polishes (optional), writes to the clipboard and shows the result in the overlay. History is stored in `~/.config/altgo/history.json` by default and contains text only.
 
-## 文档
+## Documentation
 
-- [在线文档](https://ouyangjiahong26.github.io/altgo/)：快速上手、配置、使用、架构与 FAQ
-- [`CONTRIBUTING.md`](CONTRIBUTING.md)：开发环境、构建、测试、CI 与发版
-- [`docs/architecture.md`](docs/architecture.md) 与 [`AGENTS.md`](AGENTS.md)：系统架构与核心模块
-- [`docs/README.md`](docs/README.md)：仓库内文档索引
-- [`CHANGELOG.md`](CHANGELOG.md)：版本历史
+- [Documentation site](https://ouyangjiahong26.github.io/altgo/): quick start, configuration, usage, architecture and FAQ
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): development environment, build, tests, CI and releases
+- [`docs/architecture.md`](docs/architecture.md) and [`AGENTS.md`](AGENTS.md): system architecture and core modules
+- [`docs/README.md`](docs/README.md): repository documentation index
+- [`CHANGELOG.md`](CHANGELOG.md): version history
+
+Repository and maintainer documentation is written in Chinese. The user documentation site is available in English and Simplified Chinese.
 
 ## Code signing policy
 
@@ -107,10 +111,6 @@ Windows installers (`*-setup.exe`) use free code signing provided by SignPath Fo
 
 After signing is enabled, Windows SmartScreen and UAC prompts will show SignPath Foundation as the publisher. Reputation builds up over clean installs, so the first downloads of a new release may still show a warning.
 
-### 中文
-
-Windows 安装包使用 SignPath Foundation 提供的免费代码签名，接入完成后所有 Release 都使用同一签名身份。签名后 SmartScreen 与 UAC 提示会显示 SignPath Foundation 为发布者，新版本首次下载仍可能提示。隐私政策见[隐私政策](https://ouyangjiahong26.github.io/altgo/docs/privacy)，接入状态、申请条件与发布流程见 [`docs/code-signing.md`](docs/code-signing.md)。
-
-## 许可证
+## License
 
 [MIT License](LICENSE)

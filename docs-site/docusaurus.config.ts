@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'altgo',
-  tagline: '无需打字，言出法随',
+  tagline: 'Speech to text, without typing',
   favicon: 'img/favicon.ico',
 
   future: {
@@ -21,8 +21,20 @@ const config: Config = {
   onBrokenLinks: 'throw',
 
   i18n: {
-    defaultLocale: 'zh-Hans',
-    locales: ['zh-Hans'],
+    defaultLocale: 'en',
+    locales: ['en', 'zh-Hans'],
+    localeConfigs: {
+      en: {
+        label: 'English',
+        direction: 'ltr',
+        htmlLang: 'en',
+      },
+      'zh-Hans': {
+        label: '简体中文',
+        direction: 'ltr',
+        htmlLang: 'zh-Hans',
+      },
+    },
   },
 
   presets: [
@@ -32,6 +44,7 @@ const config: Config = {
         docs: {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/ouyangjiahong26/altgo/tree/master/docs-site/',
+          editLocalizedFiles: true,
         },
         blog: false,
         theme: {
@@ -46,7 +59,7 @@ const config: Config = {
       {
         name: 'description',
         content:
-          'altgo：桌面语音转文字工具（Tauri）。同时支持 Windows 与 Linux、x86_64 与 arm64 四个组合。SenseVoice 本地转写，可选 LLM 润色，剪贴板与悬浮窗输出。',
+          'altgo is a desktop speech-to-text tool built with Tauri. It supports Linux and Windows on x86_64 and arm64, transcribes locally with SenseVoice or online, polishes with an optional LLM, and outputs to the clipboard and an overlay.',
       },
     ],
     image: 'img/screenshot-main.png',
@@ -67,11 +80,15 @@ const config: Config = {
           type: 'docSidebar',
           sidebarId: 'docsSidebar',
           position: 'left',
-          label: '文档',
+          label: 'Docs',
         },
         {
           href: 'https://github.com/ouyangjiahong26/altgo',
           label: 'GitHub',
+          position: 'right',
+        },
+        {
+          type: 'localeDropdown',
           position: 'right',
         },
       ],
@@ -80,23 +97,23 @@ const config: Config = {
       style: 'dark',
       links: [
         {
-          title: '文档',
+          title: 'Docs',
           items: [
-            {label: '快速开始', to: '/docs/quick-start'},
-            {label: '配置指南', to: '/docs/configuration'},
-            {label: '使用说明', to: '/docs/usage'},
+            {label: 'Quick Start', to: '/docs/quick-start'},
+            {label: 'Configuration', to: '/docs/configuration'},
+            {label: 'Usage', to: '/docs/usage'},
           ],
         },
         {
-          title: '更多',
+          title: 'More',
           items: [
-            {label: '架构设计', to: '/docs/architecture'},
-            {label: '常见问题', to: '/docs/faq'},
-            {label: '隐私政策 / Privacy Policy', to: '/docs/privacy'},
+            {label: 'Architecture', to: '/docs/architecture'},
+            {label: 'FAQ', to: '/docs/faq'},
+            {label: 'Privacy Policy', to: '/docs/privacy'},
           ],
         },
         {
-          title: '社区',
+          title: 'Community',
           items: [
             {label: 'GitHub', href: 'https://github.com/ouyangjiahong26/altgo'},
           ],

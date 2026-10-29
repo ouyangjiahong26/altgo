@@ -1,0 +1,117 @@
+---
+sidebar_position: 4
+title: 架构设计
+description: altgo 的组成方式：流水线、按键状态机、模块结构、转写与润色引擎以及平台策略。
+---
+
+# 架构设计
+
+本文面向想了解实现结构的用户与贡献者。更细的模块职责、依赖方向与错误模型见仓库内的 [`docs/architecture.md`](https://github.com/ouyangjiahong26/altgo/blob/master/docs/architecture.md)。
+
+## 整体流水线
+
+altgo 的语音处理是一条由按键事件驱动的线性流水线：
+
+```text
+按键监听 → 状态机 → 录音 → 转写 → 润色（可选）→ 剪贴板 + 悬浮窗 + 历史
+```
+
+整条流水线跑在独立的 OS 线程上，内部是一个独立的 `current_thread` tokio 运行时，与 Tauri 主运行时隔离。主循环用 `tokio::select!` 同时等待五类事件：按键、状态机超时、待重试录音、空闲回收节拍、停止信号。转写与润色在主循环内串行完成，保证单次转写互斥，详见 [ADR-0003](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0003-single-transcription-mutex.md)。
+
+转写历史只保存文本，原始转写记为 `rawText`，当前展示文本记为 `text`，不保存音频。数据文件为 `~/.config/altgo/history.json`。转写成功后写入一条记录并广播 `history-updated` 事件，主页历史列表据此刷新。
+
+## 按键状态机
+
+状态机是一个纯同步模块，只返回 `StartRecord` 或 `StopRecord` 命令，由主循环执行副作用。
+
+| 状态 | 进入条件 | 离开条件 |
+|------|---------|---------|
+| `Idle` | 空闲 | 按下进入 `PotentialPress` |
+| `PotentialPress` | 按下 | 达到长按阈值进入 `Recording`，提前松开进入 `WaitSecondClick` |
+| `Recording` | 长按触发 | 松开停止，回到 `Idle` |
+| `WaitSecondClick` | 短按松开 | 双击间隔内再次按下进入 `ContinuousRecording`，超时回到 `Idle` |
+| `ContinuousRecording` | 双击触发 | 再按一次停止，回到 `Idle` |
+
+长按阈值默认 200 ms，双击间隔默认 300 ms，最短按下时长默认 100 ms。按下时长低于最短值视为输入法抖动，直接丢弃。
+
+## 模块结构
+
+Tauri 核心目录 `src-tauri/src/` 的主要模块：
+
+```text
+src-tauri/src/
+├── main.rs                 # 薄入口，调用 lib::run()
+├── lib.rs                  # Tauri 装配层，managed state 与流水线线程
+├── cmd.rs                  # IPC 命令
+├── config.rs               # TOML 配置加载与校验
+├── config_store.rs         # 活动配置与补丁
+├── history.rs              # 历史 JSON
+├── state_machine.rs        # 按键状态机
+├── pipeline_controller.rs  # 管道生命周期
+├── voice_pipeline/         # 主循环、编排、分发与 sink
+├── transcriber.rs          # Transcriber trait
+├── sherpa.rs               # 本地 sherpa-onnx 引擎
+├── online_asr.rs           # 在线 ASR，按协议家族分派
+├── polisher.rs             # Polisher trait 与远端实现
+├── polisher/               # 本地润色、保真校验、prompt 与协议细节
+├── polish_runtime/         # llama-server 子进程生命周期
+├── polish_model.rs         # 本地润色模型清单
+├── model.rs                # 转写模型清单与校验
+├── download.rs             # 共用下载内核
+├── prompt_store.rs         # 润色 prompt 模板
+├── key_listener/           # 按键监听
+├── key_capture/            # 设置页按键捕获
+├── recorder/               # 录音
+├── output/                 # 剪贴板与文本注入
+├── overlay/                # 悬浮窗窗口管理与相位数
+├── tauri_sink.rs           # 流水线事件到前端
+├── updater.rs              # 自动更新
+├── display_backend.rs      # Wayland 会话的 XWayland 切换
+└── audio.rs / error.rs / resource.rs
+```
+
+## 转写引擎
+
+转写由 `Transcriber` trait 抽象，设置页的 `[transcriber] backend` 决定使用哪个实现。
+
+本地实现是 `SherpaTranscriber`，内嵌 sherpa-onnx，模型在管道启动时加载一次并常驻内存。模型注册表提供 SenseVoice、SenseVoice 粤语增强与 FireRedASR2 CTC。推理是 CPU 密集的同步操作，经 `spawn_blocking` 放入阻塞线程池。
+
+在线实现是 `OnlineAsr`，按 `[transcriber.online] protocol` 在三个协议家族间分派：
+
+| 协议 | 请求形状 | 文本来源 |
+|------|---------|---------|
+| `mimo_chat` | `chat/completions`，WAV 以 base64 放进单个 `input_audio` 块，携带 `asr_options` | `choices[0].message.content` |
+| `chat_input_audio` | 同 chat 形状，不带 `asr_options`，语言非空时作为顶层字段 | `choices[0].message.content` |
+| `transcriptions` | OpenAI `/audio/transcriptions` multipart | 顶层 `text` 字段 |
+
+在线转写不做重试，失败直接报错，不回退本地。决策记录见 [ADR-0013](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0013-online-asr-protocol-families.md)。
+
+两种后端都接受 16 kHz、单声道、16 位 PCM 的 WAV 字节。录音器统一输出这一格式。
+
+## 润色引擎
+
+润色由 `Polisher` trait 抽象，默认关闭。级别不为 `none` 时，`[polisher] backend` 选择远端或本地实现。
+
+远端实现 `LLMFormatter` 支持 OpenAI 兼容 chat API 与 Anthropic Messages API，带指数退避重试。本地实现 `LocalPolisher` 与 llama-server 子进程通信，运行时与模型按需下载，惰性启动，空闲十分钟后回收。
+
+本地引擎的输出在下发前要过保真校验。数字、网址或路径被改动，结果被压缩成摘要，凭空多出内容，出现格式标记，都会判定失败并回退转写原文。详见 [ADR-0011](https://github.com/ouyangjiahong26/altgo/blob/master/docs/adr/0011-fidelity-guard-and-fallback.md)。
+
+## 平台策略
+
+Linux 通过子进程调用系统工具：`xinput` 或 `evtest` 监听按键，`parecord` 录音，`xclip`、`xsel` 或 `wl-copy` 写剪贴板。Wayland 会话在 GUI 初始化前切到 XWayland，否则悬浮窗无法定位。
+
+Windows 走原生 API：`WH_KEYBOARD_LL` 低级键盘钩子监听按键，cpal/WASAPI 录音，arboard 写剪贴板，SendInput 可选地把文本注入当前焦点窗口。文本注入默认关闭。
+
+平台能力都收在 trait 后面，各模块的实现文件按平台命名为 `linux.rs` 或 `windows.rs`。流水线只消费 `Box<dyn Trait>`，与平台解耦。
+
+## 前端与 IPC
+
+前端是 React 应用，包含三个窗口：主窗、悬浮窗、更新说明窗口。主窗负责主页与设置，悬浮窗只显示录音、处理与结果相位，更新说明窗口展示新版本的分类变更。
+
+前后端经 Tauri IPC 通信。IPC 与 `history.json` 使用 camelCase，`altgo.toml` 使用 snake_case，边界上由 serde 转换。前端通过事件接收管道状态、转写结果、润色失败、历史更新、下载进度等变化。
+
+## 延伸阅读
+
+- [`docs/architecture.md`](https://github.com/ouyangjiahong26/altgo/blob/master/docs/architecture.md)：模块职责、依赖方向、错误模型与 IPC 契约
+- [`docs/testing.md`](https://github.com/ouyangjiahong26/altgo/blob/master/docs/testing.md)：测试分层、替身与 CI 覆盖
+- [`docs/adr/`](https://github.com/ouyangjiahong26/altgo/tree/master/docs/adr)：架构决策记录

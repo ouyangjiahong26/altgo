@@ -3,7 +3,7 @@
     悬浮窗相位：录音（按住触发键说话时）。
     几何与配色 1:1 复刻 frontend/src/overlay.css 与 src/styles/design-tokens.css（dark 主题）：
     悬浮条 248×40 圆角 10（面板档）、红点 7px、扩散环 1px、轨迹视口 158×14 条宽 2px。
-    红色只留在这枚录音点上，波形走中性灰（--overlay-result-text），避免一条长横条铺语义色。
+    红色只留在这枚录音点上，波形走中性灰，避免一条长横条铺语义色。
     改动这些值时要同步本文件。
   -->
   <style>
@@ -41,14 +41,14 @@
   </style>
 
   <defs>
-    <!-- 7px 红点 + 扩散环，复刻 .dot 与 .dot::after（inset -3px）。红取 --color-red 的夜间值。 -->
+    <!-- 7px 红点 + 扩散环，复刻 .dot 与 .dot::after（inset -3px）。颜色取错误色的夜间值。 -->
     <g id="recording-dot">
       <circle class="ring-pulse" r="3.5" fill="none" stroke="#f87171" stroke-width="1"/>
       <circle r="3.5" fill="#f87171"/>
     </g>
   </defs>
 
-  <!-- 悬浮条居中：440 宽画布、248 宽条，两侧各留 96。面取 --overlay-surface-solid，线取 --overlay-border。 -->
+  <!-- 悬浮条居中：440 宽画布、248 宽条，两侧各留 96。底色与描边取悬浮面板的夜间值。 -->
   <rect x="96" y="0" width="248" height="40" rx="10" fill="#27272a" stroke="#414144"/>
   <use href="#recording-dot" x="136" y="20"/>
   <!-- 轨迹右对齐、底部对齐：8 条 2px 中性条，静止高度即 CSS 里的实测形状 -->

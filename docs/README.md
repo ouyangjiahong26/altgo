@@ -13,8 +13,8 @@
 
 | 读者 | 入口 |
 |------|------|
-| 最终用户 | 根目录 [`README.md`](../README.md)，[文档站](https://ouyangjiahong26.github.io/altgo/)的快速开始、配置、使用与 FAQ |
+| 最终用户 | 根目录 [`README.md`](../README.md)（英文）与 [`README.zh-CN.md`](../README.zh-CN.md)（中文），[文档站](https://ouyangjiahong26.github.io/altgo/)的快速开始、配置、使用与 FAQ（英文）或 [中文文档站](https://ouyangjiahong26.github.io/altgo/zh-Hans/) |
 | 贡献者 | [`CONTRIBUTING.md`](../CONTRIBUTING.md)，本目录的架构与测试文档 |
 | 维护者 | [`code-signing.md`](code-signing.md)，[`adr/`](adr/) 与根目录 [`CHANGELOG.md`](../CHANGELOG.md) |
 
-文档站源文件在 [`docs-site/docs/`](../docs-site/docs/)，由 Docusaurus 构建。
+文档站英文源文件在 [`docs-site/docs/`](../docs-site/docs/)，中文译文在 [`docs-site/i18n/zh-Hans/`](../docs-site/i18n/zh-Hans/)，由 Docusaurus 构建。

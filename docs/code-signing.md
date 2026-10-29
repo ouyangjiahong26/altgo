@@ -27,7 +27,7 @@ v2.7.8 的 Release 安装包没有 Authenticode 签名。`Get-AuthenticodeSignat
 - 每个签名请求由 Approver 人工批准，每个版本都要批准。
 - 被签名的二进制有统一的 ProductName 与版本元数据。当前 NSIS 安装包的 ProductName 为 `altgo`，ProductVersion 与 FileVersion 都等于 Release 版本。
 
-README 已补政策段与角色，文档站已有隐私政策页。README 的 Code signing policy 与文档站的隐私政策、快速开始页面都采用英文在前、中文在后的双语排版，满足 SignPath 审核的英文阅读需要。
+README 已补政策段与角色，文档站已有隐私政策页。英文 README 的 Code signing policy 段与文档站的英文隐私政策、快速开始页面为 SignPath 审核提供英文入口，中文入口分别在 `README.zh-CN.md` 与文档站的 `zh-Hans` locale。
 
 ## 申请材料
 

@@ -5,24 +5,24 @@ const sidebars: SidebarsConfig = {
     {
       type: 'doc',
       id: 'intro',
-      label: '简介',
+      label: 'Introduction',
     },
     {
       type: 'category',
-      label: '开始使用',
+      label: 'Getting Started',
       items: ['quick-start', 'configuration', 'usage'],
       collapsed: false,
     },
     {
       type: 'category',
-      label: '深入',
+      label: 'Internals',
       items: ['architecture', 'faq'],
       collapsed: false,
     },
     {
       type: 'doc',
       id: 'privacy',
-      label: 'Privacy Policy / 隐私政策',
+      label: 'Privacy Policy',
     },
   ],
 };

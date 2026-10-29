@@ -1,68 +1,69 @@
 ---
 sidebar_position: 3
-title: 使用说明
+title: Usage
+description: Recording modes, the processing pipeline, polishing levels and output behaviour in altgo.
 ---
 
-# 使用说明
+# Usage
 
-## 录音模式
+## Recording modes
 
-### 长按模式（默认）
+### Hold mode (default)
 
-按住右 Alt（或你在设置里捕获的键）说话，松开即停止录音并进入转写与可选润色。
-
-```text
-按下右 Alt，开始录音
-松开右 Alt，依次转写、润色（可选）、写入剪贴板、显示悬浮窗
-```
-
-### 连续模式
-
-适合较长发言。双击触发键进入连续录音，再单击一次停止。连续模式下不必一直按住键，可以停顿思考。
+Hold right Alt (or the key you captured in Settings) to speak, then release to stop recording and start transcription plus optional polishing.
 
 ```text
-双击右 Alt，开始连续录音
-单击右 Alt，停止并依次转写、润色（可选）、写入剪贴板、显示悬浮窗
+Press and hold right Alt to start recording
+Release right Alt to transcribe, polish (optional), write the clipboard and show the overlay
 ```
 
-## 处理流程
+### Continuous mode
 
-录音结束后，应用依次完成三步：
+For longer speech. Double-press the trigger key to start continuous recording, then single-press to stop. In continuous mode you do not hold the key, so you can pause to think.
 
-1. 转写。使用设置页选择的引擎。本地 SenseVoice 或 FireRedASR2 CTC 离线运行，在线转写需要网络与 API Key。
-2. 润色。级别不是 `none` 时，文本交给所选润色引擎。远端引擎调用你配置的 API，本地引擎在本机运行。
-3. 输出。结果写入系统剪贴板并在悬浮窗展示，同时追加到主页历史。只保存文本，不保存音频。
+```text
+Double-press right Alt to start continuous recording
+Single-press right Alt to stop, then transcribe, polish (optional), write the clipboard and show the overlay
+```
 
-若剪贴板工具不可用，仍可在悬浮窗内点击复制。主页历史列表保留全文，可查看、复制或重新润色。
+## Pipeline
 
-## 润色级别
+After recording stops, altgo runs three steps in order:
 
-| 级别 | 适用场景 |
-|------|---------|
-| `none` | 需要原话、低延迟 |
-| `light` | 标点与错别字 |
-| `medium` | 日常写作、语序通顺 |
-| `heavy` | 正式文档、结构化重写 |
+1. Transcription, with the engine selected in Settings. Local SenseVoice or FireRedASR2 CTC runs offline, and online transcription needs a network connection and an API key.
+2. Polishing. When the level is not `none`, the text goes to the selected polishing engine. A remote engine calls the API you configured, and a local engine runs on this machine.
+3. Output. The result is written to the system clipboard, shown in the overlay and appended to the history on the home page. Text only is saved, never audio.
 
-档位对远端引擎生效。本地引擎只有一档，`none` 关闭，其余档位等价于开启。
+If no clipboard tool is available, you can still click Copy in the overlay. The history list on the home page keeps the full text and lets you view, copy or polish it again.
 
-## 输出与界面
+## Polishing levels
 
-- 剪贴板：成功后默认写入，可在任意支持粘贴的应用中使用快捷键粘贴（`Ctrl+V`）。
-- 悬浮窗：单行展示当前结果，悬停胶囊淡入关闭按钮。结果已自动写入剪贴板，全文在主页历史列表。
-- 主窗口：主页包含状态、最近转写与历史列表（查看、删除、单条重新润色），另有设置页。首次安装会先走一遍分步引导（依次为触发键、转写引擎、润色）。空态里的“检测触发键”可以当场验证按下的键能不能被识别，装上后第一次进主页会展开这步提示，跳过也不影响使用。
-- 系统托盘：显示或隐藏主窗口、退出应用。
+| Level | Use case |
+|-------|----------|
+| `none` | You need the exact words and low latency |
+| `light` | Punctuation and typos |
+| `medium` | Everyday writing and smoother word order |
+| `heavy` | Formal documents and structured rewrites |
 
-历史数据默认位于 `~/.config/altgo/history.json`。
+The levels apply to remote engines. The local engine has a single level: `none` turns it off and every other level turns it on.
 
-## 命令行
+## Output and interface
 
-安装后可在终端启动：
+- Clipboard: the result is written on success. Paste it in any application that accepts text with `Ctrl+V`.
+- Overlay: shows the current result on one line. Hovering the capsule fades in a close button. The result is already on the clipboard, and the full text is in the history list on the home page.
+- Main window: the home page shows the status, the latest transcription and the history list (view, delete, polish one entry again), plus a settings page. The first run walks through a short guide (trigger key, transcription engine, polishing). The Check trigger key button in the empty state checks on the spot whether the key you press is recognised. The prompt appears the first time you open the home page after installing, and skipping it does not affect use.
+- Tray icon: show or hide the main window, or quit the app.
+
+History is stored in `~/.config/altgo/history.json` by default.
+
+## Command line
+
+After installation, start altgo from a terminal:
 
 ```bash
 altgo
 ```
 
-应用不解析命令行参数。配置文件固定为 `~/.config/altgo/altgo.toml`，字段说明见[配置指南](./configuration)。
+The application does not parse command-line arguments. The configuration file is always `~/.config/altgo/altgo.toml`, and the field reference is in the [Configuration guide](./configuration).
 
-开发环境、构建与测试见 [`CONTRIBUTING.md`](https://github.com/ouyangjiahong26/altgo/blob/master/CONTRIBUTING.md)。
+Development environment, build and tests are covered in [`CONTRIBUTING.md`](https://github.com/ouyangjiahong26/altgo/blob/master/CONTRIBUTING.md).

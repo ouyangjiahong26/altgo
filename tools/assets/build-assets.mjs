@@ -23,7 +23,7 @@ async function renderTo(svgRel, outRel, width) {
 /**
  * README 直接内嵌 `assets/overlay-phase-*.svg`，母版在 `tools/assets/`。
  * 以前这两份靠手工同步，改样式后漏改过插图；这里改成构建期复制，
- * 母版即唯一来源，校验脚本继续只看 README 实际用的那份。
+ * 母版即唯一来源，校验脚本同时检查母版与 README 实际用的副本是否一致。
  */
 async function copySvg(svgRel, outRel) {
   const out = path.resolve(repo, outRel);
@@ -35,6 +35,6 @@ async function copySvg(svgRel, outRel) {
 await renderTo('tools/assets/banner.svg', 'assets/banner.png', 1536);
 await renderTo('tools/assets/og-image.svg', 'assets/og-image.png', 1536);
 
-for (const phase of ['recording', 'transcribing', 'result']) {
+for (const phase of ['recording', 'transcribing', 'result', 'result-en']) {
   await copySvg(`tools/assets/overlay-phase-${phase}.svg`, `assets/overlay-phase-${phase}.svg`);
 }
