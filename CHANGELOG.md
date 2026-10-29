@@ -5,7 +5,7 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## Unreleased
+## v2.8.2 (2026-10-29)
 
 ### Changed
 
@@ -14,6 +14,7 @@
 ### Fixes
 
 - **FireRedASR2 CTC 长录音自动分段**：本地引擎选用 FireRedASR2 CTC 时，单次录音超过 200 秒此前会让应用在松开按键后直接退出，录音也随进程丢失。根因是模型 encoder 的相对位置编码按 5000 帧导出，对应 200 秒上限，超长音频触发 ONNX Runtime 的 C++ 异常穿过 FFI 边界导致进程中止。现在超过 200 秒的录音按静音自动分段，逐段识别后拼接文本，不再有实际时长限制，短录音行为不变。
+- **本地引擎长录音转写后内存回落到模型基线**：ONNX Runtime 的 CPU 内存 arena 会把每次推理的工作集留在进程里不归还系统，FireRedASR2 CTC 在 180 秒段上推理两次，驻留内存从 8.0 GB 涨到 16.2 GB 后一直保持，录过几段长录音后机器会长期占着十几 GB。现在构造识别器时在模型目录写一份会话配置文件，经 `provider` 字符串的 `provider_name:config_path` 形式传入 `EnableCpuMemArena=0` 关掉 arena，每次推理结束驻留内存回落到模型基线（FireRedASR2 CTC 约 1.1 GB）。代价是长音频每段推理慢约 23%，十秒级短语音实测无差别。配置文件写入失败时（例如自定义模型目录只读）退回默认配置，推理照常进行。这个开关只能经配置文件传给 C API，见 k2-fsa/sherpa-onnx#4138。
 
 ## v2.8.1 (2026-10-27)
 
