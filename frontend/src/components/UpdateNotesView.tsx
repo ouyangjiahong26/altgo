@@ -2,7 +2,12 @@ import { Download, X } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "../i18n";
 import ReleaseNotes, { parseReleaseNotes } from "./ReleaseNotes";
-import { RELEASES_URL, type UpdateInfo } from "../updateNotes";
+import {
+  RELEASES_URL,
+  type UpdateInfo,
+  type UpdateInstallProgress,
+  type UpdateInstallState,
+} from "../updateNotes";
 
 /**
  * 更新说明窗口的展示层：数据与回调全由外部传入，自身不碰 Tauri API。
@@ -13,18 +18,24 @@ import { RELEASES_URL, type UpdateInfo } from "../updateNotes";
 
 export interface UpdateNotesViewProps {
   info: UpdateInfo | null;
-  installing: boolean;
-  /** `install_update` 的失败原因（就地更新档才可能出现）。 */
+  installState: UpdateInstallState;
+  /** deb 直装的下载进度，就地更新档为 null。 */
+  progress: UpdateInstallProgress | null;
+  /** `install_update` 的失败原因。 */
   installError: string | null;
   onInstall: () => void;
+  /** 安装完成后以新版本重启应用。 */
+  onRestart: () => void;
   onClose: () => void;
 }
 
 export default function UpdateNotesView({
   info,
-  installing,
+  installState,
+  progress,
   installError,
   onInstall,
+  onRestart,
   onClose,
 }: UpdateNotesViewProps) {
   const { t } = useTranslation();
@@ -65,11 +76,21 @@ export default function UpdateNotesView({
             type="button"
             className="btn btn-primary btn-lg btn-block"
             onClick={onInstall}
-            disabled={installing}
+            disabled={installState !== "idle"}
           >
             <Download size={13} aria-hidden />
-            {installing ? t("settings.update_installing") : t("settings.update_install")}
+            {installState === "idle"
+              ? t("settings.update_install")
+              : t("settings.update_installing")}
           </button>
+        ) : info?.supportTier === "deb_package" ? (
+          <DebPackageActions
+            t={t}
+            installState={installState}
+            progress={progress}
+            onInstall={onInstall}
+            onRestart={onRestart}
+          />
         ) : (
           <button
             type="button"
@@ -81,6 +102,83 @@ export default function UpdateNotesView({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * deb 直装档的操作区：下载时给百分比与进度条，授权安装时说明系统会要密码，
+ * 装好后只留一个重启动作。
+ */
+function DebPackageActions({
+  t,
+  installState,
+  progress,
+  onInstall,
+  onRestart,
+}: {
+  t: (key: string) => string;
+  installState: UpdateInstallState;
+  progress: UpdateInstallProgress | null;
+  onInstall: () => void;
+  onRestart: () => void;
+}) {
+  if (installState === "installed") {
+    return (
+      <>
+        <div className="update-notes-hint">{t("settings.update_installed")}</div>
+        <button
+          type="button"
+          className="btn btn-primary btn-lg btn-block"
+          onClick={onRestart}
+        >
+          {t("settings.update_restart")}
+        </button>
+      </>
+    );
+  }
+
+  const percent =
+    progress && progress.total > 0
+      ? Math.min(100, Math.floor((progress.downloaded / progress.total) * 100))
+      : null;
+
+  return (
+    <>
+      {installState === "downloading" && (
+        <>
+          <div className="update-notes-status">
+            <span>{t("settings.update_downloading")}</span>
+            {percent !== null && <span className="tabular">{percent}%</span>}
+          </div>
+          {percent !== null && (
+            <div
+              className="update-notes-progress"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+            >
+              <div
+                className="update-notes-progress-fill"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          )}
+        </>
+      )}
+      {installState === "installing" && (
+        <div className="update-notes-status">{t("settings.update_authorizing")}</div>
+      )}
+      <button
+        type="button"
+        className="btn btn-primary btn-lg btn-block"
+        onClick={onInstall}
+        disabled={installState !== "idle"}
+      >
+        <Download size={13} aria-hidden />
+        {t("settings.update_install_deb")}
+      </button>
+    </>
   );
 }
 

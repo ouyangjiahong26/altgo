@@ -119,8 +119,31 @@ pub async fn install_update(
     app: AppHandle,
     controller: State<'_, PipelineController>,
 ) -> Result<(), String> {
-    let provider = crate::updater::TauriUpdateProvider { app };
-    crate::updater::install_update_core(&provider, &controller).await
+    match crate::updater::detect_support_tier() {
+        crate::updater::UpdateSupportTier::DebPackage => {
+            let provider = crate::deb_update::DebUpdateProvider { app };
+            crate::updater::install_update_core(&provider, &controller).await
+        }
+        crate::updater::UpdateSupportTier::InPlace => {
+            let provider = crate::updater::TauriUpdateProvider { app };
+            crate::updater::install_update_core(&provider, &controller).await
+        }
+        crate::updater::UpdateSupportTier::External => {
+            Err("当前安装方式需要在系统包管理器中更新".to_string())
+        }
+    }
+}
+
+/// 安装完成后由前端触发：以新版本重启应用。
+///
+/// 录音或转写中拒绝，避免用户刚更新的窗口没关就重启丢音频。
+#[tauri::command]
+pub fn restart_app(
+    app: AppHandle,
+    controller: State<'_, PipelineController>,
+) -> Result<(), String> {
+    crate::updater::ensure_pipeline_idle(&controller)?;
+    app.restart();
 }
 
 #[tauri::command]

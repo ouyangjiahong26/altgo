@@ -5,7 +5,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { applyThemeToDocument, installThemeListeners } from "./theme";
 import UpdateNotesView from "./components/UpdateNotesView";
-import { UPDATE_NOTES_EVENT, type UpdateInfo } from "./updateNotes";
+import {
+  UPDATE_INSTALL_PROGRESS_EVENT,
+  UPDATE_NOTES_EVENT,
+  type UpdateInfo,
+  type UpdateInstallProgress,
+  type UpdateInstallState,
+} from "./updateNotes";
 import "./styles/global.css";
 // 底部操作按钮直接用跨页复用的 .btn 基底，避免本窗再维护一套按钮皮肤。
 import "./styles/components/ui-primitives.css";
@@ -31,7 +37,8 @@ async function hideWindow(): Promise<void> {
 
 function UpdateNotes() {
   const [info, setInfo] = useState<UpdateInfo | null>(null);
-  const [installing, setInstalling] = useState(false);
+  const [installState, setInstallState] = useState<UpdateInstallState>("idle");
+  const [progress, setProgress] = useState<UpdateInstallProgress | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
 
   // 主题跟随主窗：storage 事件跨同源窗口同步（与 overlay 同款）。
@@ -44,6 +51,8 @@ function UpdateNotes() {
     let unlisten: (() => void) | null = null;
     listen<UpdateInfo>(UPDATE_NOTES_EVENT, (event) => {
       setInfo(event.payload);
+      setInstallState("idle");
+      setProgress(null);
       setInstallError(null);
     })
       .then((fn) => {
@@ -51,6 +60,24 @@ function UpdateNotes() {
       })
       .catch(() => {
         // 非 Tauri 环境（浏览器直开页面）下没有事件通道，走空态。
+      });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  // deb 直装的下载与授权进度由主进程推送；就地更新档不发这个事件。
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    listen<UpdateInstallProgress>(UPDATE_INSTALL_PROGRESS_EVENT, (event) => {
+      setProgress(event.payload);
+      if (event.payload.phase === "installing") setInstallState("installing");
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => {
+        // 非 Tauri 环境没有事件通道。
       });
     return () => {
       if (unlisten) unlisten();
@@ -87,22 +114,34 @@ function UpdateNotes() {
   }, []);
 
   const handleInstall = async () => {
-    setInstalling(true);
+    setInstallState("downloading");
     setInstallError(null);
     try {
       await invoke("install_update");
+      // 就地更新档安装成功后应用会自行重启，正常走不到这里。
+      setInstallState("installed");
     } catch (err) {
       setInstallError(String(err));
-      setInstalling(false);
+      setInstallState("idle");
+    }
+  };
+
+  const handleRestart = async () => {
+    try {
+      await invoke("restart_app");
+    } catch (err) {
+      setInstallError(String(err));
     }
   };
 
   return (
     <UpdateNotesView
       info={info}
-      installing={installing}
+      installState={installState}
+      progress={progress}
       installError={installError}
       onInstall={handleInstall}
+      onRestart={handleRestart}
       onClose={() => void hideWindow()}
     />
   );

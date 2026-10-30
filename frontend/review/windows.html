@@ -333,11 +333,93 @@
                     </div>
                   </div>
                   <div class="update-notes-actions">
+                    <div class="update-notes-status">
+                      <span>正在下载安装包</span>
+                      <span class="tabular">42%</span>
+                    </div>
+                    <div class="update-notes-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="42">
+                      <div class="update-notes-progress-fill" style="width: 42%"></div>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-lg btn-block" disabled>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                      下载并安装
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="sr-caption">deb 直装（supportTier 为 deb_package）：下载时显示百分比与进度条，随后由系统授权对话框完成安装。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--notes">
+                <div class="update-notes-window">
+                  <header class="update-notes-header">
+                    <span class="update-notes-title">更新说明</span>
+                    <button type="button" class="update-notes-close" title="关闭" aria-label="关闭">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                  </header>
+                  <div class="update-notes-summary">
+                    <div class="update-notes-headline">
+                      <span class="update-notes-kicker">发现新版本</span>
+                      <span class="update-notes-version-number tabular">v2.7.9</span>
+                    </div>
+                    <div class="update-notes-versions">
+                      <span>当前 2.8.0</span>
+                      <span class="update-notes-date">2026-10-20</span>
+                    </div>
+                  </div>
+                  <div class="update-notes-body">
+                    <div class="release-notes">
+                      <h4 class="release-notes-heading">Changed</h4>
+                      <ul class="release-notes-list">
+                        <li class="release-notes-item"><strong>界面改用中性 zinc 灰阶</strong>，主操作收成反色实心</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="update-notes-actions">
+                    <div class="update-notes-status">等待管理员授权，系统会要求输入密码</div>
+                    <button type="button" class="btn btn-primary btn-lg btn-block" disabled>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                      下载并安装
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="sr-caption">deb 直装的授权相位：系统 polkit 对话框在前台要密码，应用窗只说明在等授权。</div>
+            </div>
+            <div>
+              <div class="sr-frame sr-frame--notes">
+                <div class="update-notes-window">
+                  <header class="update-notes-header">
+                    <span class="update-notes-title">更新说明</span>
+                    <button type="button" class="update-notes-close" title="关闭" aria-label="关闭">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                  </header>
+                  <div class="update-notes-summary">
+                    <div class="update-notes-headline">
+                      <span class="update-notes-kicker">发现新版本</span>
+                      <span class="update-notes-version-number tabular">v2.7.9</span>
+                    </div>
+                    <div class="update-notes-versions">
+                      <span>当前 2.8.0</span>
+                      <span class="update-notes-date">2026-10-20</span>
+                    </div>
+                  </div>
+                  <div class="update-notes-body">
+                    <div class="release-notes">
+                      <h4 class="release-notes-heading">Changed</h4>
+                      <ul class="release-notes-list">
+                        <li class="release-notes-item"><strong>界面改用中性 zinc 灰阶</strong>，主操作收成反色实心</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="update-notes-actions">
                     <button type="button" class="btn btn-primary btn-lg btn-block">打开下载页面</button>
                   </div>
                 </div>
               </div>
-              <div class="sr-caption">安装包更新：底部为“打开下载页面”。</div>
+              <div class="sr-caption">rpm/AUR 等外部引导档：底部为“打开下载页面”。</div>
             </div>
             <div>
               <div class="sr-frame sr-frame--notes">

@@ -7,6 +7,7 @@ pub mod audio;
 pub mod cmd;
 pub mod config;
 pub mod config_store;
+pub mod deb_update;
 pub mod display_backend;
 pub mod download;
 pub mod error;
@@ -241,6 +242,7 @@ fn assemble_builder(
         cmd::discard_pending_recording,
         cmd::check_update,
         cmd::install_update,
+        cmd::restart_app,
     ])
 }
 

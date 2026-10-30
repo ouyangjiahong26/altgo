@@ -248,9 +248,45 @@ body {
   background: var(--color-bg);
 }
 
-/* 失败就地显示在按钮上方，不弹对话框：窗口只做一个决定，错误也留在原地。 */
+/* 失败就地显示在按钮上方，不弹对话框：窗口只做一个决定，错误也留在原地。
+   apt-get 的尾部输出可能很长，限高并允许滚动，避免把说明正文挤没。 */
 .update-notes-error {
+  max-height: 5em;
+  overflow-y: auto;
   font-size: var(--text-2xs);
   line-height: var(--leading-normal);
   color: var(--color-red);
+}
+
+/* deb 直装的进度与提示：文字用 2xs，与底部操作区同一信息层级。 */
+.update-notes-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.update-notes-hint {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+/* 进度条与设置页的模型下载同款：3px 细条，填充用当前主题的强调色。 */
+.update-notes-progress {
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-3);
+  overflow: hidden;
+}
+
+.update-notes-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transition: width var(--duration-slow) var(--ease-out);
 }

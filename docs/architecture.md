@@ -18,7 +18,7 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 +-----------------+
 |   React 前端     |  设置 / 历史 / 悬浮窗
 +-----------------+
-         | IPC (29 命令 + 16 事件)
+         | IPC (30 命令 + 17 事件)
          v
 +-----------------+
 |  装配层 lib.rs   |  spawn_pipeline_thread：管理状态、组合 seam
@@ -106,7 +106,9 @@ lib.rs
   +-- state_machine        (纯同步叶子，由 voice_pipeline::context 驱动)
   +-- pipeline_controller  (生命周期 + PipelineStatus)
   +-- tauri_sink           (经 PipelineEventEmitter 发射事件)
-  +-- cmd.rs               (IPC 命令；check_update/install_update 调用 updater)
+  +-- cmd.rs               (IPC 命令；check_update/install_update 调用 updater 与 deb_update)
+  +-- updater              (更新检查、就地更新；deb 直装委托 deb_update)
+  +-- deb_update           (deb 下载校验、pkexec 安装与进度事件)
   +-- display_backend      (run() 在 GUI 初始化前探测 Wayland，切 GDK 后端)
 ```
 
@@ -245,10 +247,10 @@ lib.rs
 
 ### 命令
 
-`cmd.rs` 暴露 29 个命令：
+`cmd.rs` 暴露 30 个命令：
 
 - 配置 6：`get_config`、`save_config`、`capture_activation_key`、`probe_activation_key`、`test_polisher_connection`、`fetch_provider_catalog`
-- 更新 2：`check_update`、`install_update`
+- 更新 3：`check_update`、`install_update`、`restart_app`
 - 流水线 2：`start_pipeline`、`restart_listener`
 - 悬浮窗 2：`copy_text`、`hide_overlay`
 - 模型 4：`list_models`、`download_model`、`delete_model`、`resolve_model`
@@ -258,11 +260,13 @@ lib.rs
 
 ### 事件
 
-共 16 个 Tauri 事件：
+共 17 个 Tauri 事件：
 
-`pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`、`polish-model-download-progress`、`polish-model-download-finished`、`polish-runtime-download-progress`、`polish-runtime-download-finished`、`pending-recording-changed`、`key-probe-armed`。
+`pipeline-status`、`pipeline-error`、`transcription-result`、`polish-failed`、`transcription-progress`、`audio-level`、`history-updated`、`overlay-state`、`model-download-progress`、`model-download-finished`、`polish-model-download-progress`、`polish-model-download-finished`、`polish-runtime-download-progress`、`polish-runtime-download-finished`、`pending-recording-changed`、`key-probe-armed`、`update-install-progress`。
 
 本地润色的四个事件与转写模型的 `model-*` 事件分开命名：两类模型的下载进度互不干扰，前端各自渲染到自己的卡片上。模型事件载荷带 `name` 字段，运行时事件不带（同一时刻只有一个运行时）。
+
+`update-install-progress` 由 deb 直装档发出，载荷为 `{ phase, downloaded, total }`，`phase` 取 `downloading` 或 `installing`，更新说明窗据百分比与授权相位渲染。
 
 `pending-recording-changed` 载荷为待重试录音元信息（`durationMs` + 错误码结构）或 null。保留与清空（重试成功、用户放弃）都会发出，主窗横幅据此显隐。
 
@@ -291,4 +295,4 @@ lib.rs
 - 状态机、`overlay/manager` 都是干净的叶子/纯逻辑，测试覆盖好。
 - 回退链设计成熟：`prompt` 三级，模型下载由官方回退到镜像，运行时与模型都支持手动放置。
 - 错误分类致命/可恢复边界清晰。
-- 下载内核（`download.rs`）被转写模型、润色模型与运行时三处共用，多基址回退与校验只有一份实现。
+- 下载内核（`download.rs`）被转写模型、润色模型、润色运行时与 deb 安装包四处共用，多基址回退与校验只有一份实现。
