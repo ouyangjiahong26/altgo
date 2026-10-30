@@ -20,7 +20,7 @@ Key Listener → State Machine → Recorder → Transcriber → Polisher → Out
 - 平台模块三文件布局：`mod.rs` 定 trait 与 `#[cfg(target_os)] Platform*` 别名，`linux.rs`/`windows.rs` 各自实现。Linux 走子进程（`xinput`/`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`），Windows 走原生 API（WH_KEYBOARD_LL、cpal/WASAPI、arboard 加 SendInput）。
 - 整条管道跑在独立 OS 线程的 current_thread tokio runtime 上（`lib.rs::spawn_pipeline_thread`）。一切阻塞工作（推理、剪贴板、历史 I/O、join 线程）走 `spawn_blocking`。
 - 状态管理：Tauri managed state 四件。`ConfigStore` 持锁更新，校验或落盘失败回滚内存。`HistoryStore` 模块级 I/O 锁，Unix 落盘 0o600。`PipelineController` 管生命周期与 `PipelineStatus` 五态。另有 `Arc<dyn Output>`。
-- IPC：`cmd.rs` 29 个 `#[tauri::command]`。事件有 `pipeline-status`/`transcription-result`/`polish-failed`/`history-updated`/`overlay-state`/`polish-model-download-progress` 等，emit 点在 `tauri_sink.rs` 与 `cmd.rs`，前端 `hooks/useTauri.ts` 统一 listen。
+- IPC：`cmd.rs` 30 个 `#[tauri::command]`。事件有 `pipeline-status`/`transcription-result`/`polish-failed`/`history-updated`/`overlay-state`/`polish-model-download-progress` 等，emit 点在 `tauri_sink.rs` 与 `cmd.rs`，前端 `hooks/useTauri.ts` 统一 listen。
 - 前端三个窗口。主窗（`index.html`，HashRouter 两个页面：主页含历史列表与设置，首次启动先显示引导向导）。悬浮窗（`overlay.html`，独立样式链，动画只动 transform 防 Linux WM 黑晕）。更新说明窗口（`update-notes.html`，手动检查发现新版本时弹出，随应用启动常驻加载，关闭走 hide）。主题、字体、窗口尺寸存 localStorage，不进 Tauri 配置。
 
 ## Key Directories
@@ -89,9 +89,10 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 ## Important Files
 
-- `src-tauri/src/lib.rs`：装配入口 `run()`、`spawn_pipeline_thread`、29 个命令注册。
+- `src-tauri/src/lib.rs`：装配入口 `run()`、`spawn_pipeline_thread`、30 个命令注册。
 - `src-tauri/src/voice_pipeline/context.rs`：select! 主循环。`handlers.rs`：录音、转写、润色、分发编排。
 - `src-tauri/src/cmd.rs`：全部 IPC 命令（测试在 `cmd/tests.rs`）。`tauri_sink.rs`：事件映射与悬浮窗相位切换。
+- `src-tauri/src/deb_update.rs`：dpkg 安装识别、deb 下载与校验和验证、pkexec 安装与进度事件。`updater.rs` 负责支持级别判定、就地更新与检查编排。
 - `src-tauri/src/error.rs`：全部错误枚举。`state_machine.rs`：按键状态机。
 - `src-tauri/src/config.rs` 加 `config_store.rs`：配置模型、补丁与持久化。`history.rs`：历史 JSON。
 - `src-tauri/tauri.conf.json`：三窗口（主窗、悬浮窗、更新说明）、bundle targets（deb/rpm/appimage/nsis）、updater 端点。
@@ -129,7 +130,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 ## Testing & QA
 
-- 五层模型（`docs/testing.md`）：纯逻辑、语音流水线、Tauri 适配（含 Linux 平台接缝）、前端交互、端到端（当前 0 个，缺口清单 7 条）。一个模块的测试属于且仅属于一层。
+- 五层模型（`docs/testing.md`）：纯逻辑、语音流水线、Tauri 适配（含 Linux 平台接缝）、前端交互、端到端（当前 0 个，缺口清单 8 条）。一个模块的测试属于且仅属于一层。
 - 组织：每个源文件末尾 `#[cfg(test)] mod tests`（`use super::*`）。无集成测试目录。前端测试与源码同目录（vitest 加 jsdom 加 Testing Library，`*.test.ts(x)`）。
 - 替身四类：tempfile（文件 I/O）、mockito（HTTP 假服务器）、共享 `src-tauri/src/voice_pipeline/test_doubles.rs`（流水线层唯一替身来源，不自造第二套）、闭包注入（emit/download/spawn）。`tauri_sink.rs`、`overlay/manager.rs`、`updater.rs` 各有模块私有 mock。
 - 环境容忍：依赖系统工具的测试对两种环境都断言（有 `xinput` 断 Ok，无则断 Err），保证无显示服务器的 CI 与开发机一致。禁止用 `#[ignore]` 藏测试。

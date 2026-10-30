@@ -25,7 +25,23 @@ export interface UpdateInfo {
   /** latest.json 的 `notes`，即 CHANGELOG.md 当前版本小节（受限 Markdown）。 */
   body?: string;
   date?: string;
-  supportTier: "in_place" | "external";
+  supportTier: "in_place" | "deb_package" | "external";
+}
+
+/**
+ * 更新安装在更新说明窗里的四个状态：
+ * `idle` 未开始，`downloading` 正在下载安装包，`installing` 等待系统授权并安装，
+ * `installed` 已装好、等用户重启。就地更新档只用得到前后两个状态。
+ */
+export type UpdateInstallState = "idle" | "downloading" | "installing" | "installed";
+
+/** 主进程 → 更新说明窗的下载进度事件（仅 deb 直装档发送）。 */
+export const UPDATE_INSTALL_PROGRESS_EVENT = "update-install-progress";
+
+export interface UpdateInstallProgress {
+  phase: "downloading" | "installing";
+  downloaded: number;
+  total: number;
 }
 
 /**

@@ -17,7 +17,8 @@ altgo 是一款常驻后台的桌面语音转文字应用，支持 Linux（x86_6
 
 2. **多打包格式的分级更新策略（Update Support Tier）**：
    - **就地更新（InPlace）**：适用于 Windows（NSIS）和 Linux（AppImage）。更新器自动下载并调用 Tauri 重启完成就地替换。
-   - **外部引导（External）**：适用于 Linux 传统包管理格式（deb、rpm、AUR）。由于需要系统 root 权限或由独立包管理器接管，检测到更新后，更新器展示新版本详情、更新日志，并提供直达 GitHub Release 下载页或包管理器更新命令的引导，不在桌面进程内直接调用特权命令。
+   - **deb 直装（DebPackage）**：适用于 dpkg 安装的 Linux 构建。更新器下载对应架构的 deb，按发布校验和验证后经 `pkexec apt-get install` 安装，授权由 polkit 对话框完成，详见 ADR-0015。
+   - **外部引导（External）**：适用于 Linux 传统包管理格式（rpm、AUR）。由于需要系统 root 权限或由独立包管理器接管，检测到更新后，更新器展示新版本详情、更新日志，并提供直达 GitHub Release 下载页或包管理器更新命令的引导，不在桌面进程内直接调用特权命令。deb 自 ADR-0015 起改为应用内下载并经 polkit 授权安装，不再属于本档。
 
 3. **双检查模式（Check Mode）与 10 秒超时**：
    - **静默模式（Silent）**：软件启动时在后台静默检查（受配置项 `[gui] auto_check_update` 控制，默认开启）。失败时不打扰用户。发现新版本时在主界面/托盘显示轻量徽标。

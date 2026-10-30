@@ -24,7 +24,9 @@ pub enum CheckMode {
 pub enum UpdateSupportTier {
     /// 就地更新：Windows 与 Linux AppImage
     InPlace,
-    /// 外部引导：Linux deb/rpm/AUR
+    /// deb 直装：dpkg 安装的 Linux 构建，下载 deb 后经系统授权对话框安装
+    DebPackage,
+    /// 外部引导：rpm/AUR 等由独立包管理器接管的 Linux 安装
     External,
 }
 
@@ -69,6 +71,8 @@ pub fn detect_support_tier() -> UpdateSupportTier {
     {
         if std::env::var_os("APPIMAGE").is_some() {
             UpdateSupportTier::InPlace
+        } else if crate::deb_update::can_install_deb() {
+            UpdateSupportTier::DebPackage
         } else {
             UpdateSupportTier::External
         }
@@ -198,6 +202,21 @@ fn error_user_message(kind: &UpdateErrorKind, err_msg: &str) -> String {
     }
 }
 
+/// 用 updater 插件检查远端版本，供就地更新与 deb 直装两条路径共用。
+pub(crate) async fn check_with_app(
+    app: &tauri::AppHandle,
+) -> Result<Option<UpdateInfoRaw>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let update = updater.check().await.map_err(|e| e.to_string())?;
+    Ok(update.map(|u| UpdateInfoRaw {
+        version: u.version,
+        current_version: u.current_version,
+        body: u.body,
+        date: u.date.map(|d| d.to_string()),
+    }))
+}
+
 /// 生产环境更新提供者，直接调用 `tauri_plugin_updater`。
 pub struct TauriUpdateProvider {
     pub app: tauri::AppHandle,
@@ -208,17 +227,7 @@ impl UpdateProvider for TauriUpdateProvider {
         &'a self,
     ) -> Pin<Box<dyn Future<Output = Result<Option<UpdateInfoRaw>, String>> + Send + 'a>> {
         let app = self.app.clone();
-        Box::pin(async move {
-            use tauri_plugin_updater::UpdaterExt;
-            let updater = app.updater().map_err(|e| e.to_string())?;
-            let update = updater.check().await.map_err(|e| e.to_string())?;
-            Ok(update.map(|u| UpdateInfoRaw {
-                version: u.version,
-                current_version: u.current_version,
-                body: u.body,
-                date: u.date.map(|d| d.to_string()),
-            }))
-        })
+        Box::pin(async move { check_with_app(&app).await })
     }
 
     fn download_and_install_raw<'a>(
@@ -252,19 +261,25 @@ impl UpdateProvider for TauriUpdateProvider {
     }
 }
 
+/// 安装更新或重启应用前的流水线状态检查。
+///
+/// 录音或转写进行中时拒绝，避免重启杀死进程丢失本轮语音。
+pub fn ensure_pipeline_idle(controller: &PipelineController) -> Result<(), String> {
+    let status = *controller.status_arc().read().unwrap();
+    match status {
+        PipelineStatus::Recording | PipelineStatus::Processing => {
+            Err("正在录音或转写中，请稍候再操作".to_string())
+        }
+        PipelineStatus::Idle | PipelineStatus::Done | PipelineStatus::Stopped => Ok(()),
+    }
+}
+
 /// 核心编排函数：在检查流水线状态后执行更新安装。
 pub async fn install_update_core<P: UpdateProvider + ?Sized>(
     provider: &P,
     controller: &PipelineController,
 ) -> Result<(), String> {
-    let status = *controller.status_arc().read().unwrap();
-    match status {
-        PipelineStatus::Recording | PipelineStatus::Processing => {
-            return Err("正在录音或转写中，请稍候再执行更新".to_string());
-        }
-        PipelineStatus::Idle | PipelineStatus::Done | PipelineStatus::Stopped => {}
-    }
-
+    ensure_pipeline_idle(controller)?;
     provider.download_and_install_raw().await
 }
 
