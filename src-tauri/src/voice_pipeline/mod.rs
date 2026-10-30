@@ -10,7 +10,7 @@
 //! - `pending`：待重试录音槽位与重试请求通道
 //!
 //! 公共接口：
-//! - `run(cfg, stop_rx, sink, pending_store, retry_rx)`：入口（构建 context + 运行事件循环）
+//! - `run(cfg, stop_rx, sink, pending_store, retry_rx, vad_model)`：入口（构建 context + 运行事件循环）
 //! - `PipelineBuilder`：单独构造各组件（可测试）
 //! - `PipelineContext`：拥有组件，暴露 `run(stop_rx, sink)`
 //! - `TranscriptionDispatch` / `TranscriptionDispatcherImpl`：sink 注入的业务 seam
@@ -48,8 +48,9 @@ pub async fn run(
     sink: impl PipelineSink,
     pending_store: PendingRecordingStore,
     retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
+    vad_model: Option<std::path::PathBuf>,
 ) {
-    let builder = PipelineBuilder::new(cfg.clone());
+    let builder = PipelineBuilder::new(cfg.clone(), vad_model);
 
     let ctx = match builder.build_context(pending_store, retry_rx) {
         Ok(ctx) => ctx,

@@ -97,6 +97,9 @@ fn pipeline_thread_main(
     stop_rx: tokio::sync::oneshot::Receiver<()>,
     retry_rx: tokio::sync::mpsc::UnboundedReceiver<()>,
 ) {
+    // VAD 模型随安装包分发，启动时解析一次。缺失时长录音退回 RMS 切分。
+    let vad_model =
+        crate::resource::vad_model_path(app_handle.path().resource_dir().ok().as_deref());
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -129,6 +132,7 @@ fn pipeline_thread_main(
         sink,
         pending_store,
         retry_rx,
+        vad_model,
     ));
 }
 

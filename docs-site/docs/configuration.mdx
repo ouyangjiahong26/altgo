@@ -36,9 +36,9 @@ Available models:
 |-------|-------------|---------------|
 | `sense-voice` | SenseVoice, automatic detection of Chinese, English, Japanese, Korean and Cantonese, fast | about 230 MB |
 | `sense-voice-yue` | SenseVoice Cantonese-enhanced, more accurate on Cantonese | about 237 MB |
-| `fire-red-asr2-ctc` | FireRedASR2 CTC, stronger on mixed Chinese and English speech, auto-segmented for long recordings | about 740 MB |
+| `fire-red-asr2-ctc` | FireRedASR2 CTC, stronger on mixed Chinese and English speech | about 740 MB |
 
-The local engine embeds sherpa-onnx. The model loads once when the pipeline starts and stays in memory. A missing model file or a load failure is reported at startup. Recordings longer than 200 seconds are automatically split on silence and transcribed segment by segment, so there is no practical length limit.
+The local engine embeds sherpa-onnx. The model loads once when the pipeline starts and stays in memory. A missing model file or a load failure is reported at startup. Recordings longer than 60 seconds are split at speech boundaries detected by silero-vad and transcribed segment by segment, with a target segment length of 25 seconds, so there is no practical length limit. Shorter recordings are transcribed in one pass. The silero-vad model ships with the app, and splitting falls back to silence detection if it cannot be loaded.
 
 ### Online engine
 

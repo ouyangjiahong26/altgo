@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## Unreleased
+
+### Changed
+
+- **长录音改用 silero-vad 切分**：本地引擎的分段此前只在 FireRedASR2 CTC 超过 200 秒时触发，用 -45 dBFS 固定阈值的 RMS 判静音，底噪高的环境里判不出静音，整段退化为 180 秒硬切，切点可能落在词语中间。现在 SenseVoice 与 FireRedASR2 CTC 超过 60 秒都走分段，切分点由 silero-vad 判定的语音边界决定，目标段长 25 秒、上限 30 秒，超过上限的连续语音才硬切。VAD 模型约 629 KB，随安装包分发，缺失或加载失败时退回原有 RMS 切分，转写结果不受影响。段长缩小后单次推理的工作集随之下降，为此前关闭 ONNX Runtime CPU 内存 arena 的取舍留出重新评估的空间（#319）。
+
 ## v2.8.2 (2026-10-29)
 
 ### Changed
