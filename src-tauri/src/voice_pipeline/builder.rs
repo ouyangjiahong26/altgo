@@ -13,11 +13,13 @@ use super::context::PipelineContext;
 /// 从配置构建流水线各组件。
 pub struct PipelineBuilder {
     cfg: Arc<crate::config::Config>,
+    /// 随安装包分发的 VAD 模型路径，缺失时长录音退回 RMS 切分。
+    vad_model: Option<std::path::PathBuf>,
 }
 
 impl PipelineBuilder {
-    pub fn new(cfg: Arc<crate::config::Config>) -> Self {
-        Self { cfg }
+    pub fn new(cfg: Arc<crate::config::Config>, vad_model: Option<std::path::PathBuf>) -> Self {
+        Self { cfg, vad_model }
     }
 
     /// 从配置构建录音器。
@@ -66,6 +68,7 @@ impl PipelineBuilder {
             cfg.language.clone(),
             cfg.threads,
             engine,
+            self.vad_model.clone(),
         )
         .map_err(PipelineError::fatal_transcriber)?;
 
@@ -174,7 +177,7 @@ mod tests {
     #[test]
     fn test_build_recorder() {
         let cfg = Arc::new(test_config());
-        let builder = PipelineBuilder::new(cfg);
+        let builder = PipelineBuilder::new(cfg, None);
         let _recorder = builder.build_recorder();
     }
 
@@ -185,7 +188,7 @@ mod tests {
         let mut cfg = test_config();
         cfg.transcriber.model = "nonexistent-model".to_string();
 
-        let builder = PipelineBuilder::new(Arc::new(cfg));
+        let builder = PipelineBuilder::new(Arc::new(cfg), None);
         let err = match builder.build_transcriber() {
             Ok(_) => panic!("expected error"),
             Err(e) => e,
@@ -204,7 +207,7 @@ mod tests {
         cfg.transcriber.backend = "online".to_string();
         cfg.transcriber.online.api_key = "k".to_string();
 
-        let builder = PipelineBuilder::new(Arc::new(cfg));
+        let builder = PipelineBuilder::new(Arc::new(cfg), None);
         assert!(builder.build_transcriber().is_ok());
     }
 
@@ -215,7 +218,7 @@ mod tests {
         let mut cfg = test_config();
         cfg.polisher.protocol = "unknown-protocol".to_string();
 
-        let builder = PipelineBuilder::new(Arc::new(cfg));
+        let builder = PipelineBuilder::new(Arc::new(cfg), None);
         let result = builder.build_polisher();
 
         assert!(result.is_err());
@@ -235,7 +238,7 @@ mod tests {
         cfg.polisher.backend = "local".to_string();
         cfg.polisher.level = "medium".to_string();
 
-        let builder = PipelineBuilder::new(Arc::new(cfg));
+        let builder = PipelineBuilder::new(Arc::new(cfg), None);
         assert!(
             builder.build_polisher().is_ok(),
             "本地档构造不应要求密钥与地址"
@@ -247,7 +250,7 @@ mod tests {
         let mut cfg = test_config();
         cfg.polisher.level = "heavy".to_string();
 
-        let builder = PipelineBuilder::new(Arc::new(cfg));
+        let builder = PipelineBuilder::new(Arc::new(cfg), None);
         let level = builder.polish_level();
 
         assert_eq!(level, PolishLevel::Heavy);
@@ -289,6 +292,7 @@ mod tests {
             sink,
             super::super::pending::PendingRecordingStore::default(),
             retry_rx,
+            None,
         )
         .await;
         assert!(!errors.lock().unwrap().is_empty());

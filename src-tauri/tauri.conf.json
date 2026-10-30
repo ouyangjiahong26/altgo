@@ -59,6 +59,9 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "publisher": "altgo contributors",
+    "resources": {
+      "../resources/vad/silero_vad.onnx": "vad/silero_vad.onnx"
+    },
     "targets": [
       "deb",
       "rpm",

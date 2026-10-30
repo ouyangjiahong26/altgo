@@ -21,6 +21,14 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::{Arc, OnceLock};
 
+mod segmentation;
+
+use segmentation::{
+    collect_vad_segments, create_detector, needs_segmentation, split_on_silence,
+    split_on_speech_ranges, vad_model_ready, SegmentRange, SpeechRange, SEGMENT_LIMIT_MS,
+    VAD_CHUNK_SAMPLES,
+};
+
 /// SenseVoice 离线识别器。
 ///
 /// `Clone` 极廉价：识别器按需加载并共享，识别器本身线程安全
@@ -39,6 +47,10 @@ pub struct SherpaTranscriber {
     language: String,
     /// 识别引擎：决定输入时长上限。
     engine: EngineKind,
+    /// 随安装包分发的 silero-vad 模型路径。缺失时退回 RMS 静音切分。
+    vad_model: Option<PathBuf>,
+    /// VAD 不可用只记一次日志，避免每次长录音都刷屏。
+    vad_warned: Arc<OnceLock<()>>,
 }
 
 impl std::fmt::Debug for SherpaTranscriber {
@@ -76,131 +88,12 @@ const METADATA_TAIL_BYTES: u64 = 64 * 1024;
 /// 以内，绕过这个硬上限。
 const FIRE_RED_MAX_AUDIO_MS: u64 = 200_000;
 
-/// 分段时的目标段长（毫秒）。留 20 秒余量，避免长语音无静音可切时
-/// 强制截断后恰好顶到 200 秒上限。
-const SEGMENT_TARGET_MS: u64 = 180_000;
-
-/// 静音判定阈值：帧 RMS 低于此值视为静音。取 -45 dBFS，
-/// 高于常见底噪，低于正常语音（-20 dBFS）。
-const SILENCE_RMS: f32 = 0.005;
-
-/// 静音检测帧长（毫秒）。
-const FRAME_MS: usize = 30;
-
-/// 一个静音点被视为可切的最短连续静音时长（毫秒）。
-const MIN_SILENCE_MS: u64 = 500;
-
 /// 引擎能安全接受的最长单段音频（毫秒）。`None` 表示没有已知的硬上限。
 fn max_audio_ms(engine: EngineKind) -> Option<u64> {
     match engine {
         EngineKind::FireRedAsrCtc => Some(FIRE_RED_MAX_AUDIO_MS),
         EngineKind::SenseVoice => None,
     }
-}
-
-/// 音频是否需要分段：超过引擎单段上限才切，否则保持原始单次推理。
-fn needs_segmentation(engine: EngineKind, duration_ms: u64) -> bool {
-    max_audio_ms(engine).is_some_and(|limit| duration_ms > limit)
-}
-
-/// 音频切分点（采样点下标）。`start..end` 为一个切片。
-#[derive(Debug, PartialEq)]
-struct SegmentRange {
-    start: usize,
-    end: usize,
-}
-
-/// 按静音感知把音频切成不超过 `limit_ms` 的段，相邻段首尾相接、互不重叠。
-///
-/// 流程：以 30 ms 为帧计算 RMS，找出连续超过 500 ms 的静音段，在目标段长
-/// 附近选最优静音点切分。切点是静音段中点，两侧都不含对方的内容。找不到
-/// 静音点就在目标段长处硬切。
-fn split_on_silence(samples: &[f32], sample_rate: u32, limit_ms: u64) -> Vec<SegmentRange> {
-    let frame_size = sample_rate as usize * FRAME_MS / 1000;
-    let total_ms = samples.len() as u64 * 1000 / sample_rate as u64;
-    if total_ms <= limit_ms {
-        return vec![SegmentRange {
-            start: 0,
-            end: samples.len(),
-        }];
-    }
-
-    // 计算每帧 RMS。
-    let frames: Vec<f32> = samples
-        .chunks(frame_size)
-        .map(|chunk| {
-            let sum: f32 = chunk.iter().map(|s| s * s).sum();
-            (sum / chunk.len().max(1) as f32).sqrt()
-        })
-        .collect();
-
-    // 找出连续静音段（frame 下标区间）。
-    let silence_frames: Vec<(usize, usize)> = {
-        let mut ranges = Vec::new();
-        let mut start = None;
-        for (i, &rms) in frames.iter().enumerate() {
-            if rms < SILENCE_RMS {
-                start.get_or_insert(i);
-            } else if let Some(s) = start.take() {
-                let dur_ms = (i - s) as u64 * FRAME_MS as u64;
-                if dur_ms >= MIN_SILENCE_MS {
-                    ranges.push((s, i));
-                }
-            }
-        }
-        if let Some(s) = start {
-            let dur_ms = (frames.len() - s) as u64 * FRAME_MS as u64;
-            if dur_ms >= MIN_SILENCE_MS {
-                ranges.push((s, frames.len()));
-            }
-        }
-        ranges
-    };
-
-    // 贪心切分：每次在目标段长附近找最近的静音点。
-    let target_samples = sample_rate as usize * SEGMENT_TARGET_MS as usize / 1000;
-    let limit_samples = sample_rate as usize * limit_ms as usize / 1000;
-
-    let mut segments = Vec::new();
-    let mut pos = 0usize;
-    while pos < samples.len() {
-        let remaining = samples.len() - pos;
-        if remaining <= limit_samples {
-            segments.push(SegmentRange {
-                start: pos,
-                end: samples.len(),
-            });
-            break;
-        }
-
-        // 理想切点 = pos + target_samples。在 limit_samples 范围内找最近的静音段中点。
-        let ideal_end = pos + target_samples;
-        let max_end = pos + limit_samples;
-
-        let best_cut = silence_frames
-            .iter()
-            .filter_map(|&(s, e)| {
-                let mid_frame = (s + e) / 2;
-                let mid_sample = mid_frame * frame_size;
-                if mid_sample > pos + frame_size && mid_sample <= max_end {
-                    Some(mid_sample)
-                } else {
-                    None
-                }
-            })
-            .min_by_key(|&cut| cut.abs_diff(ideal_end));
-
-        let cut = best_cut.unwrap_or(ideal_end.min(max_end));
-        // 两段在 cut 处首尾相接。留 padding 会让同一段音频进入两次推理，
-        // 硬切时直接产出重复文字。
-        segments.push(SegmentRange {
-            start: pos,
-            end: cut,
-        });
-        pos = cut.max(pos + 1);
-    }
-
-    segments
 }
 
 /// 会话配置文件里关闭 CPU 内存 arena 的开关。
@@ -304,11 +197,15 @@ impl SherpaTranscriber {
     /// `language` 仅 SenseVoice 使用：`"auto"` 自动检测（中/英/日/韩/粤），
     /// 或 `"zh"` / `"en"` / `"ja"` / `"ko"` / `"yue"` 指定，空字符串按 `"auto"`
     /// 处理；FireRedASR2 CTC 自带中英识别，该参数只透传到结果元数据。
+    ///
+    /// `vad_model` 是随安装包分发的 silero-vad 模型路径，用于长录音切分。
+    /// `None` 时退回 RMS 静音切分，转写行为不受影响。
     pub fn new(
         model_dir: PathBuf,
         language: String,
         threads: u32,
         engine: EngineKind,
+        vad_model: Option<PathBuf>,
     ) -> Result<Self, TranscriberError> {
         let model_path = model_dir.join("model.int8.onnx");
         let tokens_path = model_dir.join("tokens.txt");
@@ -350,6 +247,8 @@ impl SherpaTranscriber {
             model_dir,
             language,
             engine,
+            vad_model: vad_model.filter(|path| vad_model_ready(path)),
+            vad_warned: Arc::new(OnceLock::new()),
         })
     }
 
@@ -386,7 +285,7 @@ impl SherpaTranscriber {
 
     /// 同步转写：WAV 解码 → 推理 → 返回文本。调用方应放入 blocking 线程池。
     ///
-    /// 短音频直接单次推理；超过引擎单段上限时按静音分段，逐段识别后拼接。
+    /// 短音频直接单次推理；超过触发阈值的长录音先切分，逐段识别后拼接。
     fn transcribe_blocking(
         &self,
         audio_data: &[u8],
@@ -401,7 +300,7 @@ impl SherpaTranscriber {
 
         let duration_ms = samples.len() as u64 * 1000 / crate::recorder::SAMPLE_RATE as u64;
 
-        if needs_segmentation(self.engine, duration_ms) {
+        if needs_segmentation(duration_ms) {
             self.transcribe_segmented(&samples, on_progress)
         } else {
             let text = self.transcribe_single(&samples)?;
@@ -429,16 +328,72 @@ impl SherpaTranscriber {
         Ok(text)
     }
 
-    /// 分段转写：按静音切分，逐段识别，按顺序拼接文本。
+    /// VAD 不可用时只记一次日志，避免每次长录音都刷屏。
+    fn warn_vad_unavailable(&self, reason: &str) {
+        if self.vad_warned.set(()).is_ok() {
+            tracing::warn!(
+                reason,
+                "silero-vad unavailable, falling back to RMS segmentation"
+            );
+        }
+    }
+
+    /// 用 silero-vad 找出音频里的语音区间。
+    ///
+    /// 返回 `None` 表示 VAD 不可用或没有检出语音，调用方退回 RMS 切分。
+    /// 分块送入并及时取走语音段，长录音的内存占用不随输入长度增长。
+    fn vad_speech_ranges(&self, samples: &[f32]) -> Option<Vec<SpeechRange>> {
+        let Some(model) = self.vad_model.as_deref() else {
+            self.warn_vad_unavailable("未找到可用的 silero-vad 模型（缺失或校验失败）");
+            return None;
+        };
+        let Some(detector) = create_detector(model) else {
+            self.warn_vad_unavailable(&format!("加载 silero-vad 失败: {}", model.display()));
+            return None;
+        };
+
+        let mut ranges = Vec::new();
+        for chunk in samples.chunks(VAD_CHUNK_SAMPLES) {
+            detector.accept_waveform(chunk);
+            collect_vad_segments(&detector, samples.len(), &mut ranges);
+        }
+        detector.flush();
+        collect_vad_segments(&detector, samples.len(), &mut ranges);
+
+        if ranges.is_empty() {
+            tracing::debug!("silero-vad detected no speech, falling back to RMS segmentation");
+            return None;
+        }
+        Some(ranges)
+    }
+
+    /// 切分长录音：优先用 VAD 语音边界，VAD 不可用或没有检出语音时退回 RMS。
+    fn split_audio(&self, samples: &[f32]) -> (Vec<SegmentRange>, bool) {
+        let sample_rate = crate::recorder::SAMPLE_RATE;
+        if let Some(speech) = self.vad_speech_ranges(samples) {
+            let ranges = split_on_speech_ranges(samples.len(), sample_rate, &speech);
+            if !ranges.is_empty() {
+                return (ranges, true);
+            }
+        }
+        // 引擎自身的单段上限留作兜底：VAD 误判时也不会把超长音频送进推理。
+        let limit_ms = SEGMENT_LIMIT_MS.min(max_audio_ms(self.engine).unwrap_or(u64::MAX));
+        (split_on_silence(samples, sample_rate, limit_ms), false)
+    }
+
+    /// 分段转写：按语音边界切分，逐段识别，按顺序拼接文本。
     fn transcribe_segmented(
         &self,
         samples: &[f32],
         on_progress: &(dyn Fn(f32) + Send + Sync),
     ) -> Result<TranscribeResult, TranscriberError> {
-        let limit_ms = max_audio_ms(self.engine).unwrap_or(u64::MAX);
-        let segments = split_on_silence(samples, crate::recorder::SAMPLE_RATE, limit_ms);
+        let (segments, used_vad) = self.split_audio(samples);
 
-        tracing::info!(segments = segments.len(), "long audio split into segments");
+        tracing::info!(
+            segments = segments.len(),
+            used_vad,
+            "long audio split into segments"
+        );
 
         let mut texts = Vec::with_capacity(segments.len());
         for (i, seg) in segments.iter().enumerate() {
@@ -527,6 +482,7 @@ mod tests {
             "zh".to_string(),
             0,
             EngineKind::SenseVoice,
+            None,
         )
         .unwrap_err();
         assert!(matches!(err, TranscriberError::ModelLoadFailed { .. }));
@@ -542,6 +498,7 @@ mod tests {
             "zh".to_string(),
             0,
             EngineKind::SenseVoice,
+            None,
         )
         .unwrap_err();
         assert!(matches!(err, TranscriberError::ModelLoadFailed { .. }));
@@ -559,6 +516,7 @@ mod tests {
             String::new(),
             0,
             EngineKind::SenseVoice,
+            None,
         )
         .unwrap();
 
@@ -630,6 +588,7 @@ mod tests {
             "zh".to_string(),
             0,
             EngineKind::SenseVoice,
+            None,
         )
         .unwrap_err();
         assert!(matches!(err, TranscriberError::ModelLoadFailed { .. }));
@@ -643,6 +602,7 @@ mod tests {
             "zh".to_string(),
             0,
             EngineKind::FireRedAsrCtc,
+            None,
         )
         .unwrap_err();
         assert!(err.message().contains("不匹配"));
@@ -658,75 +618,75 @@ mod tests {
     }
 
     #[test]
-    fn test_needs_segmentation_only_over_limit() {
-        // 短于上限不分段，超过才分段；SenseVoice 永远不分段。
-        assert!(!needs_segmentation(EngineKind::FireRedAsrCtc, 60_000));
-        assert!(!needs_segmentation(EngineKind::FireRedAsrCtc, 200_000));
-        assert!(needs_segmentation(EngineKind::FireRedAsrCtc, 200_001));
-        assert!(!needs_segmentation(EngineKind::SenseVoice, 600_000));
+    fn test_vad_speech_ranges_without_model_returns_none() {
+        let dir = tempfile::tempdir().unwrap();
+        write_fake_model(dir.path(), "sense_voice_ctc");
+        let transcriber = SherpaTranscriber::new(
+            dir.path().to_path_buf(),
+            String::new(),
+            0,
+            EngineKind::SenseVoice,
+            None,
+        )
+        .unwrap();
+        let samples = vec![0.1f32; 16000];
+        assert!(transcriber.vad_speech_ranges(&samples).is_none());
     }
 
     #[test]
-    fn test_split_on_silence_short_audio_returns_single() {
-        let samples = vec![0.5f32; 16000 * 5]; // 5 秒
-        let segs = split_on_silence(&samples, 16000, 200_000);
-        assert_eq!(segs.len(), 1);
-        assert_eq!(segs[0].start, 0);
-        assert_eq!(segs[0].end, samples.len());
-    }
+    fn test_split_audio_falls_back_to_rms_without_vad() {
+        let dir = tempfile::tempdir().unwrap();
+        write_fake_model(dir.path(), "sense_voice_ctc");
+        let transcriber = SherpaTranscriber::new(
+            dir.path().to_path_buf(),
+            String::new(),
+            0,
+            EngineKind::SenseVoice,
+            None,
+        )
+        .unwrap();
 
-    #[test]
-    fn test_split_on_silence_long_audio_with_silence_splits() {
-        // 构造：30 秒语音 + 2 秒静音 + 30 秒语音 + 2 秒静音 + ... 共 250 秒
+        // 72 秒：5 秒语音与 1 秒静音交替。
         let sr = 16000usize;
-        let speech = vec![0.5f32; sr * 30];
-        let silence = vec![0.0001f32; sr * 2];
+        let speech = vec![0.5f32; sr * 5];
+        let silence = vec![0.0001f32; sr];
         let mut samples = Vec::new();
-        for _ in 0..8 {
+        for _ in 0..12 {
             samples.extend_from_slice(&speech);
             samples.extend_from_slice(&silence);
         }
-        samples.extend_from_slice(&speech); // 最后一段不要尾部静音
 
-        let segs = split_on_silence(&samples, sr as u32, 200_000);
-        assert!(
-            segs.len() >= 2,
-            "250 秒音频应切成至少 2 段，实际 {} 段",
-            segs.len()
-        );
-        // 每段不超过上限。
-        let limit_samples = sr * 200;
-        for (i, seg) in segs.iter().enumerate() {
-            assert!(
-                seg.end - seg.start <= limit_samples,
-                "段 {} 长度 {} 采样超过上限 {}",
-                i,
-                seg.end - seg.start,
-                limit_samples
-            );
-        }
-        // 所有段覆盖完整音频，且相邻段首尾相接、互不重叠：重叠会把同一段
-        // 语音送进两次推理，硬切时直接产出重复文字。
-        assert_eq!(segs.first().unwrap().start, 0);
-        assert_eq!(segs.last().unwrap().end, samples.len());
-        for pair in segs.windows(2) {
-            assert_eq!(
-                pair[0].end, pair[1].start,
-                "相邻段重叠或留缝：{:?} 与 {:?}",
-                pair[0], pair[1]
-            );
+        let (ranges, used_vad) = transcriber.split_audio(&samples);
+        assert!(!used_vad);
+        assert!(ranges.len() >= 2);
+        let limit = sr * SEGMENT_LIMIT_MS as usize / 1000;
+        for range in &ranges {
+            assert!(range.end - range.start <= limit);
         }
     }
 
     #[test]
-    fn test_split_on_silence_no_silence_forces_hard_cut() {
-        // 250 秒连续非静音，找不到静音点，硬切。
-        let samples = vec![0.5f32; 16000 * 250];
-        let segs = split_on_silence(&samples, 16000, 200_000);
+    fn test_vad_speech_ranges_loads_bundled_model() {
+        // 真正加载随仓库分发的 silero-vad，静音输入不应产生语音区间。
+        let model =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../resources/vad/silero_vad.onnx");
+        assert!(model.is_file(), "仓库应包含 {}", model.display());
+        let dir = tempfile::tempdir().unwrap();
+        write_fake_model(dir.path(), "sense_voice_ctc");
+        let transcriber = SherpaTranscriber::new(
+            dir.path().to_path_buf(),
+            String::new(),
+            0,
+            EngineKind::SenseVoice,
+            Some(model),
+        )
+        .unwrap();
+
+        let silence = vec![0.0f32; 16000 * 2];
+        assert!(transcriber.vad_speech_ranges(&silence).is_none());
         assert!(
-            segs.len() >= 2,
-            "250 秒连续语音应硬切成至少 2 段，实际 {} 段",
-            segs.len()
+            transcriber.vad_warned.get().is_none(),
+            "随安装包分发的 silero-vad 应能加载"
         );
     }
 
