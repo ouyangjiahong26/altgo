@@ -117,6 +117,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - Linux 运行时外部工具：`xinput`、`xmodmap`、`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`。Wayland 会话在 GUI 初始化前自动切 XWayland（`display_backend.rs`），否则悬浮窗定位不生效。
 - 环境变量：`ALTGO_POLISHER_API_KEY` 覆盖 `[polisher] api_key`，`ALTGO_MODEL_BASE_URL` 覆盖模型下载镜像。
 - PR 标题：只写改动内容，不带决策过程痕迹（如“方案 A/B”、“备选已否决”之类）。决策与取舍写进 PR 正文、commit 正文或 ADR。
+- PR 分支新鲜度：开 PR 前与合并前都要确认分支不落后 base。`git fetch origin <base>` 后 `git rev-list --count HEAD..origin/<base>` 应为 0，`gh pr view <N> --json mergeStateStatus` 不应为 `BEHIND`。落后时先 rebase 再推，rebase 后 `gh pr checks` 短暂报 no checks 不代表通过，等检查重新跑完再判断。
 
 ## Agent skills
 
@@ -124,7 +125,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 | 文件 | 内容 | 读它的技能 |
 |---|---|---|
-| `docs/agents/issue-tracker.md` | issue/PR 全走 GitHub（`gh` CLI）、AI 贡献标记约定、外部 PR 是否作分诊渠道（否）、Issue/PR 正文写作约定指向、GitHub Project 的 Owner 与 Project ID 与 Status 字段与七个选项 ID | `/triage`、`/github-project`、`/open-pr`、`/merge-pr` |
+| `docs/agents/issue-tracker.md` | issue/PR 全走 GitHub（`gh` CLI）、提案先行与 issue/PR/评论结构、AI 贡献标记约定、外部 PR 是否作分诊渠道（否）、GitHub Project 的 Owner 与 Project ID 与 Status 字段与七个选项 ID | `/triage`、`/github-project`、`/open-pr`、`/merge-pr`、`/code-review`、`/resolving-merge-conflicts` |
 | `docs/agents/triage-labels.md` | 五个分诊角色到本仓标签字符串的映射（`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`） | `/triage` |
 | `docs/agents/domain.md` | 领域文档布局：单上下文为根 `CONTEXT.md` 加 `docs/adr/`，命名用术语表词汇，与 ADR 矛盾必须显式标注 | `/domain-modeling`、`/grill-with-docs`、`/codebase-design` |
 
@@ -139,27 +140,26 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 ## 写作要求
 
-所有面向人读的文本（注释、CONTEXT.md、ADR、issue 评论、PR 描述、agent brief、分诊记录、文档、Agent 回复）应当：
+所有供人阅读的文本（注释、CONTEXT.md、ADR、issue 评论、PR 描述、agent brief、分诊记录、文档、Agent 回复）应当：
 
 - 准确、清楚、简洁。先理解材料，再提炼结论。
 - 按逻辑组织，区分相近概念。不用空泛、夸大的修饰语。
-- 面向实际读者，从已知事实推到陌生结论。用分析说服，不装腔或堆砌。
+- 面向实际读者，从已知事实推到陌生结论。用分析说服，不装腔作势，不堆砌辞藻。
 - 语言统一中文，不中英混用。命令、代码、路径、专有名词保留原文。
 - 概念不直译。没有通行译名的概念用功能描述，不生造译名。同一概念全文只用一个词：用“标准”不用“规范”，用“任务要求”不用“规格”，测试结果用“通过、失败”不用“红、绿”。
 - 标点符号：中文语境用全角中文标点（句号“。”、逗号“，”、顿号“、”）。纯英文句子用英文标点。行内代码、文件名、命令后的标点根据所在句子语境选择。引号：中文用弯引号“”，英文用直引号""。列举用顿号（“、”）分隔，最后一项前不加“和”或“与”。
 - 不用破折号（“——”、“—”）、分号、箭头（“→”）、markdown 加粗和表情符号。补充说明用括号，并列与分支写成独立句子，顺序与对应关系用文字表达。
 - 单位用国标：带单位的数值用 GB 3100～3102 的法定计量单位。写单位符号时，数值与符号之间留一个空格（`200 ms`、`5 min`、`64 MB`），不写 `200MS`、`64MB` 这类变体。中文行文里用汉字单位名称（30 秒、5 分钟）同样合规。
-- 适用边界：已发布 CHANGELOG 条目按 `CONTRIBUTING.md` 规定的固有形状（粗体短标题加冒号）保留，不回改。`resources/prompts/` 与其他发给模型的数据不适用。代码块内的命令注释、示例与输出按代码原样保留。架构图、表格与注释里的状态迁移和数据流记号（如 `Idle → Recording`、样式链的先后顺序）是技术记号，不算行文箭头。CSS 属性值里的单位写法（如 `90ms`、`17px`）按 CSS 语法保留。纯英文句子（含 `#[error]` 英文文案、英文错误详情串）用英文标点。表格行标签、词条名与列表短标签的加粗属排版形状，不算叙述性强调。
 
 ## 编码准则
 
 - 先理解再改动：完整阅读目标文件、相似实现和相关测试。不确定 API 或惯例时查源码或文档，不猜。
 - 明确目标与决策：需求或验收条件不明确时先澄清。架构选择、假设和关键取舍要说明。
 - 保持简单：只实现当前需求。复用已有模式。不为单一用例过早抽象、配置化或引入依赖。
-- 精准修改：只改与任务直接相关的代码，贴合既有风格。删掉本次修改产生的废弃代码，不重格式化无关内容。
+- 精准修改：只改与任务直接相关的代码，贴合既有风格。删掉本次修改产生的废弃代码，不重新格式化无关内容。
 - 注释不留历史：删掉只对读过旧版本的人有意义的注释（“原来是 X”“改成 Y 是为了修 Z”）。注释解释当前代码为什么这样写，变更过程由 git 记录。
 - 完整迁移：变更接口或行为时更新所有调用方、测试和文档。不保留无需求的兼容层。
-- 按根因修复：先复现并读完整错误信息。一次处理一个原因，不用吞异常或特判掩盖问题。
+- 按根因修复：先复现并读完整错误信息。一次处理一个原因，不靠吞异常或特判掩盖问题。
 - 验证行为：按影响范围运行相关检查。测试可观察行为、边界和错误路径，不测试实现细节。无法测试时说明原因并做可行的烟雾验证。
 - 审慎依赖：优先现有依赖和标准库。新增依赖前确认必要性、维护状态和成本，并说明理由。
 - 清楚沟通：说明做了什么、为什么、验证结果和已知风险。对不确定性给出具体事实，提交信息描述实际改动。
