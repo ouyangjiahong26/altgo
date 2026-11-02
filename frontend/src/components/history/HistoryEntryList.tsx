@@ -19,6 +19,7 @@ export function HistoryEntryList({ t, uiLang, h }: HistoryEntryListProps) {
           t={t}
           entry={e}
           uiLang={uiLang}
+          candidate={h.candidate}
           selected={h.selected.has(e.id)}
           copiedText={h.copiedId === `${e.id}:text`}
           copiedRaw={h.copiedId === `${e.id}:raw`}

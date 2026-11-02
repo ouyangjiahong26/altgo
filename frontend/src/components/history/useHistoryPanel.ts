@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { copyToClipboard } from "../../utils/clipboard";
+import { useGlossaryCandidates } from "./useGlossaryCandidates";
 
 /** 条目级转写元数据：后端来源与各环节耗时，旧条目无此数据。 */
 export interface HistoryMeta {
@@ -41,6 +42,26 @@ export function useHistoryPanel(t: (key: string) => string) {
   });
   const copy = useHistoryCopy(t, list.setError);
   const polish = useHistoryPolish(t, list.setEntries, list.setError);
+  const candidateState = useGlossaryCandidates(t);
+
+  // 附令润色与候选术语共用条目内的展开区，打开一个就收起另一个。
+  const openInstruction = (id: string) => {
+    candidateState.close();
+    polish.openInstruction(id);
+  };
+
+  const handlePolish = (id: string, extraInstruction?: string) => {
+    candidateState.close();
+    return polish.handlePolish(id, extraInstruction);
+  };
+
+  const candidate = {
+    ...candidateState,
+    open: (id: string) => {
+      polish.closeInstruction();
+      candidateState.open(id);
+    },
+  };
 
   useEffect(() => {
     list.load();
@@ -64,8 +85,9 @@ export function useHistoryPanel(t: (key: string) => string) {
     toggleAll: selection.toggleAll, toggleOne: selection.toggleOne,
     handleDeleteSelected: removal.handleDeleteSelected,
     handleClearAll: removal.handleClearAll,
-    handleCopy: copy.handleCopy, handlePolish: polish.handlePolish,
-    openInstruction: polish.openInstruction, closeInstruction: polish.closeInstruction,
+    handleCopy: copy.handleCopy, handlePolish,
+    openInstruction, closeInstruction: polish.closeInstruction,
+    candidate,
   };
 }
 

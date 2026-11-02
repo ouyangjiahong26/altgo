@@ -215,6 +215,48 @@
                                 <button type="button" class="btn btn-sm btn-ghost is-copied">已复制原文</button>
                                 <button type="button" class="btn btn-sm btn-secondary">润色</button>
                                 <button type="button" class="btn btn-sm btn-ghost">按指令润色</button>
+                                <button type="button" class="btn btn-sm btn-secondary" aria-expanded="true">检查术语</button>
+                              </div>
+                              <div class="history-candidate-panel" role="region" aria-label="检查术语">
+                                <p class="history-candidate-note">将把这条历史的原始转写与当前文本发送到你配置的远端润色服务。</p>
+                                <ul class="history-candidate-list">
+                                  <li>
+                                    <label class="history-candidate-option">
+                                      <input type="checkbox" checked />
+                                      <span class="history-candidate-term">地月空间</span>
+                                      <span class="history-candidate-fragment">原文片段 地约空间</span>
+                                    </label>
+                                  </li>
+                                  <li>
+                                    <label class="history-candidate-option">
+                                      <input type="checkbox" />
+                                      <span class="history-candidate-term">平动点</span>
+                                      <span class="history-candidate-fragment">原文片段 平洞点</span>
+                                    </label>
+                                  </li>
+                                </ul>
+                                <p class="history-candidate-success">已加入 1 条术语。</p>
+                                <div class="history-candidate-skipped">
+                                  <span>未加入：</span>
+                                  <ul>
+                                    <li>近月空间：超过 32 个字符</li>
+                                  </ul>
+                                </div>
+                                <div class="history-candidate-manual">
+                                  <div class="glossary-editor">
+                                    <span class="glossary-chip">
+                                      <span>探测器</span>
+                                      <button type="button" class="glossary-chip-remove" aria-label="移除 探测器">×</button>
+                                    </span>
+                                    <input type="text" class="glossary-input" placeholder="输入术语后按回车" aria-label="输入术语后按回车" />
+                                  </div>
+                                  <p class="settings-card-note">只填标准写法，回车或逗号添加。</p>
+                                </div>
+                                <div class="history-candidate-actions">
+                                  <button type="button" class="btn btn-sm btn-secondary">加入术语表</button>
+                                  <button type="button" class="btn btn-sm btn-ghost">关闭</button>
+                                  <span class="history-candidate-count">12/50</span>
+                                </div>
                               </div>
                             </div>
                           </li>

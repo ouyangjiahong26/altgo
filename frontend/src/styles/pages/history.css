@@ -207,6 +207,109 @@
   font-size: var(--text-xs);
 }
 
+/* 候选术语面板：展开在操作行下方，标签编辑器复用设置页的 .glossary-editor */
+.history-candidate-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+
+.history-candidate-note,
+.history-candidate-hint {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}
+
+.history-candidate-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.history-candidate-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1-5);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-red);
+  line-height: var(--leading-normal);
+}
+
+.history-candidate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.history-candidate-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1-5);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.history-candidate-term {
+  font-weight: var(--font-medium);
+}
+
+.history-candidate-fragment {
+  color: var(--color-text-muted);
+}
+
+.history-candidate-success {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-green);
+}
+
+.history-candidate-skipped {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.history-candidate-skipped ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-3);
+}
+
+.history-candidate-manual {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.history-candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.history-candidate-count {
+  margin-left: auto;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .history-spin {
   animation: spin var(--duration-spin) linear infinite;
 }

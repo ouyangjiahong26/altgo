@@ -25,6 +25,10 @@ When `[transcriber] backend = "online"` is set, the recording is encoded as WAV 
 
 When a remote polishing provider is selected, the transcription, the built-in polishing prompt and the glossary you configured, if any, are sent to the `api_base_url` you configure, using either the OpenAI-compatible protocol or the Anthropic Messages API. The data is handled by that provider and is subject to its privacy policy. Local polishing and disabled polishing make no network requests.
 
+### Glossary candidate screening
+
+A history entry that contains Chinese text offers "Check terms". This action asks the remote polishing provider for candidate glossary terms. Only that entry's raw transcript and, when it differs, its current text are sent to the `api_base_url` you configure, using the same protocol and provider as remote polishing. The AI only suggests candidates. Nothing is added to the glossary until you confirm. With the local polishing engine selected, no request is made and you can still add terms manually.
+
 ### Model and runtime downloads
 
 Local transcription models, local polishing models and the polishing runtime are downloaded on demand. Models come from Hugging Face (`huggingface.co`) or its mirror (`hf-mirror.com`), and the runtime comes from llama.cpp releases on GitHub. These requests contain only file and checksum information, never transcription content. `ALTGO_MODEL_BASE_URL` and `ALTGO_POLISH_MODEL_BASE_URL` can point to other sources.
@@ -39,7 +43,7 @@ The documentation site, release pages and other external links open in your brow
 
 ## Third-party services
 
-Online transcription is provided by Xiaomi's MiMo service. Remote polishing is provided by the service you configure. Models and runtimes come from Hugging Face, GitHub and the llama.cpp project. Their data handling is governed by their respective privacy policies. altgo does not proxy or relay these requests.
+Online transcription is provided by Xiaomi's MiMo service. Remote polishing and glossary candidate screening are provided by the service you configure. Models and runtimes come from Hugging Face, GitHub and the llama.cpp project. Their data handling is governed by their respective privacy policies. altgo does not proxy or relay these requests.
 
 ## Audio is not stored
 

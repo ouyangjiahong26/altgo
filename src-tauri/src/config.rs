@@ -17,7 +17,7 @@ use std::time::Duration;
 
 /// 术语表上限。条数控制 prompt 长度与误用风险，单条长度挡掉整段句子。
 const MAX_GLOSSARY_TERMS: usize = 50;
-const MAX_GLOSSARY_TERM_CHARS: usize = 32;
+pub(crate) const MAX_GLOSSARY_TERM_CHARS: usize = 32;
 
 /// serde 辅助模块：TOML 中为 `u64` 毫秒，Rust 侧为 `Duration`。
 mod duration_ms {

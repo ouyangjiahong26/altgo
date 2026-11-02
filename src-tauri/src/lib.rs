@@ -237,6 +237,7 @@ fn assemble_builder(
         cmd::delete_history_entries,
         cmd::clear_history,
         cmd::polish_history_entry,
+        cmd::suggest_glossary_terms,
         cmd::get_pending_recording,
         cmd::retry_pending_transcription,
         cmd::discard_pending_recording,

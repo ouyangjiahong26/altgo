@@ -175,6 +175,11 @@
   background: var(--color-bg-card-hover);
 }
 
+.glossary-chip-remove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .glossary-input {
   flex: 1;
   min-width: 160px;
@@ -188,6 +193,11 @@
 
 .glossary-input::placeholder {
   color: var(--color-text-faint);
+}
+
+.glossary-input:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
 .glossary-meta {

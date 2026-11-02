@@ -1,11 +1,14 @@
 import { BookOpen } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { GlossaryChipEditor } from "../../components/GlossaryChipEditor";
 import type { AppConfig } from "../../hooks/useConfigForm";
+import {
+  MAX_GLOSSARY_TERMS,
+  glossarySkipMessage,
+  mergeGlossaryTerms,
+  splitGlossaryInput,
+} from "../../utils/glossary";
 import { SectionHead } from "./SectionHead";
-
-const MAX_TERMS = 50;
-const MAX_TERM_CHARS = 32;
-const SEPARATORS = /[\n,，]+/;
 
 interface GlossarySectionProps {
   t: (key: string) => string;
@@ -17,7 +20,6 @@ interface GlossarySectionProps {
 export function GlossarySection({ t, config, update }: GlossarySectionProps) {
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const terms = config.polishGlossary;
 
   const removeTerm = (term: string) => {
@@ -29,38 +31,22 @@ export function GlossarySection({ t, config, update }: GlossarySectionProps) {
   };
 
   const addTerms = (rawTerms: string[]): boolean => {
-    const next = [...terms];
-    const seen = new Set(next);
-    let firstError = "";
-    for (const raw of rawTerms) {
-      const term = raw.trim();
-      if (!term) continue;
-      if (term.length > MAX_TERM_CHARS) {
-        firstError ||= t("settings.polish_glossary_too_long");
-        continue;
-      }
-      if (seen.has(term)) {
-        firstError ||= t("settings.polish_glossary_duplicate");
-        continue;
-      }
-      if (next.length >= MAX_TERMS) {
-        firstError ||= t("settings.polish_glossary_max");
-        break;
-      }
-      next.push(term);
-      seen.add(term);
+    const result = mergeGlossaryTerms(terms, rawTerms);
+    if (result.added.length > 0) {
+      update("polishGlossary", result.terms);
     }
-    const added = next.length !== terms.length;
-    if (added) {
-      update("polishGlossary", next);
-    }
-    setError(firstError);
-    return added;
+    setError(
+      result.skipped.length > 0
+        ? glossarySkipMessage(result.skipped[0].reason, t)
+        : "",
+    );
+    return result.added.length > 0;
   };
 
-  const addFromInput = () => {
-    if (!input.trim()) return;
-    if (addTerms([input])) {
+  const addFromInput = (text?: string) => {
+    const value = text ?? input;
+    if (!value.trim()) return;
+    if (addTerms(splitGlossaryInput(value))) {
       setInput("");
     }
   };
@@ -73,56 +59,24 @@ export function GlossarySection({ t, config, update }: GlossarySectionProps) {
         note={t("settings.polish_glossary_section_note")}
       />
       <div className="card glossary-card">
-        <div
-          className="glossary-editor"
-          onClick={() => inputRef.current?.focus()}
-        >
-          {terms.map((term) => (
-            <span className="glossary-chip" key={term}>
-              <span>{term}</span>
-              <button
-                type="button"
-                className="glossary-chip-remove"
-                aria-label={`${t("settings.polish_glossary_remove")} ${term}`}
-                onClick={() => removeTerm(term)}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-          <input
-            ref={inputRef}
-            className="glossary-input"
-            type="text"
-            value={input}
-            placeholder={t("settings.polish_glossary_add_placeholder")}
-            aria-label={t("settings.polish_glossary_add_placeholder")}
-            onChange={(e) => {
-              setInput(e.target.value);
-              setError("");
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === "," || e.key === "，") {
-                e.preventDefault();
-                addFromInput();
-              } else if (e.key === "Backspace" && !input && terms.length > 0) {
-                removeTerm(terms[terms.length - 1]);
-              }
-            }}
-            onPaste={(e) => {
-              const text = e.clipboardData.getData("text");
-              if (!SEPARATORS.test(text)) return;
-              e.preventDefault();
-              addTerms(text.split(SEPARATORS));
-            }}
-          />
-        </div>
+        <GlossaryChipEditor
+          t={t}
+          terms={terms}
+          input={input}
+          placeholder={t("settings.polish_glossary_add_placeholder")}
+          onInputChange={(value) => {
+            setInput(value);
+            setError("");
+          }}
+          onAdd={addFromInput}
+          onRemove={removeTerm}
+        />
         <div className="glossary-meta">
           <p className="settings-card-note">
             {t("settings.polish_glossary_hint")}
           </p>
           <span className="glossary-count">
-            {terms.length}/{MAX_TERMS}
+            {terms.length}/{MAX_GLOSSARY_TERMS}
           </span>
         </div>
         {error && <p className="settings-test-err">{error}</p>}

@@ -1,4 +1,4 @@
-/** 单条历史条目：时间、来源与耗时、文本、复制与润色操作、附令润色输入区。 */
+/** 单条历史条目：时间、来源与耗时、文本、复制与润色操作、附令润色与候选术语面板。 */
 import {
   Copy,
   Check,
@@ -6,13 +6,18 @@ import {
   Sparkles,
   PenLine,
   Loader2,
+  BookOpen,
 } from "lucide-react";
+import { hasCjk } from "../../utils/glossary";
+import { GlossaryCandidatePanel } from "./GlossaryCandidatePanel";
 import type { HistoryEntry, HistoryMeta } from "./useHistoryPanel";
+import type { GlossaryCandidateController } from "./useGlossaryCandidates";
 
 interface HistoryEntryItemProps {
   t: (key: string) => string;
   entry: HistoryEntry;
   uiLang: string;
+  candidate: GlossaryCandidateController;
   selected: boolean;
   copiedText: boolean;
   copiedRaw: boolean;
@@ -57,7 +62,7 @@ function formatDuration(ms: number, lang: string): string {
 }
 
 export function HistoryEntryItem({
-  t, entry, uiLang, selected, copiedText, copiedRaw, polishing,
+  t, entry, uiLang, candidate, selected, copiedText, copiedRaw, polishing,
   instructionOpen, instructionText, onToggle, onCopyText, onCopyRaw, onPolish,
   onOpenInstruction, onCloseInstruction, onInstructionChange, onInstructionSubmit,
 }: HistoryEntryItemProps) {
@@ -89,7 +94,8 @@ export function HistoryEntryItem({
           </p>
         )}
         <HistoryEntryActions
-          t={t} copiedText={copiedText} copiedRaw={copiedRaw} polishing={polishing}
+          t={t} entry={e} candidate={candidate}
+          copiedText={copiedText} copiedRaw={copiedRaw} polishing={polishing}
           onCopyText={onCopyText} onCopyRaw={onCopyRaw} onPolish={onPolish}
           onOpenInstruction={onOpenInstruction}
         />
@@ -99,6 +105,9 @@ export function HistoryEntryItem({
             onInstructionChange={onInstructionChange}
             onInstructionSubmit={onInstructionSubmit} onCloseInstruction={onCloseInstruction}
           />
+        )}
+        {candidate.openId === e.id && (
+          <GlossaryCandidatePanel t={t} entry={e} candidate={candidate} />
         )}
       </div>
     </li>
@@ -143,15 +152,15 @@ function HistoryStageMeta({
   );
 }
 
-/** 操作行：复制润色文本、复制原始转写、直接润色与附令润色。 */
+/** 操作行：复制润色文本、复制原始转写、直接润色、附令润色与候选术语。 */
 function HistoryEntryActions({
-  t, copiedText, copiedRaw, polishing,
+  t, entry, candidate, copiedText, copiedRaw, polishing,
   onCopyText, onCopyRaw, onPolish, onOpenInstruction,
 }: Pick<
   HistoryEntryItemProps,
   "t" | "copiedText" | "copiedRaw" | "polishing" | "onCopyText" | "onCopyRaw"
   | "onPolish" | "onOpenInstruction"
->) {
+> & { entry: HistoryEntry; candidate: GlossaryCandidateController }) {
   return (
     <div className="history-item-actions">
       <CopyTextButton t={t} copiedText={copiedText} onCopyText={onCopyText} />
@@ -160,7 +169,34 @@ function HistoryEntryActions({
       <PolishWithInstructionButton
         t={t} polishing={polishing} onOpenInstruction={onOpenInstruction}
       />
+      {(hasCjk(entry.rawText) || hasCjk(entry.text)) && (
+        <CheckTermsButton t={t} candidate={candidate} entryId={entry.id} />
+      )}
     </div>
+  );
+}
+
+/** 候选术语入口：只在含汉字的条目上出现，打开后与附令润色互斥。 */
+function CheckTermsButton({
+  t, candidate, entryId,
+}: {
+  t: (key: string) => string;
+  candidate: GlossaryCandidateController;
+  entryId: string;
+}) {
+  const open = candidate.openId === entryId;
+  return (
+    <button
+      type="button"
+      className={`btn btn-sm ${open ? "btn-secondary" : "btn-ghost"}`}
+      aria-expanded={open}
+      disabled={candidate.adding}
+      onClick={() => (open ? candidate.close() : candidate.open(entryId))}
+      title={t("history.glossary_candidates_open")}
+    >
+      <BookOpen size={13} />
+      {t("history.glossary_candidates_open")}
+    </button>
   );
 }
 

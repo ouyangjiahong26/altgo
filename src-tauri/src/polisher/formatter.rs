@@ -248,6 +248,26 @@ impl LLMFormatter {
         self.polish_with_glossary(system_prompt, text, level).await
     }
 
+    /// 用独立短提示词筛出候选术语。
+    ///
+    /// 候选筛选是短抽取，不是润色：强制关闭思考，温度 0，`max_tokens` 固定
+    /// 512，不复用润色的档位与自定义 prompt。返回解析后的候选，过滤与片段
+    /// 校验由调用方完成。
+    pub async fn suggest_glossary_terms(
+        &self,
+        raw: &str,
+        text: &str,
+    ) -> Result<Vec<super::GlossaryCandidate>, PolisherError> {
+        let (system_prompt, user_message) = super::candidates::build_request(raw, text);
+        let mut request = self.clone();
+        request.max_tokens = super::candidates::CANDIDATE_MAX_TOKENS;
+        request.thinking = ThinkingLevel::Off;
+        let output = request
+            .request_polish(system_prompt, &user_message, 0.0)
+            .await?;
+        Ok(super::candidates::parse_response(&output))
+    }
+
     /// 追加术语表并发送。术语表只对 medium 与 heavy 生效，非空时温度固定为 0。
     ///
     /// 输出里出现没有同音来源的术语表词时，去掉术语表重试一次。避免模型把
@@ -579,6 +599,57 @@ mod tests {
         assert_eq!(result, "航天飞机的姿态需要控制。");
         first.assert_async().await;
         retry.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_suggest_glossary_terms_uses_dedicated_prompt_and_limits() {
+        // 候选请求必须与润色请求分开：独立 prompt、温度 0、max_tokens 512、关闭思考。
+        // 精确匹配请求体，防止思考层级从 formatter 泄漏进候选请求。
+        let mut server = mockito::Server::new_async().await;
+        let (system, user) = crate::polisher::candidates::build_request("地约空间", "地月空间");
+        let expected_body = serde_json::json!({
+            "model": "m",
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user}
+            ],
+            "temperature": 0.0,
+            "max_tokens": crate::polisher::candidates::CANDIDATE_MAX_TOKENS,
+        });
+        let mock = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::Json(expected_body))
+            .with_status(200)
+            .with_body(mock_success_response("地月空间\t地约空间"))
+            .create_async()
+            .await;
+
+        let formatter = LLMFormatter::with_config(
+            "key".to_string(),
+            server.url(),
+            "m".to_string(),
+            Duration::from_secs(5),
+            1024,
+            protocol::ApiProtocol::OpenAi,
+            0.3,
+            "zh".to_string(),
+        )
+        .unwrap()
+        .with_thinking_level(ThinkingLevel::High);
+
+        let result = formatter
+            .suggest_glossary_terms("地约空间", "地月空间")
+            .await
+            .unwrap();
+
+        assert_eq!(
+            result,
+            vec![crate::polisher::GlossaryCandidate {
+                term: "地月空间".to_string(),
+                fragment: "地约空间".to_string(),
+            }]
+        );
+        mock.assert_async().await;
     }
 
     fn mock_success_response(content: &str) -> String {

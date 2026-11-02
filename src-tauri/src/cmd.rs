@@ -690,6 +690,67 @@ pub async fn polish_history_entry(
     .await
 }
 
+/// 候选术语筛选的前置检查：只允许远端润色后端，且远端配置完整。
+///
+/// 不看润色档位。候选筛选是用户显式触发的独立动作，和手动重润一样
+/// 不受全局 `none` 限制。后端为本地时不发请求，尊重用户对文本不外发的选择。
+fn ensure_candidate_remote_ready(cfg: &crate::config::Config) -> Result<(), String> {
+    if !cfg.polisher.backend.trim().eq_ignore_ascii_case("remote") {
+        return Err("候选术语筛选需要远端润色后端。请在设置里把润色引擎切到云端。".to_string());
+    }
+    if cfg.polisher.api_base_url.trim().is_empty()
+        || cfg.polisher.model.trim().is_empty()
+        || cfg.polisher.api_key.trim().is_empty()
+    {
+        return Err(
+            "候选术语筛选需要完整的润色 API 地址、模型与密钥。请在设置里检查。".to_string(),
+        );
+    }
+    Ok(())
+}
+
+/// 从一条历史条目筛选候选术语的可测试核心。
+///
+/// 只读历史，不修改条目文本，也不发事件。过滤已在术语表中的词，并把
+/// 原文里找不到的片段清空，避免面板展示无法核对的片段。
+pub(crate) async fn suggest_glossary_terms_core(
+    config_store: &ConfigStore,
+    history_store: &HistoryStore,
+    history_id: &str,
+) -> Result<Vec<polisher::GlossaryCandidate>, String> {
+    let cfg = config_store.snapshot().await;
+    ensure_candidate_remote_ready(&cfg)?;
+    let formatter = polisher::build_polisher(&cfg).map_err(|e| e.message())?;
+
+    let store = history_store.clone();
+    let id = history_id.to_string();
+    let entry = tokio::task::spawn_blocking(move || store.get(&id))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "历史条目不存在，可能已被删除。".to_string())?;
+
+    let candidates = formatter
+        .suggest_glossary_terms(&entry.raw_text, &entry.text)
+        .await
+        .map_err(|e| e.message())?;
+    let candidates = polisher::candidates::retain_new(candidates, &cfg.polisher.glossary);
+    Ok(polisher::candidates::resolve_fragments(
+        candidates,
+        &entry.raw_text,
+        &entry.text,
+    ))
+}
+
+#[tauri::command]
+pub async fn suggest_glossary_terms(
+    config_store: State<'_, ConfigStore>,
+    history_store: State<'_, HistoryStore>,
+    history_id: String,
+) -> Result<Vec<polisher::GlossaryCandidate>, String> {
+    suggest_glossary_terms_core(&config_store, &history_store, &history_id).await
+}
+
 /// 测试润色 API 连接：基于表单当前值发一次最小请求，不落盘、不重启流水线。
 ///
 /// 密钥为空时回落到已保存的密钥，方便“填好后未保存”与“已保存”两种状态都能测。

@@ -1,8 +1,38 @@
 /** 历史条目的来源与耗时展示：徽标、各环节耗时格式、旧条目无元数据时的回退。 */
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { HistoryEntryItem } from "./HistoryEntryItem";
 import type { HistoryEntry } from "./useHistoryPanel";
+import type { GlossaryCandidateController } from "./useGlossaryCandidates";
+
+function makeCandidate(
+  overrides: Partial<GlossaryCandidateController> = {},
+): GlossaryCandidateController {
+  return {
+    openId: null,
+    loading: false,
+    remoteReady: true,
+    glossaryLoaded: true,
+    error: null,
+    candidates: [],
+    selected: new Set(),
+    manualTerms: [],
+    manualInput: "",
+    manualError: "",
+    adding: false,
+    addedCount: 0,
+    skipped: [],
+    glossaryCount: 0,
+    open: vi.fn(),
+    close: vi.fn(),
+    toggle: vi.fn(),
+    setManualInput: vi.fn(),
+    addManual: vi.fn(),
+    removeManual: vi.fn(),
+    add: vi.fn(),
+    ...overrides,
+  };
+}
 
 const t = (key: string): string => key;
 
@@ -16,12 +46,17 @@ function makeEntry(meta?: HistoryEntry["meta"]): HistoryEntry {
   };
 }
 
-function renderEntry(entry: HistoryEntry, uiLang = "zh") {
+function renderEntry(
+  entry: HistoryEntry,
+  uiLang = "zh",
+  candidate: GlossaryCandidateController = makeCandidate(),
+) {
   return render(
     <HistoryEntryItem
       t={t}
       entry={entry}
       uiLang={uiLang}
+      candidate={candidate}
       selected={false}
       copiedText={false}
       copiedRaw={false}
@@ -91,5 +126,52 @@ describe("HistoryEntryItem 来源与耗时", () => {
   it("旧条目无 meta 时不渲染来源与耗时行", () => {
     const { container } = renderEntry(makeEntry());
     expect(container.querySelector(".history-item-meta")).toBeNull();
+  });
+});
+
+describe("HistoryEntryItem 候选术语入口", () => {
+  it("含汉字的条目显示检查术语按钮", () => {
+    renderEntry(makeEntry());
+
+    expect(
+      screen.getByRole("button", { name: "history.glossary_candidates_open" }),
+    ).toBeTruthy();
+  });
+
+  it("纯英文条目不显示检查术语按钮", () => {
+    renderEntry({ ...makeEntry(), rawText: "hello", text: "hello" });
+
+    expect(
+      screen.queryByRole("button", {
+        name: "history.glossary_candidates_open",
+      }),
+    ).toBeNull();
+  });
+
+  it("点击检查术语打开对应条目", () => {
+    const candidate = makeCandidate();
+    renderEntry(makeEntry(), "zh", candidate);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "history.glossary_candidates_open",
+      }),
+    );
+
+    expect(candidate.open).toHaveBeenCalledWith("e1");
+  });
+
+  it("候选面板打开时渲染候选", () => {
+    renderEntry(
+      makeEntry(),
+      "zh",
+      makeCandidate({
+        openId: "e1",
+        candidates: [{ term: "地月空间", fragment: "地约空间" }],
+      }),
+    );
+
+    expect(screen.getByText("地月空间")).toBeTruthy();
+    expect(screen.getByText(/地约空间/)).toBeTruthy();
   });
 });

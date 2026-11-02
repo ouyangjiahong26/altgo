@@ -339,6 +339,9 @@ pub enum PolisherError {
 
     #[error("All retry attempts exhausted")]
     RetriesExhausted,
+
+    #[error("operation not supported by this polisher")]
+    Unsupported,
 }
 
 impl PolisherError {
@@ -368,6 +371,7 @@ impl PolisherError {
             Self::HttpError(msg) => format!("HTTP 请求失败：{}", msg),
             Self::JsonError(msg) => format!("JSON 解析失败：{}", msg),
             Self::RetriesExhausted => "所有重试尝试均失败。".to_string(),
+            Self::Unsupported => "当前润色引擎不支持这个操作。".to_string(),
         }
     }
 
@@ -403,6 +407,7 @@ impl PolisherError {
                 UserFacingError::with("polisher.json_error", "detail", msg.clone())
             }
             Self::RetriesExhausted => UserFacingError::bare("polisher.retries_exhausted"),
+            Self::Unsupported => UserFacingError::bare("polisher.unsupported"),
         }
     }
 }

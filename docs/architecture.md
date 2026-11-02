@@ -18,7 +18,7 @@ altgo 是基于 Tauri 的桌面语音转文字工具：Rust 后端承载整条�
 +-----------------+
 |   React 前端     |  设置 / 历史 / 悬浮窗
 +-----------------+
-         | IPC (30 命令 + 17 事件)
+         | IPC (31 命令 + 17 事件)
          v
 +-----------------+
 |  装配层 lib.rs   |  spawn_pipeline_thread：管理状态、组合 seam
@@ -249,7 +249,7 @@ lib.rs
 
 ### 命令
 
-`cmd.rs` 暴露 30 个命令：
+`cmd.rs` 暴露 31 个命令：
 
 - 配置 6：`get_config`、`save_config`、`capture_activation_key`、`probe_activation_key`、`test_polisher_connection`、`fetch_provider_catalog`
 - 更新 3：`check_update`、`install_update`、`restart_app`
@@ -257,7 +257,7 @@ lib.rs
 - 悬浮窗 2：`copy_text`、`hide_overlay`
 - 模型 4：`list_models`、`download_model`、`delete_model`、`resolve_model`
 - 本地润色 6：`list_polish_models`、`download_polish_model`、`delete_polish_model`、`polish_runtime_status`、`download_polish_runtime`、`remove_polish_runtime`
-- 历史 4：`list_history`、`delete_history_entries`、`clear_history`、`polish_history_entry`
+- 历史 5：`list_history`、`delete_history_entries`、`clear_history`、`polish_history_entry`、`suggest_glossary_terms`
 - 待重试录音 3：`get_pending_recording`、`retry_pending_transcription`、`discard_pending_recording`
 
 ### 事件

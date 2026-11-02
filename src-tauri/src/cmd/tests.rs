@@ -528,6 +528,134 @@ async fn polish_history_entry_core_extra_instruction_reaches_request_body() {
     mock.assert_async().await;
 }
 
+#[tokio::test]
+async fn suggest_glossary_terms_core_filters_existing_and_blanks_unknown_fragments() {
+    let mut server = mockito::Server::new_async().await;
+    let body = serde_json::json!({
+        "choices": [{
+            "message": {
+                "role": "assistant",
+                "content": "地月空间\t地约空间\n平动点\t原文没有\n近月空间\t月球轨道\n"
+            }
+        }]
+    })
+    .to_string();
+    let mock = server
+        .mock("POST", "/v1/chat/completions")
+        .match_body(mockito::Matcher::Regex("原始转写".to_string()))
+        .with_status(200)
+        .with_body(body)
+        .create_async()
+        .await;
+
+    let history_dir = tempfile::tempdir().unwrap();
+    let store = HistoryStore::new(history_dir.path().join("history.json"));
+    let entry = store
+        .append(
+            "地约空间".to_string(),
+            "地月空间".to_string(),
+            test_history_meta(),
+        )
+        .unwrap();
+
+    let cfg_dir = tempfile::tempdir().unwrap();
+    let cfg_path = cfg_dir.path().join("altgo.toml");
+    let mut cfg = Config::default();
+    // 档位为 none 也要能筛候选：这是显式动作，不受全局润色开关限制。
+    cfg.polisher.level = "none".to_string();
+    cfg.polisher.backend = "remote".to_string();
+    cfg.polisher.api_key = "polish-key".to_string();
+    cfg.polisher.api_base_url = server.url();
+    cfg.polisher.model = "model".to_string();
+    cfg.polisher.glossary = vec!["平动点".to_string()];
+    cfg.save(&cfg_path).unwrap();
+    let config_store = ConfigStore::load(cfg_path);
+
+    let candidates = suggest_glossary_terms_core(&config_store, &store, &entry.id)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        candidates,
+        vec![
+            crate::polisher::GlossaryCandidate {
+                term: "地月空间".to_string(),
+                fragment: "地约空间".to_string(),
+            },
+            crate::polisher::GlossaryCandidate {
+                term: "近月空间".to_string(),
+                fragment: String::new(),
+            },
+        ]
+    );
+    // 只读历史，条目文本不变。
+    assert_eq!(store.get(&entry.id).unwrap(), Some(entry));
+    mock.assert_async().await;
+}
+
+#[tokio::test]
+async fn suggest_glossary_terms_core_rejects_local_backend() {
+    let cfg_dir = tempfile::tempdir().unwrap();
+    let cfg_path = cfg_dir.path().join("altgo.toml");
+    let mut cfg = Config::default();
+    cfg.polisher.backend = "local".to_string();
+    cfg.polisher.api_key = "polish-key".to_string();
+    cfg.polisher.api_base_url = "http://localhost".to_string();
+    cfg.polisher.model = "model".to_string();
+    cfg.save(&cfg_path).unwrap();
+    let config_store = ConfigStore::load(cfg_path);
+
+    let history_dir = tempfile::tempdir().unwrap();
+    let store = HistoryStore::new(history_dir.path().join("history.json"));
+    let err = suggest_glossary_terms_core(&config_store, &store, "any-id")
+        .await
+        .unwrap_err();
+
+    assert!(err.contains("远端"), "unexpected error: {err}");
+}
+
+#[tokio::test]
+async fn suggest_glossary_terms_core_requires_complete_remote_config() {
+    let cfg_dir = tempfile::tempdir().unwrap();
+    let cfg_path = cfg_dir.path().join("altgo.toml");
+    let mut cfg = Config::default();
+    cfg.polisher.backend = "remote".to_string();
+    cfg.polisher.api_key = String::new();
+    cfg.polisher.api_base_url = "http://localhost".to_string();
+    cfg.polisher.model = "model".to_string();
+    cfg.save(&cfg_path).unwrap();
+    let config_store = ConfigStore::load(cfg_path);
+
+    let history_dir = tempfile::tempdir().unwrap();
+    let store = HistoryStore::new(history_dir.path().join("history.json"));
+    let err = suggest_glossary_terms_core(&config_store, &store, "any-id")
+        .await
+        .unwrap_err();
+
+    assert!(err.contains("密钥"), "unexpected error: {err}");
+}
+
+#[tokio::test]
+async fn suggest_glossary_terms_core_missing_entry_returns_error() {
+    let cfg_dir = tempfile::tempdir().unwrap();
+    let cfg_path = cfg_dir.path().join("altgo.toml");
+    let mut cfg = Config::default();
+    cfg.polisher.backend = "remote".to_string();
+    cfg.polisher.api_key = "polish-key".to_string();
+    cfg.polisher.api_base_url = "http://localhost".to_string();
+    cfg.polisher.model = "model".to_string();
+    cfg.save(&cfg_path).unwrap();
+    let config_store = ConfigStore::load(cfg_path);
+
+    let history_dir = tempfile::tempdir().unwrap();
+    let store = HistoryStore::new(history_dir.path().join("history.json"));
+    let err = suggest_glossary_terms_core(&config_store, &store, "missing-id")
+        .await
+        .unwrap_err();
+
+    assert!(err.contains("历史条目"), "unexpected error: {err}");
+}
+
 #[test]
 fn retry_pending_transcription_core_validates_slot_and_pipeline() {
     use crate::error::UserFacingError;

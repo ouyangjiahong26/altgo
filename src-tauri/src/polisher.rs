@@ -18,6 +18,7 @@
 
 pub mod protocol;
 
+pub(crate) mod candidates;
 mod cleanup;
 mod connectivity;
 mod endpoint;
@@ -34,6 +35,7 @@ use crate::error::PolisherError;
 use std::future::Future;
 use std::pin::Pin;
 
+pub use candidates::GlossaryCandidate;
 pub use connectivity::{describe_test_error, test_connection};
 pub(crate) use endpoint::append_request_path;
 pub use endpoint::build_endpoint;
@@ -60,6 +62,20 @@ pub trait Polisher: Send + Sync {
         level: PolishLevel,
         instruction: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<String, PolisherError>> + Send + 'a>>;
+
+    /// 从一条历史文本里筛出候选术语。
+    ///
+    /// 默认不支持。候选筛选只走远端润色服务，本地引擎直接返回未实现，
+    /// 由调用方在构造前检查后端与配置。
+    fn suggest_glossary_terms<'a>(
+        &'a self,
+        raw: &'a str,
+        text: &'a str,
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<GlossaryCandidate>, PolisherError>> + Send + 'a>>
+    {
+        let _ = (raw, text);
+        Box::pin(async { Err(PolisherError::Unsupported) })
+    }
 
     /// 回收空闲资源：本地引擎据此在空闲超时后关掉运行时进程，远端无事可做。
     fn release_idle<'a>(
@@ -92,6 +108,15 @@ impl Polisher for LLMFormatter {
         Box::pin(async move {
             LLMFormatter::polish_with_instruction(self, text, level, instruction).await
         })
+    }
+
+    fn suggest_glossary_terms<'a>(
+        &'a self,
+        raw: &'a str,
+        text: &'a str,
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<GlossaryCandidate>, PolisherError>> + Send + 'a>>
+    {
+        Box::pin(async move { LLMFormatter::suggest_glossary_terms(self, raw, text).await })
     }
 }
 
