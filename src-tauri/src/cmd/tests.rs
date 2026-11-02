@@ -234,6 +234,7 @@ fn build_config_response_maps_fields() {
     cfg.polisher.local_model = "qwen3-1.7b".to_string();
     cfg.polisher.thinking_level = "high".to_string();
     cfg.polisher.api_key = "polish-key".to_string();
+    cfg.polisher.glossary = vec!["地月空间".to_string(), "平动点".to_string()];
     cfg.output.inject_text = true;
 
     let resp = build_config_response(&cfg);
@@ -249,6 +250,10 @@ fn build_config_response_maps_fields() {
     );
     assert_eq!(resp.polish_local_model, "qwen3-1.7b");
     assert_eq!(resp.polish_thinking_level, "high");
+    assert_eq!(
+        resp.polish_glossary,
+        vec!["地月空间".to_string(), "平动点".to_string()]
+    );
     assert_eq!(resp.overlay_position, "bottom_center");
     assert!(resp.auto_check_update);
     assert!(resp.inject_text);

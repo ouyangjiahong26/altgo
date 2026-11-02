@@ -115,6 +115,28 @@ With `level = "none"`, no key, URL or model name is needed. With any other level
 
 The polishing section in Settings has a Test connection button. After choosing a provider preset and entering a key, click it to send one minimal request and get a readable result (invalid key, wrong URL, timeout and so on), without saving or recording anything.
 
+### Glossary
+
+The glossary fixes domain terms that speech recognition writes with homophone characters. Add terms one at a time in Settings, or set `glossary` in `[polisher]`:
+
+```toml
+[polisher]
+glossary = [
+  "地月空间",
+  "平动点",
+  "深空",
+  "航天器",
+  "月球",
+  "近月空间",
+  "月面",
+  "探测器",
+  "地月转移轨道",
+  "拉格朗日点",
+]
+```
+
+The list applies only to remote polishing at `medium` and `heavy`. When it is non-empty, altgo appends it to the system prompt and sends temperature 0 regardless of the configured value. The glossary is sent to the provider along with the transcript, so only list terms you are comfortable sending there. Keep it to 10 to 50 terms, with at most 32 characters per term. `none`, `light` and local polishing ignore the list. The model may normalize synonyms or replace a correct phrase with a glossary term. altgo checks the output and retries once without the glossary when it inserts a term that has no homophone source in the input. This phonetic check only covers Chinese terms. English terms can still be added to the list, but altgo does not run the check on them.
+
 ### Common providers
 
 The table lists configuration values for common services. All combinations go in the `[polisher]` section.

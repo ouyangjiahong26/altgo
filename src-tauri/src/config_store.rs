@@ -137,6 +137,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn apply_patch_persists_glossary() {
+        let (store, dir) = temp_store();
+        let patch: ConfigPatch =
+            serde_json::from_str(r#"{"polishGlossary":["地月空间","平动点"]}"#).unwrap();
+
+        let result = store.apply_patch(patch).await.unwrap();
+
+        assert_eq!(
+            result.polisher.glossary,
+            vec!["地月空间".to_string(), "平动点".to_string()]
+        );
+        let reloaded = Config::load(&dir.path().join("altgo.toml")).unwrap();
+        assert_eq!(reloaded.polisher.glossary, result.polisher.glossary);
+    }
+
+    #[tokio::test]
     async fn apply_patch_save_failure_rolls_back_memory() {
         let dir = tempfile::tempdir().unwrap();
         let store = ConfigStore::load(dir.path().to_path_buf());

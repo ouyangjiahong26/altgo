@@ -51,6 +51,9 @@
 **ConfigPatch**
 配置的部分更新：所有字段可选，未提供的字段保持不变。`linux_evdev_code` 字段用三态反序列化器区分缺省（不修改）与 JSON `null`（清除已存代码）。这是 `save_config` 经 IPC 接受的类型。
 
+**术语表（Glossary）**
+用户在 `[polisher] glossary` 中填写的领域术语标准写法列表，每项一个标准写法。只对远端润色的 `medium` 与 `heavy` 档生效，追加到 system prompt 末尾，术语表非空时有效温度固定为 0。输出下发前检查输出里是否出现输入没有、也没有同音来源的中文术语，命中则去掉术语表重试一次。_Avoid_: 词表（与 ASR tokens 混淆）、热词表。
+
 ## 历史
 
 **HistoryStore**

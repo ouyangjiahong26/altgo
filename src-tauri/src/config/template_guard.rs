@@ -28,6 +28,7 @@ fn test_repo_template_matches_config_fields() {
         "polisher.api_base_url",
         "polisher.api_key",
         "polisher.backend",
+        "polisher.glossary",
         "polisher.level",
         "polisher.local_model",
         "polisher.max_tokens",

@@ -11,8 +11,13 @@
 use crate::error::ConfigError;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+/// 术语表上限。条数控制 prompt 长度与误用风险，单条长度挡掉整段句子。
+const MAX_GLOSSARY_TERMS: usize = 50;
+const MAX_GLOSSARY_TERM_CHARS: usize = 32;
 
 /// serde 辅助模块：TOML 中为 `u64` 毫秒，Rust 侧为 `Duration`。
 mod duration_ms {
@@ -204,6 +209,8 @@ pub struct PolisherConfig {
     pub thinking_level: String,
     /// 自定义 system prompt，为空时使用内置 prompt
     pub system_prompt: String,
+    /// 用户自设术语表，只含标准写法。仅远端润色的 medium 与 heavy 档生效。
+    pub glossary: Vec<String>,
 }
 
 impl Default for PolisherConfig {
@@ -221,6 +228,7 @@ impl Default for PolisherConfig {
             temperature: 0.3,
             thinking_level: "off".to_string(),
             system_prompt: String::new(),
+            glossary: Vec::new(),
         }
     }
 }
@@ -359,6 +367,7 @@ impl Config {
 
     /// 润色开启时按后端校验：远端要求协议与三项连接字段，本地只要求本地模型非空。
     fn validate_polisher(&self) -> Result<(), ConfigError> {
+        self.validate_glossary()?;
         if self.polisher.level == "none" {
             return Ok(());
         }
@@ -379,6 +388,44 @@ impl Config {
                 other
             ))),
         }
+    }
+
+    /// 术语表逐条校验空项、换行、长度与重复。润色关闭时也要校验，避免保存坏数据。
+    fn validate_glossary(&self) -> Result<(), ConfigError> {
+        let terms = &self.polisher.glossary;
+        if terms.len() > MAX_GLOSSARY_TERMS {
+            return Err(ConfigError::ValidationFailed(format!(
+                "术语表最多 {MAX_GLOSSARY_TERMS} 条，当前 {} 条。请删减后再保存。",
+                terms.len()
+            )));
+        }
+        let mut seen: HashMap<String, usize> = HashMap::new();
+        for (index, term) in terms.iter().enumerate() {
+            let position = index + 1;
+            let trimmed = term.trim();
+            if trimmed.is_empty() {
+                return Err(ConfigError::ValidationFailed(format!(
+                    "术语表第 {position} 条为空。请删除空行或填写术语。"
+                )));
+            }
+            if trimmed.contains('\n') || trimmed.contains('\r') {
+                return Err(ConfigError::ValidationFailed(format!(
+                    "术语表第 {position} 条含换行符。每条术语只能占一行。"
+                )));
+            }
+            let char_count = trimmed.chars().count();
+            if char_count > MAX_GLOSSARY_TERM_CHARS {
+                return Err(ConfigError::ValidationFailed(format!(
+                    "术语表第 {position} 条有 {char_count} 个字符，超过 {MAX_GLOSSARY_TERM_CHARS} 个字符上限。请改用更短的标准写法。"
+                )));
+            }
+            if let Some(previous) = seen.insert(trimmed.to_string(), position) {
+                return Err(ConfigError::ValidationFailed(format!(
+                    "术语表第 {position} 条与第 {previous} 条重复：{trimmed}。请只保留一条。"
+                )));
+            }
+        }
+        Ok(())
     }
 
     /// 远端润色开启时校验协议取值并逐项校验必填字段，错误信息指明缺失项。
@@ -529,6 +576,7 @@ pub struct ConfigPatch {
     pub polish_thinking_level: Option<String>,
     pub polish_api_key: Option<String>,
     pub polish_api_base_url: Option<String>,
+    pub polish_glossary: Option<Vec<String>>,
     pub gui_language: Option<String>,
     pub overlay_position: Option<String>,
     pub auto_check_update: Option<bool>,
@@ -607,6 +655,9 @@ impl ConfigPatch {
         }
         if let Some(v) = &self.polish_api_base_url {
             cfg.polisher.api_base_url = v.clone();
+        }
+        if let Some(v) = &self.polish_glossary {
+            cfg.polisher.glossary = v.clone();
         }
     }
 
@@ -969,6 +1020,56 @@ timeout = 30
         cfg.polisher.local_model = "   ".to_string();
         let err = cfg.validate().unwrap_err().to_string();
         assert!(err.contains("local_model"), "{err}");
+    }
+
+    #[test]
+    fn test_default_glossary_is_empty() {
+        let cfg = Config::default();
+        assert!(cfg.polisher.glossary.is_empty());
+    }
+
+    #[test]
+    fn test_validate_glossary_rejects_too_many_terms() {
+        let mut cfg = Config::default();
+        cfg.polisher.glossary = (0..51).map(|index| format!("术语{index}")).collect();
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("50"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_glossary_rejects_empty_term() {
+        let mut cfg = Config::default();
+        cfg.polisher.glossary = vec!["地月空间".to_string(), "   ".to_string()];
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("第 2 条"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_glossary_rejects_duplicate_term() {
+        let mut cfg = Config::default();
+        cfg.polisher.glossary = vec!["地月空间".to_string(), "地月空间".to_string()];
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("重复"), "{err}");
+    }
+
+    #[test]
+    fn test_validate_glossary_rejects_long_term() {
+        let mut cfg = Config::default();
+        cfg.polisher.glossary = vec!["长".repeat(33)];
+        let err = cfg.validate().unwrap_err().to_string();
+        assert!(err.contains("32"), "{err}");
+    }
+
+    #[test]
+    fn test_glossary_patch_updates_config() {
+        let patch: ConfigPatch =
+            serde_json::from_str(r#"{"polishGlossary":["地月空间","平动点"]}"#).unwrap();
+        let mut cfg = Config::default();
+        patch.apply_to_config(&mut cfg);
+        assert_eq!(
+            cfg.polisher.glossary,
+            vec!["地月空间".to_string(), "平动点".to_string()]
+        );
     }
 
     #[test]

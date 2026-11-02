@@ -200,6 +200,8 @@ lib.rs
 
 本地引擎共用同一条来源链，但第三级不同：`LocalPolisher` 兜底用 `get_local_system_prompt`，即本地档专用的短提示词（中文约 180 字，英文一份）。原因是实测内置那句长提示词冷启动多 1.1 秒，且 0.6B 对长英文指令的遵循度更差。本地档只提供一档（medium 语义），档位选择在本地档下只当开关用。
 
+术语表在 `polisher::glossary` 中处理。远端 `medium` 与 `heavy` 档把用户术语表追加到解析后的 system prompt 末尾，温度固定为 0。输出后置检查用拼音匹配判断术语表词是否有同音来源，没有则去掉术语表重试一次。`none` 与 `light` 不生效，本地引擎暂不使用。
+
 ### 本地润色运行时：按需下载的子进程
 
 `polish_runtime` 负责把 llama.cpp 的 llama-server 拉起来并确认它能服务，`polish_model` 负责 GGUF 权重。两者都不进安装包：运行时压缩包约 19.5 MB（Windows x64），解包后保留服务器本体与全部动态库共 30 个文件约 46.7 MiB，权重 0.6B 约 397 MB 或 1.7B 约 1.1 GB。清单固定到构建号 b11612 并带 SHA-256，模型走 huggingface.co 与 hf-mirror.com 双源，两者都支持镜像基址环境变量与手动放置文件。

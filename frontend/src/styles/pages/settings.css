@@ -120,6 +120,91 @@
   padding-block: var(--space-1);
 }
 
+/* 术语表：标签式编辑，容器像输入框，标签按行换行 */
+.glossary-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3-5);
+}
+
+.glossary-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: 42px;
+  padding: var(--space-1-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-card);
+  cursor: text;
+}
+
+.glossary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 2px var(--space-1-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-muted);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+}
+
+.glossary-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.glossary-chip-remove:hover {
+  color: var(--color-text);
+  background: var(--color-bg-card-hover);
+}
+
+.glossary-input {
+  flex: 1;
+  min-width: 160px;
+  padding: 2px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+}
+
+.glossary-input::placeholder {
+  color: var(--color-text-faint);
+}
+
+.glossary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.glossary-count {
+  flex-shrink: 0;
+  padding-top: var(--space-1-5);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
 /* 单项区块：行内没有标签，控件显式落到第二列，才吃得到 190px 上限与右对齐。
    只有一个子节点时 grid 会把它放进 1fr 列，select 的 width: 100% 就铺满整行。 */
 .settings-field--solo > .settings-field-control {

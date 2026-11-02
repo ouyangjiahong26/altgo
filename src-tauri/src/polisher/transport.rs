@@ -58,6 +58,7 @@ impl LLMFormatter {
         &self,
         system_prompt: String,
         text: &str,
+        temperature: f32,
     ) -> Result<String, PolisherError> {
         let polished = retry_with_backoff(self.max_retries, || async {
             match self.protocol {
@@ -74,14 +75,14 @@ impl LLMFormatter {
                                 content: text.to_string(),
                             },
                         ],
-                        temperature: self.temperature,
+                        temperature,
                         max_tokens: self.max_tokens,
                         extra: None,
                     };
                     self.do_openai_request(body).await
                 }
                 protocol::ApiProtocol::Anthropic => {
-                    let body = self.anthropic_body(system_prompt.clone(), text);
+                    let body = self.anthropic_body(system_prompt.clone(), text, temperature);
                     self.do_anthropic_request(&body).await
                 }
             }
@@ -99,7 +100,12 @@ impl LLMFormatter {
     /// 全部预算）。对官方与未知端点不发字段（其思考是选择加入，新模型对 `disabled` 报 400）。
     /// 开启档按档给预算，此时 `max_tokens` 需大于预算并抬升配置值，且不发与思考不兼容的
     /// `temperature`。
-    fn anthropic_body(&self, system_prompt: String, text: &str) -> protocol::AnthropicRequest {
+    fn anthropic_body(
+        &self,
+        system_prompt: String,
+        text: &str,
+        temperature: f32,
+    ) -> protocol::AnthropicRequest {
         let thinking = anthropic_thinking(host_of(&self.api_base_url), self.thinking);
         let thinking_on = self.thinking != ThinkingLevel::Off;
         let max_tokens = if thinking_on {
@@ -112,11 +118,7 @@ impl LLMFormatter {
         } else {
             self.max_tokens
         };
-        let temperature = if thinking_on {
-            None
-        } else {
-            Some(self.temperature)
-        };
+        let temperature = if thinking_on { None } else { Some(temperature) };
         protocol::AnthropicRequest {
             model: self.model.clone(),
             max_tokens,
@@ -256,7 +258,8 @@ mod tests {
         ] {
             let formatter = anthropic_formatter(base_url);
             let body =
-                serde_json::to_value(formatter.anthropic_body("sys".to_string(), "原文")).unwrap();
+                serde_json::to_value(formatter.anthropic_body("sys".to_string(), "原文", 0.3))
+                    .unwrap();
             assert_eq!(
                 body["thinking"],
                 serde_json::json!({ "type": "disabled" }),
@@ -277,7 +280,8 @@ mod tests {
         for base_url in ["https://api.anthropic.com", "https://relay.example.com/v1"] {
             let formatter = anthropic_formatter(base_url);
             let body =
-                serde_json::to_value(formatter.anthropic_body("sys".to_string(), "原文")).unwrap();
+                serde_json::to_value(formatter.anthropic_body("sys".to_string(), "原文", 0.3))
+                    .unwrap();
             assert!(body.get("thinking").is_none(), "base_url: {base_url}");
             assert_eq!(body["max_tokens"], 1024, "base_url: {base_url}");
             assert!(
@@ -294,7 +298,7 @@ mod tests {
         let formatter = anthropic_formatter("https://api.deepseek.com/anthropic")
             .with_thinking_level(ThinkingLevel::Medium);
         let body =
-            serde_json::to_value(formatter.anthropic_body("sys".to_string(), "原文")).unwrap();
+            serde_json::to_value(formatter.anthropic_body("sys".to_string(), "原文", 0.3)).unwrap();
         assert_eq!(
             body["thinking"],
             serde_json::json!({ "type": "enabled", "budget_tokens": 4096 })

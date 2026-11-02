@@ -1,5 +1,6 @@
 //! LLM 润色客户端：配置构造与润色入口，HTTP 发送与重试在 `transport`。
 
+use super::glossary;
 use super::level::{PolishLevel, ThinkingLevel};
 use super::prompt::{build_prompt_source_chain, get_system_prompt, SystemPromptSource};
 use super::protocol;
@@ -26,6 +27,7 @@ pub struct LLMFormatter {
     pub(super) language: String,
     pub(super) thinking: ThinkingLevel,
     pub(super) prompt_source: Option<Box<dyn SystemPromptSource>>,
+    pub(super) glossary: Vec<String>,
 }
 
 impl Clone for LLMFormatter {
@@ -42,6 +44,7 @@ impl Clone for LLMFormatter {
             language: self.language.clone(),
             thinking: self.thinking,
             prompt_source: self.prompt_source.as_ref().map(|s| s.clone_box()),
+            glossary: self.glossary.clone(),
         }
     }
 }
@@ -76,7 +79,7 @@ impl LLMFormatter {
             .map_err(|_| PolisherError::UnknownProtocol {
                 protocol: polisher.protocol.clone(),
             })?;
-        let formatter = Self::with_config(
+        let mut formatter = Self::with_config(
             polisher.api_key.clone(),
             polisher.api_base_url.clone(),
             polisher.model.clone(),
@@ -87,6 +90,7 @@ impl LLMFormatter {
             language.to_string(),
         )?
         .with_thinking_level(ThinkingLevel::effective(&polisher.thinking_level));
+        formatter.glossary = polisher.glossary.clone();
         Ok(formatter)
     }
 
@@ -145,6 +149,7 @@ impl LLMFormatter {
             language,
             thinking: ThinkingLevel::Off,
             prompt_source: None,
+            glossary: Vec::new(),
         }
     }
 
@@ -157,7 +162,8 @@ impl LLMFormatter {
         system_prompt: String,
         text: &str,
     ) -> Result<String, PolisherError> {
-        self.request_polish(system_prompt, text).await
+        self.request_polish(system_prompt, text, self.temperature)
+            .await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -187,6 +193,7 @@ impl LLMFormatter {
             language,
             thinking: ThinkingLevel::Off,
             prompt_source: None,
+            glossary: Vec::new(),
         })
     }
 
@@ -212,7 +219,7 @@ impl LLMFormatter {
         }
 
         let system_prompt = self.resolve_system_prompt(level);
-        self.request_polish(system_prompt, text).await
+        self.polish_with_glossary(system_prompt, text, level).await
     }
 
     /// 使用 LLM 润色文本，并在 system prompt 末尾追加用户补充要求。
@@ -238,7 +245,45 @@ impl LLMFormatter {
             self.resolve_system_prompt(level),
             instruction
         );
-        self.request_polish(system_prompt, text).await
+        self.polish_with_glossary(system_prompt, text, level).await
+    }
+
+    /// 追加术语表并发送。术语表只对 medium 与 heavy 生效，非空时温度固定为 0。
+    ///
+    /// 输出里出现没有同音来源的术语表词时，去掉术语表重试一次。避免模型把
+    /// `航天飞机` 改成 `航天器` 这类没有语音依据的改写。
+    async fn polish_with_glossary(
+        &self,
+        base_prompt: String,
+        text: &str,
+        level: PolishLevel,
+    ) -> Result<String, PolisherError> {
+        let glossary = self.glossary_for(level);
+        if glossary.is_empty() {
+            return self
+                .request_polish(base_prompt, text, self.temperature)
+                .await;
+        }
+        let prompt = format!("{base_prompt}{}", glossary::prompt_block(glossary));
+        let output = self.request_polish(prompt, text, 0.0).await?;
+        if let Some(term) = glossary::unsupported_insertion(text, &output, glossary) {
+            tracing::warn!(
+                term,
+                "glossary output contained an unsupported term insertion, retrying without glossary"
+            );
+            return self
+                .request_polish(base_prompt, text, self.temperature)
+                .await;
+        }
+        Ok(output)
+    }
+
+    /// 术语表只对 medium 与 heavy 生效，其余档位返回空切片。
+    fn glossary_for(&self, level: PolishLevel) -> &[String] {
+        match level {
+            PolishLevel::Medium | PolishLevel::Heavy => &self.glossary,
+            _ => &[],
+        }
     }
 
     /// 解析当前生效的 system prompt：prompt source 链（PromptStore → Custom）
@@ -397,6 +442,143 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(result, "hello");
+    }
+
+    #[tokio::test]
+    async fn test_glossary_prompt_and_zero_temperature() {
+        let mut server = mockito::Server::new_async().await;
+        let expected_system = format!(
+            "{}{}",
+            get_system_prompt(PolishLevel::Medium, "zh"),
+            glossary::prompt_block(&["地月空间".to_string()])
+        );
+        let mock = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::PartialJsonString(
+                serde_json::json!({
+                    "messages": [
+                        {"role": "system", "content": expected_system},
+                        {"role": "user", "content": "地约空间"}
+                    ],
+                    "temperature": 0.0
+                })
+                .to_string(),
+            ))
+            .with_status(200)
+            .with_body(mock_success_response("地月空间"))
+            .create_async()
+            .await;
+
+        let mut formatter = LLMFormatter::new(
+            "key".to_string(),
+            server.url(),
+            "model".to_string(),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        formatter.glossary = vec!["地月空间".to_string()];
+        let result = formatter
+            .polish("地约空间", PolishLevel::Medium)
+            .await
+            .unwrap();
+        assert_eq!(result, "地月空间");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_glossary_not_applied_to_light_level() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::PartialJsonString(
+                serde_json::json!({
+                    "messages": [
+                        {"role": "system", "content": get_system_prompt(PolishLevel::Light, "zh")},
+                        {"role": "user", "content": "地约空间"}
+                    ],
+                    "temperature": 0.3
+                })
+                .to_string(),
+            ))
+            .with_status(200)
+            .with_body(mock_success_response("地月空间"))
+            .create_async()
+            .await;
+
+        let mut formatter = LLMFormatter::new(
+            "key".to_string(),
+            server.url(),
+            "model".to_string(),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        formatter.glossary = vec!["地月空间".to_string()];
+        let result = formatter
+            .polish("地约空间", PolishLevel::Light)
+            .await
+            .unwrap();
+        assert_eq!(result, "地月空间");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_glossary_guard_retries_without_glossary() {
+        let mut server = mockito::Server::new_async().await;
+        let base_prompt = get_system_prompt(PolishLevel::Medium, "zh");
+        let glossary_prompt = format!(
+            "{}{}",
+            base_prompt,
+            glossary::prompt_block(&["航天器".to_string()])
+        );
+        let first = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::PartialJsonString(
+                serde_json::json!({
+                    "messages": [
+                        {"role": "system", "content": glossary_prompt},
+                        {"role": "user", "content": "航天飞机的姿态需要控制。"}
+                    ],
+                    "temperature": 0.0
+                })
+                .to_string(),
+            ))
+            .with_status(200)
+            .with_body(mock_success_response("航天器的姿态需要控制。"))
+            .create_async()
+            .await;
+        let retry = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::PartialJsonString(
+                serde_json::json!({
+                    "messages": [
+                        {"role": "system", "content": base_prompt},
+                        {"role": "user", "content": "航天飞机的姿态需要控制。"}
+                    ],
+                    "temperature": 0.3
+                })
+                .to_string(),
+            ))
+            .with_status(200)
+            .with_body(mock_success_response("航天飞机的姿态需要控制。"))
+            .create_async()
+            .await;
+
+        let mut formatter = LLMFormatter::new(
+            "key".to_string(),
+            server.url(),
+            "model".to_string(),
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        formatter.glossary = vec!["航天器".to_string()];
+        let result = formatter
+            .polish("航天飞机的姿态需要控制。", PolishLevel::Medium)
+            .await
+            .unwrap();
+
+        assert_eq!(result, "航天飞机的姿态需要控制。");
+        first.assert_async().await;
+        retry.assert_async().await;
     }
 
     fn mock_success_response(content: &str) -> String {

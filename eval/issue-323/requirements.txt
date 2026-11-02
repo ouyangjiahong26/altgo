@@ -1,0 +1,2 @@
+pypinyin>=0.55
+requests>=2.32

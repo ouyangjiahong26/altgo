@@ -23,6 +23,7 @@ mod connectivity;
 mod endpoint;
 mod fidelity;
 mod formatter;
+mod glossary;
 mod level;
 mod local;
 mod prompt;

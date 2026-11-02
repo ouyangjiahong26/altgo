@@ -24,6 +24,7 @@ const baseConfig: AppConfig = {
   polishThinkingLevel: "off",
   polishBackend: "remote",
   polishLocalModel: "qwen3-0.6b",
+  polishGlossary: [],
   guiLanguage: "zh",
   overlayPosition: "bottom_center",
   autoCheckUpdate: true,
@@ -52,12 +53,13 @@ function renderSection(
   onRedownload = vi.fn(),
 ) {
   const onUseLocalModel = vi.fn();
+  const update = vi.fn();
   render(
     <PolishingSection
       t={(k) => k}
       lang="zh"
       config={{ ...baseConfig, ...overrides }}
-      update={vi.fn()}
+      update={update}
       setPolishBackend={vi.fn()}
       localPolish={{
         saving: false,
@@ -90,7 +92,7 @@ function renderSection(
       setPolishAdvancedOpen={vi.fn()}
     />,
   );
-  return { onUseLocalModel, onDownload, onRedownload };
+  return { onUseLocalModel, onDownload, onRedownload, update };
 }
 
 describe("PolishingSection 润色引擎分支", () => {
@@ -133,4 +135,5 @@ describe("PolishingSection 润色引擎分支", () => {
     expect(screen.queryByText("qwen3-0.6b")).toBeNull();
     expect(screen.queryByText("settings.polish_runtime")).toBeNull();
   });
+
 });

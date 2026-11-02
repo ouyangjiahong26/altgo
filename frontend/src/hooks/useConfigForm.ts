@@ -23,6 +23,8 @@ export interface AppConfig {
   polishBackend: string;
   /** 本地润色模型名，也接受自定义 GGUF 路径。 */
   polishLocalModel: string;
+  /** 用户自设术语表，表单内每项一个标准写法。 */
+  polishGlossary: string[];
   guiLanguage: string;
   overlayPosition: string;
   autoCheckUpdate: boolean;
@@ -51,11 +53,22 @@ export function saveRequestBody(c: AppConfig) {
     polishThinkingLevel: c.polishThinkingLevel,
     polishBackend: c.polishBackend,
     polishLocalModel: c.polishLocalModel,
+    polishGlossary: c.polishGlossary,
     guiLanguage: c.guiLanguage,
     overlayPosition: c.overlayPosition,
     autoCheckUpdate: c.autoCheckUpdate,
     injectText: c.injectText,
   };
+}
+
+/** 后端返回字符串数组，缺省或坏值归为空数组。 */
+function glossaryTerms(c: AppConfig): string[] {
+  const value: unknown = c.polishGlossary;
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
 }
 
 export function normalizeConfig(c: AppConfig): AppConfig {
@@ -72,6 +85,7 @@ export function normalizeConfig(c: AppConfig): AppConfig {
     polishBackend:
       (c.polishBackend ?? "remote").trim().toLowerCase() === "local" ? "local" : "remote",
     polishLocalModel: c.polishLocalModel || "qwen3-0.6b",
+    polishGlossary: glossaryTerms(c),
     asrModel: c.asrModel ?? "",
     asrApiBaseUrl: c.asrApiBaseUrl ?? "",
     // 后端缺省即 mimo_chat：旧配置无该字段时按缺省呈现，与后端实际行为一致。

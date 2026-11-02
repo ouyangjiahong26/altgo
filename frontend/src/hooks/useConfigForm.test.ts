@@ -21,6 +21,7 @@ const base: AppConfig = {
   polishThinkingLevel: "off",
   polishBackend: "remote",
   polishLocalModel: "qwen3-0.6b",
+  polishGlossary: [],
   guiLanguage: "zh",
   overlayPosition: "bottom_center",
   autoCheckUpdate: true,
@@ -68,6 +69,14 @@ describe("saveRequestBody", () => {
   it("includes polishLocalModel in the request body", () => {
     const result = saveRequestBody({ ...base, polishLocalModel: "qwen3-1.7b" });
     expect(result).toHaveProperty("polishLocalModel", "qwen3-1.7b");
+  });
+
+  it("passes the glossary array through", () => {
+    const result = saveRequestBody({
+      ...base,
+      polishGlossary: ["地月空间", "平动点"],
+    });
+    expect(result).toHaveProperty("polishGlossary", ["地月空间", "平动点"]);
   });
 
   it("includes polishApiKey when polisherApiKey is non-empty", () => {
@@ -147,6 +156,7 @@ describe("normalizeConfig", () => {
       polishThinkingLevel: "off",
       polishBackend: "local",
       polishLocalModel: "qwen3-1.7b",
+      polishGlossary: [],
       guiLanguage: "zh",
       overlayPosition: "bottom_center",
       autoCheckUpdate: true,
@@ -159,6 +169,19 @@ describe("normalizeConfig", () => {
     expect(result.hasPolisherApiKey).toBe(true);
     expect(result.asrApiKey).toBe("");
     expect(result.hasAsrApiKey).toBe(true);
+  });
+
+  it("keeps the backend glossary array and drops non-string items", () => {
+    const raw = {
+      ...base,
+      polishGlossary: [" 地月空间 ", 1, "平动点", ""],
+    } as unknown as AppConfig;
+    expect(normalizeConfig(raw).polishGlossary).toEqual(["地月空间", "平动点"]);
+  });
+
+  it("defaults a missing glossary to an empty array", () => {
+    const raw = { ...base, polishGlossary: undefined } as unknown as AppConfig;
+    expect(normalizeConfig(raw).polishGlossary).toEqual([]);
   });
 
   it("缺省 asrProtocol 归一为 mimo_chat，非缺省取值原样保留", () => {

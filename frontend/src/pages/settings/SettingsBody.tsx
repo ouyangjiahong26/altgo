@@ -4,6 +4,7 @@ import type { useSettingsForm } from "./useSettingsForm";
 import { TranscriptionSection } from "./TranscriptionSection";
 import { RecordingSection } from "./RecordingSection";
 import { PolishingSection } from "./PolishingSection";
+import { GlossarySection } from "./GlossarySection";
 import { AppearanceSection } from "./AppearanceSection";
 import { LanguageSection } from "./LanguageSection";
 import { AboutSection } from "./AboutSection";
@@ -100,6 +101,7 @@ function TailSections({ s }: { s: SettingsForm }) {
 
   return (
     <>
+      <GlossarySection t={t} config={config} update={update} />
       <AppearanceSection
         t={t} config={config} update={update}
         themePref={s.themePref} setTheme={s.setTheme}
