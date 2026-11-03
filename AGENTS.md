@@ -106,7 +106,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - `make install` 装到 `/etc/altgo/altgo.toml` 的模板不被应用读取，应用只读 `~/.config/altgo/altgo.toml`。
 - 仓库没有 `tests/` 目录（`CONTRIBUTING.md` 的集成测试约定暂无实例）。
 - Node 下界：`CONTRIBUTING.md` 与 `docs-site` engines 声明 20+，CI 用 22。Rust MSRV 未在 `Cargo.toml` 强制，Tauri 2.12 要求 1.90，CI 用 stable。
-- 文档统一写仓库全名 `ouyangjiahong26/altgo`。原 `cislunarspace/altgo` 已改名，旧名 GitHub 自动重定向。`gh` 默认仓库已设 `ouyangjiahong26/altgo`，`git remote -v` 现查。
+- 仓库在极狐 GitLab 上管理，全名 `cislunarspace/altgo`（`https://jihulab.com/cislunarspace/altgo`），issue、MR 与代码评审都在那里，`gh` 不适用。GitHub 仓库 `ouyangjiahong26/altgo` 仍承载 Actions、Release 与文档站，提交与 GitLab 不同步，引用构建产物链接时用 GitHub 全名并自行核对提交。
 - `frontend/src/styles/components/ui-primitives.css` 是跨页面复用的控件基底（`.btn`/`.field`/`.select`/`.segmented`/`.badge`/`.kbd`/`.empty-state`），各页面只做尺寸与排布，不再各自重写一套按钮皮肤。
 - `frontend/src/styles/pages/history.css` 现服务于 `frontend/src/components/HistoryPanel.tsx`（#170 把历史页并入主页后的遗留命名），`pages/` 下已无 History 页面。
 
@@ -116,8 +116,8 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - Node：一律 npm（`frontend/`、`docs-site/` 均 `package-lock.json` v3，不用 pnpm/yarn）。CI 用 Node 22。`tsconfig` strict 加 `noUnusedLocals`/`noUnusedParameters`。
 - Linux 运行时外部工具：`xinput`、`xmodmap`、`evtest`、`parecord`、`xclip`/`xsel`/`wl-copy`、`xrandr`。Wayland 会话在 GUI 初始化前自动切 XWayland（`display_backend.rs`），否则悬浮窗定位不生效。
 - 环境变量：`ALTGO_POLISHER_API_KEY` 覆盖 `[polisher] api_key`，`ALTGO_MODEL_BASE_URL` 覆盖模型下载镜像。
-- PR 标题：只写改动内容，不带决策过程痕迹（如“方案 A/B”、“备选已否决”之类）。决策与取舍写进 PR 正文、commit 正文或 ADR。
-- PR 分支新鲜度：开 PR 前与合并前都要确认分支不落后 base。`git fetch origin <base>` 后 `git rev-list --count HEAD..origin/<base>` 应为 0，`gh pr view <N> --json mergeStateStatus` 不应为 `BEHIND`。落后时先 rebase 再推，rebase 后 `gh pr checks` 短暂报 no checks 不代表通过，等检查重新跑完再判断。
+- MR 标题：只写改动内容，不带决策过程痕迹（如“方案 A/B”、“备选已否决”之类）。决策与取舍写进 MR 正文、commit 正文或 ADR。
+- MR 分支新鲜度：开 MR 前与合并前都要确认分支不落后 base。`git fetch origin <base>` 后 `git rev-list --count HEAD..origin/<base>` 应为 0，GitLab MR 的 `detailed_merge_status` 应为 `mergeable`。落后时先 rebase 再推。刚推送或刚 rebase 后该字段可能短暂为 `checking` 或 `unchecked`，等刷新后再判断，不要提前判失败。
 
 ## Agent skills
 
@@ -125,7 +125,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 
 | 文件 | 内容 | 读它的技能 |
 |---|---|---|
-| `docs/agents/issue-tracker.md` | issue/PR 全走 GitHub（`gh` CLI）、提案先行与 issue/PR/评论结构、AI 贡献标记约定、外部 PR 是否作分诊渠道（否）、GitHub Project 的 Owner 与 Project ID 与 Status 字段与七个选项 ID | `/triage`、`/github-project`、`/open-pr`、`/merge-pr`、`/code-review`、`/resolving-merge-conflicts` |
+| `docs/agents/issue-tracker.md` | issue/MR 全走极狐 GitLab REST API、提案先行与 issue/MR/评论结构、AI 贡献标记约定、MR 是否作分诊渠道（否）、Issue Board 的列与标签映射 | `/triage`、`/open-pr`、`/merge-pr`、`/code-review`、`/resolving-merge-conflicts` |
 | `docs/agents/triage-labels.md` | 五个分诊角色到本仓标签字符串的映射（`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`） | `/triage` |
 | `docs/agents/domain.md` | 领域文档布局：单上下文为根 `CONTEXT.md` 加 `docs/adr/`，命名用术语表词汇，与 ADR 矛盾必须显式标注 | `/domain-modeling`、`/grill-with-docs`、`/codebase-design` |
 
@@ -136,7 +136,7 @@ cd docs-site && npm start                      # dev server（热更新，前台
 - 替身四类：tempfile（文件 I/O）、mockito（HTTP 假服务器）、共享 `src-tauri/src/voice_pipeline/test_doubles.rs`（流水线层唯一替身来源，不自造第二套）、闭包注入（emit/download/spawn）。`tauri_sink.rs`、`overlay/manager.rs`、`updater.rs` 各有模块私有 mock。
 - 环境容忍：依赖系统工具的测试对两种环境都断言（有 `xinput` 断 Ok，无则断 Err），保证无显示服务器的 CI 与开发机一致。禁止用 `#[ignore]` 藏测试。
 - 回归基线：`cargo test --manifest-path=src-tauri/Cargo.toml --lib` 全部通过，加 `cd frontend && npm test`，无静默跳过。只有端到端层能覆盖的风险，在 PR 里写明手动验证方式。测试数量与分布现查不进文档（`cargo test … --lib -- --list`）。覆盖率未统计。在线转写（多协议家族，ADR-0013）已回归，测试在 `online_asr.rs`。
-- CI 矩阵：Linux amd64 与 arm64 全跑 `cargo test --lib`（fmt、clippy、前端测试仅 amd64 各一次）。Windows x64 跑测试，arm64 交叉编译仅 `cargo check --target`。
+- CI 矩阵：jihulab 的 `.gitlab-ci.yml` 跑 Linux amd64 的 fmt、clippy、`cargo test --lib`、xinput 后端选择测试与前端 `npm test`、`npm run build`。Windows x64 测试、Windows arm64 交叉编译与 Linux arm64 测试只能在 GitHub Actions 触发，jihulab 的 MR 不覆盖。
 
 ## 写作要求
 

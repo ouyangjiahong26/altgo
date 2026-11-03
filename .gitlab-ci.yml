@@ -1,0 +1,86 @@
+# 极狐 GitLab 侧的主流水线，覆盖 GitHub Actions 里 Linux amd64 的全部检查。
+# GitLab 共享 runner 没有 Windows 与 arm64 环境，这两部分仍由 GitHub Actions 覆盖：
+# windows x64 跑测试，windows arm64 只做交叉编译检查，arm64 Linux 跑测试。
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+default:
+  interruptible: true
+
+variables:
+  CARGO_TERM_COLOR: always
+  # 缓存放在项目目录内，runner 之间不可共享，仅加速同一 runner 的后续运行。
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo-home
+
+check:
+  # 共享 runner 按月配额限制且出境逐连接限速，固定走本机 docker runner（tag: local）。
+  tags: [local]
+  image: rust:1-bookworm
+  variables:
+    # crates.io 官方源在极狐 runner 上同样走不动，换中科大 sparse 镜像，dl 地址由镜像的 config.json 提供。
+    CARGO_REGISTRIES_CRATES_IO_INDEX: sparse+https://mirrors.ustc.edu.cn/crates.io-index/
+    CARGO_INCREMENTAL: 0
+    CARGO_NET_RETRY: 5
+    # cargo-home 归档对应的 Cargo.lock 哈希前 12 位，换归档时同步更新。
+    CARGO_BUNDLE_LOCK: b8fefad4f31a
+  cache:
+    key:
+      files:
+        - src-tauri/Cargo.lock
+    paths:
+      - .cargo-home
+      - src-tauri/target
+  before_script:
+    # 极狐共享 runner 出境到 deb.debian.org 实测只有几十 KB/s，175 MB 依赖要 20 分钟以上。
+    # 换中科大镜像，bookworm 的源在 deb822 格式的 debian.sources 里，两处都要替换。
+    - sed -i 's|deb.debian.org|mirrors.ustc.edu.cn|g; s|security.debian.org|mirrors.ustc.edu.cn|g'
+      /etc/apt/sources.list.d/debian.sources
+    - apt-get update
+    - apt-get install -y --no-install-recommends
+      libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+      librsvg2-dev patchelf libasound2-dev build-essential cmake
+      ca-certificates curl pkg-config xvfb xauth xinput x11-xserver-utils
+    - rustup component add clippy rustfmt
+    # sherpa-onnx 构建脚本默认从 GitHub Releases 下载 22 MB 归档，同样受出境带宽限制。
+    # 归档已上传到本项目 package registry，同主机拉取，缓存命中时跳过下载。
+    - mkdir -p src-tauri/target/sherpa-onnx-prebuilt
+    - test -f src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v1.13.8-linux-x64-static-lib.tar.bz2 ||
+      curl -fSL --header "JOB-TOKEN:${CI_JOB_TOKEN}"
+      -o src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v1.13.8-linux-x64-static-lib.tar.bz2
+      "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/sherpa-onnx/v1.13.8/sherpa-onnx-v1.13.8-linux-x64-static-lib.tar.bz2"
+    # 冷启动时 cargo 要对全部依赖逐条请求 sparse 索引，runner 出境每连接握手数秒，几百个包要几十分钟。
+    # 依赖归档放在 package registry，一次大文件下载替代几百个小请求。
+    # 归档对应的锁哈希记在 CARGO_BUNDLE_LOCK，与当前锁一致时离线构建，否则在线补少量增量。
+    - export CARGO_LH=$(sha256sum src-tauri/Cargo.lock | cut -c1-12)
+    - export CARGO_NET_OFFLINE=false
+    - curl -fSL --header "JOB-TOKEN:${CI_JOB_TOKEN}" -o /tmp/cargo-home.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/cargo-home/base/cargo-home.tar.gz"
+    - mkdir -p "${CARGO_HOME}" && tar -xzf /tmp/cargo-home.tar.gz -C "${CARGO_HOME}"
+    - if [ "$CARGO_LH" = "$CARGO_BUNDLE_LOCK" ]; then export CARGO_NET_OFFLINE=true; fi
+  script:
+    - cargo fmt --manifest-path=src-tauri/Cargo.toml --all -- --check
+    - cargo clippy --manifest-path=src-tauri/Cargo.toml --all-targets -- -D warnings
+    - cargo test --manifest-path=src-tauri/Cargo.toml --lib
+    # 单独跑 xinput 后端选择，其余测试不连 X 服务器。
+    - xvfb-run -a --server-args="-screen 0 1280x1024x24"
+      cargo test --manifest-path=src-tauri/Cargo.toml --lib
+      -- --test-threads=1 --nocapture x11_backend_is_xinput_when_xmodmap_resolves
+
+frontend:
+  tags: [local]
+  image: node:22-bookworm
+  variables:
+    npm_config_cache: $CI_PROJECT_DIR/.npm
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - .npm
+  script:
+    - cd frontend
+    - npm ci
+    - npm test
+    - npm run build
