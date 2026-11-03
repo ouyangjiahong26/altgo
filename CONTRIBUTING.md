@@ -93,10 +93,13 @@ CHANGELOG 条目保持现有形状：一条变化一个条目，粗体短标题�
 
 ## CI、Release 与 GitHub Pages
 
-- **CI**（`.github/workflows/ci.yml`）：向 `master` 推送或开 PR 时在 `amd64` 与 `arm64` 两个 Linux job 上运行 Rust 测试并构建 deb。前端测试、`fmt` 和 `clippy` 只在 `amd64` job 执行一次，因为这些检查不依赖目标架构。
+主流水线在 jihulab 的 `.gitlab-ci.yml` 里，MR 与 `master` 推送触发。Windows、Linux arm64、Release 与文档站仍由 GitHub 仓库 `ouyangjiahong26/altgo` 上的 Actions 运行，jihulab 的 MR 不触发它们。
+
+- **GitLab CI**（`.gitlab-ci.yml`）：两个 job 并行。`check` 安装 Tauri 2 的 Linux 构建依赖，跑 `cargo fmt --check`、`cargo clippy -D warnings`、`cargo test --lib`，再用 xvfb 单独跑 xinput 后端选择测试。`frontend` 跑 `npm ci`、`npm test`、`npm run build`。
+- **GitHub CI**（`.github/workflows/ci.yml`）：提交同步到 GitHub 仓库后，在 `amd64` 与 `arm64` 两个 Linux job 上运行 Rust 测试，前端测试、`fmt` 和 `clippy` 只在 `amd64` job 执行一次，因为这些检查不依赖目标架构。Windows x64 跑测试，Windows arm64 只做 `cargo check --target` 交叉编译检查。
 - **Release**（`.github/workflows/release.yml`）：推送符合 `v*` 的 tag（例如 `v1.5.0`）时，先校验 tag、Cargo、Tauri 配置、前端版本和 CHANGELOG，再构建 Linux deb / rpm（`amd64` 与 `arm64`）及双架构 AUR PKGBUILD，生成 `checksums.txt` 并创建 GitHub Release。发版前请将 `src-tauri/Cargo.toml`、`tauri.conf.json` 和 `frontend/package.json` 中版本与 tag 对齐。
 - **文档站**（`.github/workflows/deploy-docs.yml`）：`master` 上的 CI 成功后才构建 Docusaurus 并部署到 GitHub Pages（`workflow_run` 触发），避免 CI 失败时仍把文档发出去。首次需在仓库 Settings 的 Pages 页将 Build and deployment 的 Source 设为 GitHub Actions（勿选 branch 静态目录）。文档地址见 `docs-site/docusaurus.config.ts` 中的 `url` / `baseUrl`（例如 `https://<org>.github.io/altgo/`）。也可在 Actions 中手动 Run workflow 触发部署。
 
 ## 问题反馈
 
-使用 GitHub Issues 报告 bug 或提出功能请求，开单模板会以提问的形式引导逐段回答：现状（复现步骤与实际结果）、期望、环境（操作系统与 altgo 版本）、已有排查。正文行文按[正文写作约定](#正文写作约定)。长日志等原始机器输出可收进折叠区，排查命令可用 `RUST_LOG=debug` 提取详细日志。
+使用极狐 GitLab 的 issue 报告 bug 或提出功能请求（`https://jihulab.com/cislunarspace/altgo/-/issues`），开单模板会以提问的形式引导逐段回答：现状（复现步骤与实际结果）、期望、环境（操作系统与 altgo 版本）、已有排查。正文行文按[正文写作约定](#正文写作约定)。长日志等原始机器输出可收进折叠区，排查命令可用 `RUST_LOG=debug` 提取详细日志。GitHub 仓库只保留发布产物与文档站，不再接收 issue 与 MR。
