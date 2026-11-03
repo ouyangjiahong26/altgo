@@ -13,7 +13,7 @@ interface HistoryEntryListProps {
 export function HistoryEntryList({ t, uiLang, h }: HistoryEntryListProps) {
   return (
     <ul className="card history-list">
-      {h.entries.map((e) => (
+      {h.visibleEntries.map((e) => (
         <HistoryEntryItem
           key={e.id}
           t={t}

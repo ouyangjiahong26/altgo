@@ -83,6 +83,11 @@
   overflow: hidden;
 }
 
+/* 补挂哨兵不承载内容，只给 IntersectionObserver 一个可观察目标。 */
+.history-more-sentinel {
+  height: 1px;
+}
+
 .history-item {
   display: flex;
   gap: var(--space-2);

@@ -6,6 +6,10 @@ import { listen } from "@tauri-apps/api/event";
 import { copyToClipboard } from "../../utils/clipboard";
 import { useGlossaryCandidates } from "./useGlossaryCandidates";
 
+/** 每次挂进 DOM 的条目数。历史会积累到千条量级，WebKit 引擎一次性渲染
+ * 全部条目要一秒以上，主页每次重挂载都会整页卡住，所以按块渲染、滚动补挂。 */
+const RENDER_CHUNK = 100;
+
 /** 条目级转写元数据：后端来源与各环节耗时，旧条目无此数据。 */
 export interface HistoryMeta {
   backend: string;
@@ -31,7 +35,12 @@ interface PolishConfig {
 /** 历史面板全部状态与副作用的唯一入口，HistoryPanel 只消费其返回值。 */
 export function useHistoryPanel(t: (key: string) => string) {
   const list = useHistoryList();
-  const selection = useHistorySelection(list.entries, list.selected, list.setSelected);
+  const [visibleCount, setVisibleCount] = useState(RENDER_CHUNK);
+  // 全选只作用于已渲染的条目：没挂进 DOM 的条目用户看不见，把它们悄悄选中
+  // 再整批删掉会违背预期。数据操作（删除、清空）仍以完整列表为准。
+  const visibleEntries =
+    list.entries.length > visibleCount ? list.entries.slice(0, visibleCount) : list.entries;
+  const selection = useHistorySelection(visibleEntries, list.selected, list.setSelected);
   const removal = useHistoryRemoval({
     t,
     entries: list.entries,
@@ -76,6 +85,10 @@ export function useHistoryPanel(t: (key: string) => string) {
     };
   }, [list.load]);
 
+  const showMore = useCallback(() => {
+    setVisibleCount((n) => n + RENDER_CHUNK);
+  }, []);
+
   return {
     entries: list.entries, loading: list.loading, selected: list.selected,
     copiedId: copy.copiedId, polishingId: polish.polishingId,
@@ -87,6 +100,7 @@ export function useHistoryPanel(t: (key: string) => string) {
     handleClearAll: removal.handleClearAll,
     handleCopy: copy.handleCopy, handlePolish,
     openInstruction, closeInstruction: polish.closeInstruction,
+    visibleEntries, hasMore: list.entries.length > visibleCount, showMore,
     candidate,
   };
 }
