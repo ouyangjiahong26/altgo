@@ -1,3 +1,5 @@
+> **This repository is no longer maintained.** Development and releases have moved to [jihulab.com/cislunarspace/altgo](https://jihulab.com/cislunarspace/altgo).
+
 # altgo
 
 ![altgo](assets/banner.png)

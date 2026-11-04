@@ -1,3 +1,5 @@
+> **本仓库已停止维护。** 开发与发布已迁移到极狐 GitLab：[jihulab.com/cislunarspace/altgo](https://jihulab.com/cislunarspace/altgo)。
+
 # altgo
 
 ![altgo](assets/banner.png)
