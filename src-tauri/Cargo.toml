@@ -37,7 +37,7 @@ regex = "1"
 pinyin = { version = "0.11", default-features = false, features = ["plain"] }
 thiserror = "2"
 sha2 = "0.11"
-sherpa-onnx = "=1.13.8"
+sherpa-onnx = "=2.0.1"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [
