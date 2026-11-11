@@ -1,12 +1,10 @@
-> **This repository is no longer maintained.** Development and releases have moved to [jihulab.com/cislunarspace/altgo](https://jihulab.com/cislunarspace/altgo).
+> **This repository is archived and read-only.** Development, issues and releases moved to [jihulab.com/cislunarspace/altgo](https://jihulab.com/cislunarspace/altgo). Download and report issues there. The code and releases kept here are historical snapshots.
 
 # altgo
 
 ![altgo](assets/banner.png)
 
-[![CI](https://github.com/ouyangjiahong26/altgo/actions/workflows/ci.yml/badge.svg)](https://github.com/ouyangjiahong26/altgo/actions/workflows/ci.yml)
 [![Documentation](https://img.shields.io/badge/docs-online-2f6feb)](https://ouyangjiahong26.github.io/altgo/)
-[![Release](https://img.shields.io/github/v/release/ouyangjiahong26/altgo)](https://github.com/ouyangjiahong26/altgo/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 English | [简体中文](README.zh-CN.md)
@@ -17,9 +15,9 @@ Transcription uses one of two backends. The local backend embeds sherpa-onnx and
 
 altgo covers four combinations of Linux and Windows on x86_64 and arm64: Linux supports Ubuntu 22.04+ on x86_64 and aarch64, and Windows supports 10+ on x86_64 and arm64. macOS is not supported.
 
-- [Documentation](https://ouyangjiahong26.github.io/altgo/)
-- [Releases](https://github.com/ouyangjiahong26/altgo/releases)
-- [Issues](https://github.com/ouyangjiahong26/altgo/issues)
+- [Documentation](https://ouyangjiahong26.github.io/altgo/) (frozen at v2.9.1)
+- [Releases](https://jihulab.com/cislunarspace/altgo/-/releases)
+- [Issues](https://jihulab.com/cislunarspace/altgo/-/issues)
 
 ## Features
 
@@ -61,7 +59,7 @@ Add the current user to the `input` group before installing, otherwise altgo can
 sudo usermod -aG input "$USER"
 ```
 
-Download the `.deb`, `.rpm` or `.AppImage` for your architecture from [Releases](https://github.com/ouyangjiahong26/altgo/releases), then install or run it:
+Download the `.deb`, `.rpm` or `.AppImage` for your architecture from [Releases](https://jihulab.com/cislunarspace/altgo/-/releases), then install or run it:
 
 ```bash
 sudo apt install ./altgo_*.deb
@@ -77,7 +75,7 @@ After logging back in, start altgo and finish the transcription setup in Setting
 
 ### Windows
 
-Download the `*-setup.exe` for your device architecture (NSIS installer) from [Releases](https://github.com/ouyangjiahong26/altgo/releases), double-click to install, start altgo from the Start menu and finish the transcription setup in Settings. Choose the package that matches x64 or arm64.
+Download the `*-setup.exe` for your device architecture (NSIS installer) from [Releases](https://jihulab.com/cislunarspace/altgo/-/releases), double-click to install, start altgo from the Start menu and finish the transcription setup in Settings. Choose the package that matches x64 or arm64.
 
 ## Quick start
 
@@ -92,11 +90,11 @@ Hold right Alt to start recording. On release altgo transcribes, polishes (optio
 
 ## Documentation
 
-- [Documentation site](https://ouyangjiahong26.github.io/altgo/): quick start, configuration, usage, architecture and FAQ
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): development environment, build, tests, CI and releases
-- [`docs/architecture.md`](docs/architecture.md) and [`AGENTS.md`](AGENTS.md): system architecture and core modules
-- [`docs/README.md`](docs/README.md): repository documentation index
-- [`CHANGELOG.md`](CHANGELOG.md): version history
+- [Documentation site](https://ouyangjiahong26.github.io/altgo/): quick start, configuration, usage, architecture and FAQ, frozen at v2.9.1
+- [`CONTRIBUTING.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/CONTRIBUTING.md): development environment, build, tests, CI and releases
+- [`docs/architecture.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/docs/architecture.md) and [`AGENTS.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/AGENTS.md): system architecture and core modules
+- [`docs/README.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/docs/README.md): repository documentation index
+- [`CHANGELOG.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/CHANGELOG.md): version history
 
 Repository and maintainer documentation is written in Chinese. The user documentation site is available in English and Simplified Chinese.
 

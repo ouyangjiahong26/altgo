@@ -1,12 +1,10 @@
-> **本仓库已停止维护。** 开发与发布已迁移到极狐 GitLab：[jihulab.com/cislunarspace/altgo](https://jihulab.com/cislunarspace/altgo)。
+> **本仓库已归档，只读。** 开发、问题反馈与发布均已迁移到极狐 GitLab：[jihulab.com/cislunarspace/altgo](https://jihulab.com/cislunarspace/altgo)。请到新仓库下载与反馈，这里保留的代码与 Release 仅作历史留存。
 
 # altgo
 
 ![altgo](assets/banner.png)
 
-[![CI](https://github.com/ouyangjiahong26/altgo/actions/workflows/ci.yml/badge.svg)](https://github.com/ouyangjiahong26/altgo/actions/workflows/ci.yml)
 [![Documentation](https://img.shields.io/badge/docs-online-2f6feb)](https://ouyangjiahong26.github.io/altgo/zh-Hans/)
-[![Release](https://img.shields.io/github/v/release/ouyangjiahong26/altgo)](https://github.com/ouyangjiahong26/altgo/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 [English](README.md) | 简体中文
@@ -17,9 +15,9 @@ altgo 是桌面语音转文字工具。按住触发键（默认右 Alt）说话�
 
 altgo 覆盖 Linux 与 Windows 的 x86_64 与 arm64 四个组合：Linux 支持 Ubuntu 22.04+ 的 x86_64 与 aarch64，Windows 支持 10+ 的 x86_64 与 arm64。macOS 暂不支持。
 
-- [在线文档](https://ouyangjiahong26.github.io/altgo/zh-Hans/)
-- [Releases 下载](https://github.com/ouyangjiahong26/altgo/releases)
-- [问题反馈](https://github.com/ouyangjiahong26/altgo/issues)
+- [在线文档](https://ouyangjiahong26.github.io/altgo/zh-Hans/)（冻结在 v2.9.1）
+- [Releases 下载](https://jihulab.com/cislunarspace/altgo/-/releases)
+- [问题反馈](https://jihulab.com/cislunarspace/altgo/-/issues)
 
 ## 功能
 
@@ -61,7 +59,7 @@ altgo 覆盖 Linux 与 Windows 的 x86_64 与 arm64 四个组合：Linux 支持 
 sudo usermod -aG input "$USER"
 ```
 
-从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载对应架构的 `.deb`、`.rpm` 或 `.AppImage`，然后安装或直接运行：
+从 [Releases](https://jihulab.com/cislunarspace/altgo/-/releases) 下载对应架构的 `.deb`、`.rpm` 或 `.AppImage`，然后安装或直接运行：
 
 ```bash
 sudo apt install ./altgo_*.deb
@@ -77,7 +75,7 @@ chmod +x altgo_*.AppImage && ./altgo_*.AppImage
 
 ### Windows
 
-从 [Releases](https://github.com/ouyangjiahong26/altgo/releases) 下载与设备架构对应的 `*-setup.exe`（NSIS 安装器），双击安装，然后从开始菜单启动 altgo，在设置页完成转写配置。x64 与 arm64 按设备架构选择对应包。
+从 [Releases](https://jihulab.com/cislunarspace/altgo/-/releases) 下载与设备架构对应的 `*-setup.exe`（NSIS 安装器），双击安装，然后从开始菜单启动 altgo，在设置页完成转写配置。x64 与 arm64 按设备架构选择对应包。
 
 ## 快速开始
 
@@ -92,11 +90,11 @@ chmod +x altgo_*.AppImage && ./altgo_*.AppImage
 
 ## 文档
 
-- [在线文档](https://ouyangjiahong26.github.io/altgo/zh-Hans/)：快速上手、配置、使用、架构与 FAQ
-- [`CONTRIBUTING.md`](CONTRIBUTING.md)：开发环境、构建、测试、CI 与发版
-- [`docs/architecture.md`](docs/architecture.md) 与 [`AGENTS.md`](AGENTS.md)：系统架构与核心模块
-- [`docs/README.md`](docs/README.md)：仓库内文档索引
-- [`CHANGELOG.md`](CHANGELOG.md)：版本历史
+- [在线文档](https://ouyangjiahong26.github.io/altgo/zh-Hans/)：快速上手、配置、使用、架构与 FAQ，冻结在 v2.9.1
+- [`CONTRIBUTING.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/CONTRIBUTING.md)：开发环境、构建、测试、CI 与发版
+- [`docs/architecture.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/docs/architecture.md) 与 [`AGENTS.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/AGENTS.md)：系统架构与核心模块
+- [`docs/README.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/docs/README.md)：仓库内文档索引
+- [`CHANGELOG.md`](https://jihulab.com/cislunarspace/altgo/-/blob/master/CHANGELOG.md)：版本历史
 
 ## Code signing policy
 
